@@ -12,7 +12,7 @@ Phases are sequential. **Do not start a phase until the previous one is signed o
 | 1 — Scaffold | ✓ done |
 | 2 — Supabase + Auth | ✓ done (migration: `phase2_profiles.sql`) |
 | 3 — Multi-tenant foundation | ✓ done (migration: `phase3_companies.sql`) |
-| 4 — Super Admin console | ✓ partial — companies CRUD + packages + audit table done; first-admin invite flow and audit log viewer pending |
+| 4 — Super Admin console | ✓ partial — companies CRUD + packages + audit table + member invite flow done; audit log viewer pending |
 | 5a — Recipes / formulations | ✓ code complete (migration: `phase5a_recipes.sql`) — **migration not yet applied to DB** |
 | 5b–5f — Materials/stock/production/QC/costing/storage | not started |
 | 6 — Hardening | not started |
