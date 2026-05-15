@@ -16,12 +16,12 @@ const MODULE_LABELS: Record<string, { title: string; phase: string }> = {
 };
 
 interface PageProps {
-  params: Promise<{ slug: string[] }>;
+  params: Promise<{ companyId: string; slug: string[] }>;
 }
 
 export default async function CompanyModulePlaceholderPage({ params }: PageProps) {
-  await requireCompanyUser();
-  const { slug } = await params;
+  const { companyId, slug } = await params;
+  await requireCompanyUser(companyId);
   const top = slug?.[0] ?? "";
   const meta = MODULE_LABELS[top] ?? { title: top || "Modül", phase: "5+" };
 

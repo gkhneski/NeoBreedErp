@@ -34,12 +34,13 @@ Isolation must hold:
 
 ## 4. Active Company Resolution (server-side only)
 
-The active `company_id` for a request is determined in this order:
+The active `company_id` for a request is derived **exclusively from the URL path segment**. Cookies are not used to carry the active company.
 
-1. **From the path** if the URL is namespaced (e.g., `/c/:companySlug/...`): look up by slug → id, then verify membership.
-2. **From a signed cookie** (`active_company_id`) if path-namespacing is not used.
-3. **Validate** the candidate `company_id` against `company_users` for the current `auth.uid()`. If no membership row exists, treat as 404 (not 403) to avoid leaking existence.
-4. **Cache** the resolved id in the request scope only — never in a module-level variable, never in localStorage for security decisions.
+1. **Path is canonical.** All company-scoped routes live under `/c/:companyId/...` where `:companyId` is the company's UUID. A future enhancement may introduce a human-readable `slug` column on `companies`; until then, the UUID is the path identifier.
+2. **Validate** the path `:companyId` against `company_users` for the current `auth.uid()`. If no membership row exists, treat as 404 (not 403) to avoid leaking existence.
+3. **Cache** the resolved id in the request scope only — never in a module-level variable, never in localStorage for security decisions.
+
+Why path over cookie: shareable links are unambiguous, multi-tab usage cannot drift between companies, and RLS debugging is straightforward (the active tenant is visible in the URL).
 
 Client code may *display* the active company but must not *decide* it.
 

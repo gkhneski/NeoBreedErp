@@ -6,7 +6,7 @@ The Super Admin / Platform Owner is **Gökhan Eski**. This document defines exac
 
 ## 1. Identity
 
-- The Super Admin is identified by a row in `platform_admins` (and/or a boolean column on `profiles`, finalized in `DATABASE_CONTRACT.md` when Phase 3 begins).
+- The Super Admin is identified **solely** by a row in the `platform_admins` table. No boolean flag on `profiles`, no role string on `company_users`, no environment variable. One source of truth.
 - Super Admin status is **separate** from any `company_users` membership. A Super Admin is **not** automatically a member of any company.
 
 ---

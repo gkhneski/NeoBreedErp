@@ -13,4 +13,13 @@ export interface SessionContext {
 
 export const ROUTE_LOGIN = "/login";
 export const ROUTE_PLATFORM = "/superadmin";
-export const ROUTE_COMPANY = "/app";
+export const ROUTE_COMPANY_PREFIX = "/c";
+
+export function companyHomePath(companyId: string): string {
+  return `${ROUTE_COMPANY_PREFIX}/${companyId}`;
+}
+
+export function companyModulePath(companyId: string, ...segments: string[]): string {
+  const tail = segments.filter(Boolean).join("/");
+  return tail ? `${companyHomePath(companyId)}/${tail}` : companyHomePath(companyId);
+}

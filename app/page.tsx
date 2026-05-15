@@ -25,19 +25,10 @@ export default function HomePage() {
           >
             Giriş Yap
           </Link>
-          <Link
-            href="/app"
-            className="rounded-md border border-border px-3 py-2 hover:bg-secondary"
-          >
-            Firma Çalışma Alanı
-          </Link>
-          <Link
-            href="/superadmin"
-            className="rounded-md border border-border px-3 py-2 hover:bg-secondary"
-          >
-            Platform Yönetim Paneli
-          </Link>
         </nav>
+        <p className="text-xs text-muted-foreground">
+          Çalışma alanına ve yönetim paneline giriş yaptıktan sonra yönlendirileceksiniz.
+        </p>
 
         <p className="text-xs text-muted-foreground">
           Faz 2–4: Kimlik doğrulama, çoklu kiracı temeli ve Süper Admin

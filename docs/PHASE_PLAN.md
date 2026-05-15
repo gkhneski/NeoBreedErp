@@ -4,7 +4,26 @@ Phases are sequential. **Do not start a phase until the previous one is signed o
 
 ---
 
-## Phase 0 — Governance (CURRENT)
+## Current Status (as of 2026-05-15)
+
+| Phase | State |
+|---|---|
+| 0 — Governance | ✓ done |
+| 1 — Scaffold | ✓ done |
+| 2 — Supabase + Auth | ✓ done (migration: `phase2_profiles.sql`) |
+| 3 — Multi-tenant foundation | ✓ done (migration: `phase3_companies.sql`) |
+| 4 — Super Admin console | ✓ partial — companies CRUD + packages + audit table done; first-admin invite flow and audit log viewer pending |
+| 5a — Recipes / formulations | ✓ code complete (migration: `phase5a_recipes.sql`) — **migration not yet applied to DB** |
+| 5b–5f — Materials/stock/production/QC/costing/storage | not started |
+| 6 — Hardening | not started |
+
+> Faz 5a kapsam notu: `materials` tablosu burada minimal iskelet olarak eklenmiştir (`code`, `name`, `type`, `base_uom`, `density`). Allergens, regulatory notes, lots ve stock 5b'de gelecek.
+
+Active company resolution is **path-based** (`/c/:companyId/...`). Cookie-based resolution was removed on 2026-05-15.
+
+---
+
+## Phase 0 — Governance
 
 **Goal:** Establish the documentation that all later work must respect.
 

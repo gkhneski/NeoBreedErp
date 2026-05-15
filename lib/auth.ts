@@ -1,18 +1,15 @@
 import "server-only";
 
-import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
-  ROUTE_COMPANY,
   ROUTE_LOGIN,
   ROUTE_PLATFORM,
+  companyHomePath,
   type CompanyRole,
   type SessionContext,
 } from "@/types/roles";
-
-const ACTIVE_COMPANY_COOKIE = "active_company_id";
 
 export async function getSessionContext(): Promise<SessionContext | null> {
   const supabase = await createServerSupabaseClient();
@@ -52,7 +49,7 @@ export async function requirePlatformAdmin(): Promise<SessionContext> {
   return ctx;
 }
 
-export async function requireCompanyUser(): Promise<{
+export async function requireCompanyUser(companyId: string): Promise<{
   ctx: SessionContext;
   companyId: string;
   role: CompanyRole;
@@ -64,20 +61,18 @@ export async function requireCompanyUser(): Promise<{
     redirect(ROUTE_LOGIN + "?reason=no_company");
   }
 
-  const cookieStore = await cookies();
-  const cookieValue = cookieStore.get(ACTIVE_COMPANY_COOKIE)?.value;
+  const membership = ctx.companyMemberships.find(
+    (m) => m.companyId === companyId,
+  );
+  if (!membership) notFound();
 
-  const candidate =
-    ctx.companyMemberships.find((m) => m.companyId === cookieValue) ??
-    ctx.companyMemberships[0];
-
-  return { ctx, companyId: candidate.companyId, role: candidate.role };
+  return { ctx, companyId: membership.companyId, role: membership.role };
 }
 
 export function postLoginRedirectFor(ctx: SessionContext): string {
   if (ctx.isPlatformAdmin) return ROUTE_PLATFORM;
-  if (ctx.companyMemberships.length > 0) return ROUTE_COMPANY;
+  if (ctx.companyMemberships.length > 0) {
+    return companyHomePath(ctx.companyMemberships[0].companyId);
+  }
   return ROUTE_LOGIN + "?reason=no_role";
 }
-
-export { ACTIVE_COMPANY_COOKIE };

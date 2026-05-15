@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +32,7 @@ function FieldError({ message }: { message?: string }) {
 }
 
 export function CompanyForm({ packages }: CompanyFormProps) {
-  const [state, formAction] = useFormState(createCompany, initialState);
+  const [state, formAction] = useActionState(createCompany, initialState);
 
   return (
     <form action={formAction} className="space-y-5">

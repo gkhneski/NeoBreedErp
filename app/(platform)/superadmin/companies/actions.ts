@@ -87,13 +87,20 @@ export async function createCompany(
     return { error: error?.message ?? "Firma oluşturulamadı." };
   }
 
-  await supabase.from("platform_audit_log").insert({
+  const { error: auditError } = await supabase.from("platform_audit_log").insert({
     actor_id: ctx.userId,
     action: "create_company",
     target_table: "companies",
     target_id: data.id,
     diff: { name: parsed.data.name, status: parsed.data.status },
   });
+  if (auditError) {
+    console.error("[audit] create_company failed", {
+      target_id: data.id,
+      message: auditError.message,
+    });
+    return { error: "Firma oluşturuldu fakat denetim kaydı yazılamadı. Bir yöneticiye bildirin." };
+  }
 
   revalidatePath("/superadmin");
   revalidatePath("/superadmin/companies");
@@ -116,13 +123,21 @@ export async function setCompanyStatus(
     throw new Error(error.message);
   }
 
-  await supabase.from("platform_audit_log").insert({
+  const { error: auditError } = await supabase.from("platform_audit_log").insert({
     actor_id: ctx.userId,
     action: `set_status_${status}`,
     target_table: "companies",
     target_id: companyId,
     diff: { status },
   });
+  if (auditError) {
+    console.error("[audit] set_company_status failed", {
+      target_id: companyId,
+      status,
+      message: auditError.message,
+    });
+    throw new Error("Durum güncellendi fakat denetim kaydı yazılamadı.");
+  }
 
   revalidatePath("/superadmin");
   revalidatePath("/superadmin/companies");

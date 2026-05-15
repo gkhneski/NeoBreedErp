@@ -84,7 +84,9 @@ Super Admin **does not** get a blanket bypass policy on operational tables. Plat
 
 The app must derive `company_id` for a request from:
 1. The authenticated user's session, **and**
-2. The active company selector (cookie value or URL segment), **validated** against `company_users` on the server.
+2. The URL path segment (`/c/:companyId/...`, where `:companyId` is the `companies.id` UUID), **validated** against `company_users` on the server.
+
+Cookies are not used to carry the active company. See `COMPANY_ISOLATION_RULES.md §4` for the full rule.
 
 `company_id` is **never** trusted from a client request body. Server actions extract it from the validated context.
 
@@ -123,3 +125,87 @@ To add a new table:
 1. Open a section in this file with the column list, FKs, indexes, RLS notes.
 2. Get user sign-off.
 3. *Then* write the migration.
+
+---
+
+## 9. Phase 5a — Recipes (proposed, pending sign-off)
+
+Three tables introduced in Phase 5a. Materials gets a minimal scaffold here; Phase 5b expands it with lots, stock, allergens, regulatory metadata.
+
+### 9.1 `materials` (minimal scaffold)
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` PK | `default gen_random_uuid()` |
+| `company_id` | `uuid not null` | FK → `companies(id)` `on delete restrict` |
+| `code` | `text not null` | Unique per company among non-deleted rows |
+| `name` | `text not null` | |
+| `type` | `text not null` | `check (type in ('raw','finished'))` — `'semi'` reserved for 5b+ |
+| `base_uom` | `text not null` | Free text in 5a (`'g'`, `'kg'`, `'mg'`, `'mL'`, `'L'`, `'unit'`); validated UoM table can come later |
+| `density` | `numeric(18,6)` | Nullable; required only when mixing mass and volume (ERP_RULES §1) |
+| `notes` | `text` | Nullable |
+| `created_at` / `updated_at` | `timestamptz not null default now()` | `updated_at` via shared trigger |
+| `deleted_at` | `timestamptz` | Nullable; soft delete preserves code reservation (ERP_RULES §9) |
+| `created_by` / `updated_by` | `uuid` FK → `auth.users(id) on delete set null` | |
+
+**Indexes:** `(company_id)`, `(company_id, code) unique where deleted_at is null`, `(company_id, type)`, `(deleted_at)`.
+
+**RLS:** canonical pattern (§3) — members of `company_id` read/write. No platform admin policy on this table.
+
+**Phase 5b additions (preview, not built now):** `default_supplier_id`, `allergen_flags jsonb`, `storage_conditions text`, `regulatory_notes text`, lot/stock satellite tables.
+
+### 9.2 `recipes`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` PK | |
+| `company_id` | `uuid not null` | FK → `companies(id) on delete restrict` |
+| `finished_material_id` | `uuid not null` | FK → `materials(id) on delete restrict`; `materials.type` must be `'finished'` (enforced via trigger or check at app layer) |
+| `code` | `text not null` | Unique per company among non-deleted rows; defaults to finished material code |
+| `name` | `text not null` | |
+| `version` | `int not null default 1` | Editing a `published` recipe creates a new row with `version + 1` (ERP_RULES §2) |
+| `status` | `text not null` | `check (status in ('draft','published','archived'))` |
+| `mode` | `text not null` | `check (mode in ('quantity','percentage'))` — how items are authored |
+| `yield_quantity` | `numeric(18,6) not null` | |
+| `yield_uom` | `text not null` | |
+| `notes` | `text` | Nullable |
+| Timestamps + soft delete + audit cols | | Same pattern as `materials` |
+
+**Indexes:** `(company_id)`, `(company_id, finished_material_id, version) unique where deleted_at is null`, `(company_id, code) unique where deleted_at is null`, `(company_id, status)`.
+
+**RLS:** canonical pattern.
+
+**Cross-table invariants:**
+- `finished_material_id` must reference a material in the same `company_id` (enforced by trigger).
+- Only one row per `(company_id, finished_material_id)` may have `status = 'published'` (partial unique index).
+
+### 9.3 `recipe_items`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` PK | |
+| `company_id` | `uuid not null` | Denormalized for RLS hot path; must equal parent recipe's `company_id` (trigger) |
+| `recipe_id` | `uuid not null` | FK → `recipes(id) on delete cascade` |
+| `material_id` | `uuid not null` | FK → `materials(id) on delete restrict`; must be same `company_id` |
+| `position` | `int not null` | Display order; unique per recipe |
+| `quantity` | `numeric(18,6) not null` | In `uom`; converted to base for math |
+| `uom` | `text not null` | |
+| `percentage` | `numeric(8,4)` | Nullable; populated when `recipe.mode = 'percentage'` |
+| `active` | `boolean not null default true` | Inactive items allowed as substitutions (ERP_RULES §2) |
+| `notes` | `text` | Nullable |
+| Timestamps + audit cols | | No soft delete (cascade with parent) |
+
+**Indexes:** `(company_id)`, `(recipe_id, position) unique`, `(material_id)`.
+
+**RLS:** canonical pattern.
+
+**App-layer invariants (not DB-enforced in 5a, deferred to actions):**
+- When `recipe.mode = 'percentage'`, the sum of active items' `percentage` must equal `100.0000` before publish.
+- When publishing, recipe is immutable after; further edits create `version + 1`.
+
+### 9.4 Files affected
+
+- New migration: `supabase/migrations/20260515000300_phase5a_recipes.sql`
+- Server actions under `app/(company)/c/[companyId]/recipes/actions.ts`
+- Pages under `app/(company)/c/[companyId]/recipes/` (list, new, [recipeId])
+- Sidebar already links to `/c/[companyId]/recipes`

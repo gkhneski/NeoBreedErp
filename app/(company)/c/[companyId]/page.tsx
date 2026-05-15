@@ -12,7 +12,6 @@ interface CompanyStats {
 }
 
 async function loadCompanyStats(_companyId: string): Promise<CompanyStats> {
-  // ERP tabloları Faz 5'te eklenecek. Şimdilik tüm sayaçlar 0.
   return {
     totalProducts: 0,
     totalMaterials: 0,
@@ -32,8 +31,13 @@ const QUICK_ACTIONS = [
   { label: "Sipariş Oluştur", phase: "5+" },
 ];
 
-export default async function CompanyDashboardPage() {
-  const { companyId } = await requireCompanyUser();
+interface PageProps {
+  params: Promise<{ companyId: string }>;
+}
+
+export default async function CompanyDashboardPage({ params }: PageProps) {
+  const { companyId: routeCompanyId } = await params;
+  const { companyId } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
   const { data: company } = await supabase
     .from("companies")
