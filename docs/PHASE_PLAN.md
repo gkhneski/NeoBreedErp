@@ -4,20 +4,22 @@ Phases are sequential. **Do not start a phase until the previous one is signed o
 
 ---
 
-## Current Status (as of 2026-05-15)
+## Current Status (as of 2026-05-20)
 
 | Phase | State |
 |---|---|
 | 0 — Governance | ✓ done |
 | 1 — Scaffold | ✓ done |
-| 2 — Supabase + Auth | ✓ done (migration: `phase2_profiles.sql`) |
-| 3 — Multi-tenant foundation | ✓ done (migration: `phase3_companies.sql`) |
+| 2 — Supabase + Auth | ✓ done (consolidated in `20260515000000_init.sql`) |
+| 3 — Multi-tenant foundation | ✓ done (consolidated in `20260515000000_init.sql`) |
 | 4 — Super Admin console | ✓ partial — companies CRUD + packages + audit table + member invite flow done; audit log viewer pending |
-| 5a — Recipes / formulations | ✓ code complete (migration: `phase5a_recipes.sql`) — **migration not yet applied to DB** |
-| 5b–5f — Materials/stock/production/QC/costing/storage | not started |
+| 5a — Recipes / formulations | ✓ code complete + migration applied |
+| **5b step 1 — Suppliers + Materials expansion** | ✓ done (migration `20260516000000_phase5b_materials_expand.sql` applied 2026-05-20) |
+| 5b step 2 — Lots + stock movements | not started |
+| 5c–5f — Production/QC/costing/storage | not started |
 | 6 — Hardening | not started |
 
-> Faz 5a kapsam notu: `materials` tablosu burada minimal iskelet olarak eklenmiştir (`code`, `name`, `type`, `base_uom`, `density`). Allergens, regulatory notes, lots ve stock 5b'de gelecek.
+> Faz 5a kapsam notu: `materials` Faz 5a'da minimal iskelet (`code`, `name`, `type`, `base_uom`, `density`) olarak girdi. Faz 5b step 1 ile `default_supplier_id`, `allergen_flags jsonb`, `storage_conditions`, `regulatory_notes` eklendi; ayrıca `suppliers` tablosu girdi. Lots ve stock movements 5b step 2'de gelecek.
 
 Active company resolution is **path-based** (`/c/:companyId/...`). Cookie-based resolution was removed on 2026-05-15.
 
