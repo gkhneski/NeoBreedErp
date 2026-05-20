@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { companyModulePath } from "@/types/roles";
 
 import { createMaterial, type MaterialFormState } from "../actions";
+import { ALLERGEN_CODES, ALLERGEN_LABELS } from "../allergens";
 
 const initialState: MaterialFormState = {};
 
@@ -21,6 +23,20 @@ const UOM_OPTIONS = [
   { value: "L", label: "L (litre)" },
   { value: "unit", label: "adet" },
 ];
+
+const STORAGE_SUGGESTIONS = [
+  "Oda sıcaklığı (15–25°C)",
+  "Soğuk (2–8°C)",
+  "Dondurulmuş (-18°C)",
+  "Kuru ve serin yer",
+  "Işıktan uzak",
+  "Kontrollü atmosfer",
+];
+
+interface MaterialFormProps {
+  companyId: string;
+  suppliers: Array<{ id: string; code: string; name: string }>;
+}
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -36,8 +52,8 @@ function FieldError({ message }: { message?: string }) {
   return <p className="text-xs text-destructive">{message}</p>;
 }
 
-export function MaterialForm({ companyId }: { companyId: string }) {
-  const [state, formAction] = useFormState(createMaterial, initialState);
+export function MaterialForm({ companyId, suppliers }: MaterialFormProps) {
+  const [state, formAction] = useActionState(createMaterial, initialState);
   const cancelHref = companyModulePath(companyId, "materials");
 
   return (
@@ -104,6 +120,85 @@ export function MaterialForm({ companyId }: { companyId: string }) {
           </p>
           <FieldError message={state.fieldErrors?.density} />
         </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="default_supplier_id">Varsayılan Tedarikçi</Label>
+          <select
+            id="default_supplier_id"
+            name="default_supplier_id"
+            defaultValue=""
+            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="">— Seçilmedi —</option>
+            {suppliers.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.code} — {s.name}
+              </option>
+            ))}
+          </select>
+          {suppliers.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Henüz tedarikçi yok.{" "}
+              <Link
+                href={companyModulePath(companyId, "suppliers", "new")}
+                className="underline"
+              >
+                Yeni tedarikçi ekleyin
+              </Link>
+              .
+            </p>
+          ) : null}
+          <FieldError message={state.fieldErrors?.default_supplier_id} />
+        </div>
+      </div>
+
+      <fieldset className="space-y-2 rounded-md border border-border p-3">
+        <legend className="px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Alerjen Etiketleri
+        </legend>
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4">
+          {ALLERGEN_CODES.map((code) => (
+            <label
+              key={code}
+              className="flex items-center gap-2 rounded-sm px-1.5 py-1 text-xs hover:bg-secondary/40"
+            >
+              <input
+                type="checkbox"
+                name="allergen_flags"
+                value={code}
+                className="h-3.5 w-3.5 rounded border-input"
+              />
+              <span>{ALLERGEN_LABELS[code]}</span>
+            </label>
+          ))}
+        </div>
+        <FieldError message={state.fieldErrors?.allergen_flags} />
+      </fieldset>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="storage_conditions">Saklama Koşulları</Label>
+        <Input
+          id="storage_conditions"
+          name="storage_conditions"
+          list="storage-options"
+          placeholder="örn. Oda sıcaklığı (15–25°C)"
+        />
+        <datalist id="storage-options">
+          {STORAGE_SUGGESTIONS.map((s) => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
+        <FieldError message={state.fieldErrors?.storage_conditions} />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="regulatory_notes">Mevzuat Notları</Label>
+        <Textarea
+          id="regulatory_notes"
+          name="regulatory_notes"
+          rows={3}
+          placeholder="TGK referansı, ihracat kısıtları, sertifika gereklilikleri…"
+        />
+        <FieldError message={state.fieldErrors?.regulatory_notes} />
       </div>
 
       <div className="space-y-1.5">

@@ -195,6 +195,10 @@ export type Database = {
           type: MaterialType;
           base_uom: string;
           density: number | null;
+          default_supplier_id: string | null;
+          allergen_flags: Json;
+          storage_conditions: string | null;
+          regulatory_notes: string | null;
           notes: string | null;
           created_at: string;
           updated_at: string;
@@ -210,6 +214,10 @@ export type Database = {
           type: MaterialType;
           base_uom: string;
           density?: number | null;
+          default_supplier_id?: string | null;
+          allergen_flags?: Json;
+          storage_conditions?: string | null;
+          regulatory_notes?: string | null;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -225,6 +233,72 @@ export type Database = {
           type?: MaterialType;
           base_uom?: string;
           density?: number | null;
+          default_supplier_id?: string | null;
+          allergen_flags?: Json;
+          storage_conditions?: string | null;
+          regulatory_notes?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "materials_default_supplier_id_fkey";
+            columns: ["default_supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "suppliers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      suppliers: {
+        Row: {
+          id: string;
+          company_id: string;
+          code: string;
+          name: string;
+          tax_number: string | null;
+          email: string | null;
+          phone: string | null;
+          address: string | null;
+          country: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          code: string;
+          name: string;
+          tax_number?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          address?: string | null;
+          country?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          code?: string;
+          name?: string;
+          tax_number?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          address?: string | null;
+          country?: string | null;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -369,3 +443,4 @@ export type PlatformAuditLog =
 export type Material = Database["public"]["Tables"]["materials"]["Row"];
 export type Recipe = Database["public"]["Tables"]["recipes"]["Row"];
 export type RecipeItem = Database["public"]["Tables"]["recipe_items"]["Row"];
+export type Supplier = Database["public"]["Tables"]["suppliers"]["Row"];

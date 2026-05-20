@@ -10,6 +10,7 @@ const MODULES = [
   { key: "", label: "Panel", exact: true },
   { key: "products", label: "Ürünler" },
   { key: "materials", label: "Hammaddeler" },
+  { key: "suppliers", label: "Tedarikçiler" },
   { key: "stock", label: "Stok" },
   { key: "recipes", label: "Reçeteler" },
   { key: "production", label: "Üretim" },

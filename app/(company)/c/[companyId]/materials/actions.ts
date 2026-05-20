@@ -8,6 +8,8 @@ import { requireCompanyUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { companyModulePath } from "@/types/roles";
 
+import { ALLERGEN_CODES } from "./allergens";
+
 const ALLOWED_UOM = ["g", "kg", "mg", "mL", "L", "unit"] as const;
 
 const materialCreateSchema = z.object({
@@ -37,6 +39,23 @@ const materialCreateSchema = z.object({
     .refine((v) => v === null || (Number.isFinite(v) && v > 0), {
       message: "Yoğunluk pozitif bir sayı olmalı.",
     }),
+  default_supplier_id: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : null))
+    .refine(
+      (v) =>
+        v === null ||
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v),
+      { message: "Geçersiz tedarikçi." },
+    ),
+  allergen_flags: z
+    .array(z.enum(ALLERGEN_CODES))
+    .max(ALLERGEN_CODES.length)
+    .default([]),
+  storage_conditions: z.string().trim().max(500).optional().or(z.literal("")),
+  regulatory_notes: z.string().trim().max(4000).optional().or(z.literal("")),
   notes: z.string().trim().max(2000).optional().or(z.literal("")),
 });
 
@@ -57,6 +76,8 @@ export async function createMaterial(
   _prev: MaterialFormState,
   formData: FormData,
 ): Promise<MaterialFormState> {
+  const rawAllergens = formData.getAll("allergen_flags").map(String);
+
   const parsed = materialCreateSchema.safeParse({
     company_id: formData.get("company_id") ?? "",
     code: formData.get("code") ?? "",
@@ -64,6 +85,10 @@ export async function createMaterial(
     type: formData.get("type") ?? "",
     base_uom: formData.get("base_uom") ?? "",
     density: formData.get("density") ?? "",
+    default_supplier_id: formData.get("default_supplier_id") ?? "",
+    allergen_flags: rawAllergens,
+    storage_conditions: formData.get("storage_conditions") ?? "",
+    regulatory_notes: formData.get("regulatory_notes") ?? "",
     notes: formData.get("notes") ?? "",
   });
 
@@ -86,6 +111,10 @@ export async function createMaterial(
     type: parsed.data.type,
     base_uom: parsed.data.base_uom,
     density: parsed.data.density,
+    default_supplier_id: parsed.data.default_supplier_id,
+    allergen_flags: parsed.data.allergen_flags,
+    storage_conditions: emptyToNull(parsed.data.storage_conditions),
+    regulatory_notes: emptyToNull(parsed.data.regulatory_notes),
     notes: emptyToNull(parsed.data.notes),
     created_by: ctx.userId,
     updated_by: ctx.userId,
@@ -96,6 +125,12 @@ export async function createMaterial(
       return {
         error: "Bu kod ile bir malzeme zaten kayıtlı.",
         fieldErrors: { code: "Kod benzersiz olmalı." },
+      };
+    }
+    if (error.code === "23514") {
+      return {
+        error: "Seçilen tedarikçi farklı bir firmaya ait.",
+        fieldErrors: { default_supplier_id: "Geçersiz tedarikçi." },
       };
     }
     return { error: error.message };

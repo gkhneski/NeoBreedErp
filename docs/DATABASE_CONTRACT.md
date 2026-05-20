@@ -209,3 +209,61 @@ Three tables introduced in Phase 5a. Materials gets a minimal scaffold here; Pha
 - Server actions under `app/(company)/c/[companyId]/recipes/actions.ts`
 - Pages under `app/(company)/c/[companyId]/recipes/` (list, new, [recipeId])
 - Sidebar already links to `/c/[companyId]/recipes`
+
+---
+
+## 10. Phase 5b — Step 1: Suppliers + Materials Expansion
+
+Scope of this step: introduce the `suppliers` tenant table and extend `materials` with supplier reference, allergen flags, storage conditions, and regulatory notes. Lots, stock movements, and CoA file storage are deferred to Phase 5b — Step 2.
+
+### 10.1 `suppliers`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` PK | `default gen_random_uuid()` |
+| `company_id` | `uuid not null` | FK → `companies(id) on delete restrict` |
+| `code` | `text not null` | Unique per company among non-deleted rows |
+| `name` | `text not null` | |
+| `tax_number` | `text` | Nullable (TR vergi no, EU VAT, etc.) |
+| `email` | `text` | Nullable; app-layer email validation |
+| `phone` | `text` | Nullable; free text (international formats vary) |
+| `address` | `text` | Nullable; multi-line allowed |
+| `country` | `text` | Nullable; ISO 3166-1 alpha-2 recommended, app-layer check |
+| `notes` | `text` | Nullable |
+| `created_at` / `updated_at` | `timestamptz not null default now()` | `updated_at` via shared trigger |
+| `deleted_at` | `timestamptz` | Nullable; soft delete preserves code reservation |
+| `created_by` / `updated_by` | `uuid` FK → `auth.users(id) on delete set null` | |
+
+**Indexes:** `(company_id)`, `(company_id, code) unique where deleted_at is null`, `(deleted_at)`.
+
+**RLS:** canonical pattern (§3) — members of `company_id` read/write. No platform admin policy.
+
+### 10.2 `materials` — additions
+
+The following columns are added to the existing `materials` table from Phase 5a:
+
+| Column | Type | Notes |
+|---|---|---|
+| `default_supplier_id` | `uuid` | FK → `suppliers(id) on delete set null`; **must reference a supplier in the same `company_id`** (trigger-enforced) |
+| `allergen_flags` | `jsonb not null default '[]'::jsonb` | Array of string codes. Validated values at app layer: `gluten`, `crustaceans`, `eggs`, `fish`, `peanuts`, `soybeans`, `milk`, `nuts`, `celery`, `mustard`, `sesame`, `sulphites`, `lupin`, `mollusks` (EU 14 + sulphites). DB stores opaque array; expansion does not require migration. |
+| `storage_conditions` | `text` | Nullable. Free text in DB; UI suggests `oda sıcaklığı`, `soğuk (2–8°C)`, `dondurulmuş`, `kuru ve serin`, `ışıktan uzak`, `kontrollü atmosfer`. |
+| `regulatory_notes` | `text` | Nullable; free text (TGK, OGM ref, ihracat kısıtları vb.). |
+
+**New index:** `materials_supplier_idx on (company_id, default_supplier_id)`.
+
+**Cross-tenant invariant (trigger):** When `default_supplier_id is not null`, the referenced supplier's `company_id` must equal the material's `company_id`. Enforced via a `before insert or update` trigger that raises on mismatch.
+
+### 10.3 Files affected
+
+- New migration: `supabase/migrations/20260516000000_phase5b_materials_expand.sql`
+- New server actions: `app/(company)/c/[companyId]/suppliers/actions.ts`
+- New pages: `app/(company)/c/[companyId]/suppliers/` (list, new)
+- New page: `app/(company)/c/[companyId]/materials/[materialId]/page.tsx` (read-only detail)
+- Updated: `app/(company)/c/[companyId]/materials/{actions.ts, page.tsx, new/material-form.tsx}`
+- Updated: company sidebar adds "Tedarikçiler" link; `companyModulePath` gains `"suppliers"` key.
+
+### 10.4 Deferred to Phase 5b — Step 2
+
+- `material_lots` (lot/batch with supplier, received/expiry, unit cost, CoA file ref, status)
+- `stock_movements` (append-only ledger; `receipt | issue | adjustment | transfer`; lot-serialized; quantity-on-hand derived)
+- Storage bucket `materials` with `<company_id>/coa/...` prefix for lot CoA PDFs.

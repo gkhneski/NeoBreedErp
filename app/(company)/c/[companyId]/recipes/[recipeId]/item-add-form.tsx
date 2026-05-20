@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,7 +47,7 @@ export function RecipeItemAddForm({
   recipeMode,
   rawMaterials,
 }: RecipeItemAddFormProps) {
-  const [state, formAction] = useFormState(addRecipeItem, initialState);
+  const [state, formAction] = useActionState(addRecipeItem, initialState);
 
   if (rawMaterials.length === 0) {
     return (

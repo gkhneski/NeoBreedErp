@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +43,7 @@ interface RecipeFormProps {
 }
 
 export function RecipeForm({ companyId, finishedMaterials }: RecipeFormProps) {
-  const [state, formAction] = useFormState(createRecipe, initialState);
+  const [state, formAction] = useActionState(createRecipe, initialState);
   const cancelHref = companyModulePath(companyId, "recipes");
 
   return (
