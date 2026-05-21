@@ -3,6 +3,8 @@ export type CompanyUserRole = "company_admin" | "company_user";
 export type MaterialType = "raw" | "finished";
 export type RecipeStatus = "draft" | "published" | "archived";
 export type RecipeMode = "quantity" | "percentage";
+export type LotStatus = "quarantine" | "released" | "blocked";
+export type StockMovementKind = "receipt" | "issue" | "adjustment";
 
 type Json =
   | string
@@ -416,12 +418,122 @@ export type Database = {
         };
         Relationships: [];
       };
+      material_lots: {
+        Row: {
+          id: string;
+          company_id: string;
+          material_id: string;
+          supplier_id: string | null;
+          lot_number: string;
+          received_at: string;
+          expiry_date: string | null;
+          unit_cost: number | null;
+          currency: string | null;
+          quantity_on_hand: number;
+          status: LotStatus;
+          coa_file_path: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          material_id: string;
+          supplier_id?: string | null;
+          lot_number: string;
+          received_at?: string;
+          expiry_date?: string | null;
+          unit_cost?: number | null;
+          currency?: string | null;
+          quantity_on_hand?: number;
+          status?: LotStatus;
+          coa_file_path?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          material_id?: string;
+          supplier_id?: string | null;
+          lot_number?: string;
+          received_at?: string;
+          expiry_date?: string | null;
+          unit_cost?: number | null;
+          currency?: string | null;
+          quantity_on_hand?: number;
+          status?: LotStatus;
+          coa_file_path?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      stock_movements: {
+        Row: {
+          id: string;
+          company_id: string;
+          material_id: string;
+          lot_id: string;
+          kind: StockMovementKind;
+          quantity: number;
+          unit_cost: number | null;
+          reason: string | null;
+          occurred_at: string;
+          notes: string | null;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          material_id: string;
+          lot_id: string;
+          kind: StockMovementKind;
+          quantity: number;
+          unit_cost?: number | null;
+          reason?: string | null;
+          occurred_at?: string;
+          notes?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      create_lot_with_receipt: {
+        Args: {
+          p_company_id: string;
+          p_material_id: string;
+          p_supplier_id: string | null;
+          p_lot_number: string;
+          p_received_at: string | null;
+          p_expiry_date: string | null;
+          p_unit_cost: number | null;
+          p_currency: string | null;
+          p_quantity: number;
+          p_notes: string | null;
+          p_movement_notes: string | null;
+        };
+        Returns: string;
+      };
     };
     Enums: {
       [_ in never]: never;
@@ -444,3 +556,6 @@ export type Material = Database["public"]["Tables"]["materials"]["Row"];
 export type Recipe = Database["public"]["Tables"]["recipes"]["Row"];
 export type RecipeItem = Database["public"]["Tables"]["recipe_items"]["Row"];
 export type Supplier = Database["public"]["Tables"]["suppliers"]["Row"];
+export type MaterialLot = Database["public"]["Tables"]["material_lots"]["Row"];
+export type StockMovement =
+  Database["public"]["Tables"]["stock_movements"]["Row"];

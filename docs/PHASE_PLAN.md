@@ -13,13 +13,19 @@ Phases are sequential. **Do not start a phase until the previous one is signed o
 | 2 — Supabase + Auth | ✓ done (consolidated in `20260515000000_init.sql`) |
 | 3 — Multi-tenant foundation | ✓ done (consolidated in `20260515000000_init.sql`) |
 | 4 — Super Admin console | ✓ partial — companies CRUD + packages + audit table + member invite flow done; audit log viewer pending |
-| 5a — Recipes / formulations | ✓ code complete + migration applied |
+| 5a — Recipes / formulations | ✓ done (migration applied) |
 | **5b step 1 — Suppliers + Materials expansion** | ✓ done (migration `20260516000000_phase5b_materials_expand.sql` applied 2026-05-20) |
-| 5b step 2 — Lots + stock movements | not started |
-| 5c–5f — Production/QC/costing/storage | not started |
+| **5b step 2 — Lots + stock movements** | ✓ done (migration `20260520000000_phase5b_lots_stock.sql` applied 2026-05-20) |
+| 5c step 1 — Production orders | not started |
+| 5c step 2 — Production batches + execution | not started |
+| 5d — Quality control | not started |
+| 5e — Basic costing (per-batch material rollup) | not started |
+| 5f — Per-company file storage | not started |
 | 6 — Hardening | not started |
 
-> Faz 5a kapsam notu: `materials` Faz 5a'da minimal iskelet (`code`, `name`, `type`, `base_uom`, `density`) olarak girdi. Faz 5b step 1 ile `default_supplier_id`, `allergen_flags jsonb`, `storage_conditions`, `regulatory_notes` eklendi; ayrıca `suppliers` tablosu girdi. Lots ve stock movements 5b step 2'de gelecek.
+> Faz 5a kapsam notu: `materials` Faz 5a'da minimal iskelet (`code`, `name`, `type`, `base_uom`, `density`) olarak girdi. Faz 5b step 1 ile `default_supplier_id`, `allergen_flags jsonb`, `storage_conditions`, `regulatory_notes` eklendi; ayrıca `suppliers` tablosu girdi.
+>
+> Faz 5b step 2 kapsam notu: `material_lots` (lot/batch) ve `stock_movements` (append-only signed-quantity ledger) eklendi. `quantity_on_hand` lot satırında trigger ile bakım yapılır; lotlar negatif olamaz; ledger güncelleme/silme yasak (düzeltme için yeni `adjustment` hareketi). Atomik mal-kabul `create_lot_with_receipt` RPC üzerinden. CoA file storage (Faz 5f) ve `transfer` türü (çok-lokasyon) ertelendi.
 
 Active company resolution is **path-based** (`/c/:companyId/...`). Cookie-based resolution was removed on 2026-05-15.
 

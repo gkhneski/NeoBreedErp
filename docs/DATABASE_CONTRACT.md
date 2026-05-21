@@ -267,3 +267,94 @@ The following columns are added to the existing `materials` table from Phase 5a:
 - `material_lots` (lot/batch with supplier, received/expiry, unit cost, CoA file ref, status)
 - `stock_movements` (append-only ledger; `receipt | issue | adjustment | transfer`; lot-serialized; quantity-on-hand derived)
 - Storage bucket `materials` with `<company_id>/coa/...` prefix for lot CoA PDFs.
+
+---
+
+## 11. Phase 5b — Step 2: Lots + Stock Movements
+
+Scope: lot/batch tracking on top of `materials`, plus an append-only `stock_movements` ledger. On-hand quantity is **derived** from the ledger and maintained on the lot row by trigger (ERP_RULES §4). CoA file storage bucket is **deferred to Phase 5f**; the contract reserves `coa_file_path` as a nullable text placeholder so we don't need a follow-up migration.
+
+### 11.1 `material_lots`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` PK | `default gen_random_uuid()` |
+| `company_id` | `uuid not null` | FK → `companies(id) on delete restrict` |
+| `material_id` | `uuid not null` | FK → `materials(id) on delete restrict`; trigger ensures same `company_id` |
+| `supplier_id` | `uuid` | FK → `suppliers(id) on delete set null`; nullable (in-house outputs have none); trigger ensures same `company_id` when not null |
+| `lot_number` | `text not null` | Unique per `(company_id, material_id)` among non-deleted rows |
+| `received_at` | `date not null default current_date` | When the lot landed |
+| `expiry_date` | `date` | Nullable |
+| `unit_cost` | `numeric(18,4)` | Nullable; in company currency at receipt; used for batch costing (ERP_RULES §7) |
+| `currency` | `text` | Nullable; ISO 4217 (e.g. `TRY`). Defaults to company currency at app layer in step 2 |
+| `quantity_on_hand` | `numeric(18,6) not null default 0` | **Maintained by trigger** from `stock_movements`. Never edited by app code. `check (quantity_on_hand >= 0)` |
+| `status` | `text not null default 'quarantine'` | `check (status in ('quarantine','released','blocked'))` — QC sign-off in Phase 5d flips `quarantine → released`; failed QC sets `blocked` |
+| `coa_file_path` | `text` | Nullable; populated when Storage bucket is introduced in Phase 5f. No bucket assumed yet. |
+| `notes` | `text` | Nullable |
+| `created_at` / `updated_at` | `timestamptz not null default now()` | Shared trigger |
+| `deleted_at` | `timestamptz` | Soft delete; reserves lot_number |
+| `created_by` / `updated_by` | `uuid` FK → `auth.users(id) on delete set null` | |
+
+**Indexes:** `(company_id)`, `(company_id, material_id)`, `(company_id, material_id, lot_number) unique where deleted_at is null`, `(supplier_id)`, `(company_id, expiry_date) where deleted_at is null`, `(deleted_at)`.
+
+**RLS:** canonical pattern (§3) — members of `company_id` read/write.
+
+**Cross-tenant invariants (triggers):**
+- `material_id`'s `company_id` must equal the lot's `company_id`.
+- When `supplier_id is not null`, the supplier's `company_id` must equal the lot's `company_id`.
+- A lot may not be soft-deleted while `quantity_on_hand > 0` (app-layer check; not DB-enforced).
+
+### 11.2 `stock_movements`
+
+Append-only ledger. Quantity is **signed** (positive = into stock, negative = out). Step 2 supports `receipt | issue | adjustment`; `transfer` is reserved for a future multi-location phase and **not in the check constraint yet** (locations are out of MVP per ERP_RULES §12).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` PK | |
+| `company_id` | `uuid not null` | Denormalized for RLS; trigger enforces equality with `material_id` and `lot_id` parents |
+| `material_id` | `uuid not null` | FK → `materials(id) on delete restrict` |
+| `lot_id` | `uuid not null` | FK → `material_lots(id) on delete restrict`; must reference a lot whose `material_id` equals this row's `material_id` |
+| `kind` | `text not null` | `check (kind in ('receipt','issue','adjustment'))` |
+| `quantity` | `numeric(18,6) not null` | Signed, in base UoM. `check ((kind='receipt' and quantity > 0) or (kind='issue' and quantity < 0) or (kind='adjustment' and quantity <> 0))` |
+| `unit_cost` | `numeric(18,4)` | Captured for `receipt` to set lot cost; null for `issue`/`adjustment`. App layer enforces presence on receipt. |
+| `reason` | `text` | Required at app layer for `adjustment`; optional otherwise |
+| `occurred_at` | `timestamptz not null default now()` | When the physical event happened (may differ from `created_at`) |
+| `notes` | `text` | Nullable |
+| `created_at` | `timestamptz not null default now()` | No `updated_at`: ledger is append-only |
+| `created_by` | `uuid` FK → `auth.users(id) on delete set null` | |
+
+**Indexes:** `(company_id)`, `(company_id, material_id)`, `(lot_id)`, `(company_id, occurred_at desc)`, `(company_id, kind)`.
+
+**RLS:** canonical pattern (§3).
+
+**Append-only enforcement (trigger):** A `before update or delete` trigger raises an exception. Mistakes are corrected via a new `adjustment` movement (ledger discipline), never by editing or deleting prior rows.
+
+**Cross-tenant + parent-consistency invariants (triggers):**
+- `material_id`'s `company_id` must equal the movement's `company_id`.
+- `lot_id`'s `company_id` must equal the movement's `company_id`, **and** `lot_id`'s `material_id` must equal the movement's `material_id`.
+
+**Lot quantity maintenance (trigger):** `after insert on stock_movements`:
+1. `select ... for update` the parent lot row (serializes concurrent inserts on the same lot — ERP_RULES §10).
+2. Recompute `quantity_on_hand` as `sum(quantity)` over non-deleted lot's movements.
+3. If the result is negative, raise — rolling back the insert (ERP_RULES §4: lots may not go negative).
+4. Otherwise update the lot's `quantity_on_hand` and `updated_at`.
+
+### 11.3 Files affected
+
+- New migration: `supabase/migrations/20260520000000_phase5b_lots_stock.sql`
+- New server actions:
+  - `app/(company)/c/[companyId]/lots/actions.ts` — create lot **with initial receipt** in a single action (insert lot row, then insert `receipt` movement); soft delete a lot only when on-hand = 0.
+  - `app/(company)/c/[companyId]/stock/actions.ts` — `recordIssue`, `recordAdjustment`.
+- New pages:
+  - `app/(company)/c/[companyId]/lots/page.tsx` — list with on-hand and expiry flags.
+  - `app/(company)/c/[companyId]/lots/new/page.tsx` + `lot-form.tsx` — receipt form.
+  - `app/(company)/c/[companyId]/stock/page.tsx` — ledger view with kind + material filter.
+  - `app/(company)/c/[companyId]/stock/new/page.tsx` + `stock-form.tsx` — issue/adjustment form, lot selector restricted to lots with `quantity_on_hand > 0` (for issue).
+- Updated: company sidebar already has `"stock"` entry; add `"lots"` ahead of it.
+- Updated: no schema changes to `materials` or `suppliers` in this step.
+
+### 11.4 Deferred to later phases
+
+- `coa_file_path` is reserved; the `materials` Storage bucket and CoA upload UI are deferred to Phase 5f.
+- Multi-location / `transfer` kind: deferred (locations out of MVP).
+- Lot status transitions (`quarantine → released | blocked`) are stored but the QC-driven flip happens in Phase 5d. Manual override is allowed in Step 2 via a lot status action, app-layer only.
