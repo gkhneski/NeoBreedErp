@@ -2,6 +2,8 @@ import { Badge } from "@/components/ui/badge";
 import { requireCompanyUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
+import { InviteUserForm } from "./invite-user-form";
+
 interface PageProps {
   params: Promise<{ companyId: string }>;
 }
@@ -20,7 +22,7 @@ const ROLE_LABEL: Record<MemberRow["role"], string> = {
 
 export default async function UsersPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
 
   const { data: members } = await supabase
@@ -41,6 +43,13 @@ export default async function UsersPage({ params }: PageProps) {
           Bu firmaya bağlı kullanıcılar ve rolleri.
         </p>
       </header>
+
+      {role === "company_admin" ? (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold">Kullanıcı Davet Et</h2>
+          <InviteUserForm companyId={companyId} />
+        </section>
+      ) : null}
 
       <div className="overflow-hidden rounded-md border border-border">
         <table className="w-full text-sm">
