@@ -5,7 +5,12 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import {
+  QUALITY_WRITE_ROLES,
+  STOCK_WRITE_ROLES,
+  canWriteCompanyData,
+  companyModulePath,
+} from "@/types/roles";
 
 import { updateLotStatus } from "./actions";
 
@@ -64,7 +69,7 @@ function formatNumber(n: number): string {
 
 export default async function LotsListPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
 
   const { data: lots } = await supabase
@@ -93,9 +98,11 @@ export default async function LotsListPage({ params }: PageProps) {
             kullanılabilir hale getirin.
           </p>
         </div>
-        <Link href={newHref}>
-          <Button>Yeni Lot (Mal Kabul)</Button>
-        </Link>
+        {canWriteCompanyData(role, STOCK_WRITE_ROLES) ? (
+          <Link href={newHref}>
+            <Button>Yeni Lot (Mal Kabul)</Button>
+          </Link>
+        ) : null}
       </header>
 
       {rows.length > 0 ? (
@@ -193,31 +200,33 @@ export default async function LotsListPage({ params }: PageProps) {
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-1">
-                        {STATUS_NEXT[lot.status].map((next) => (
-                          <form key={next} action={updateLotStatus}>
-                            <input
-                              type="hidden"
-                              name="company_id"
-                              value={companyId}
-                            />
-                            <input
-                              type="hidden"
-                              name="lot_id"
-                              value={lot.id}
-                            />
-                            <input
-                              type="hidden"
-                              name="status"
-                              value={next}
-                            />
-                            <button
-                              type="submit"
-                              className="rounded-sm border border-border px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground hover:bg-secondary"
-                            >
-                              {STATUS_LABEL[next]}
-                            </button>
-                          </form>
-                        ))}
+                        {canWriteCompanyData(role, QUALITY_WRITE_ROLES)
+                          ? STATUS_NEXT[lot.status].map((next) => (
+                              <form key={next} action={updateLotStatus}>
+                                <input
+                                  type="hidden"
+                                  name="company_id"
+                                  value={companyId}
+                                />
+                                <input
+                                  type="hidden"
+                                  name="lot_id"
+                                  value={lot.id}
+                                />
+                                <input
+                                  type="hidden"
+                                  name="status"
+                                  value={next}
+                                />
+                                <button
+                                  type="submit"
+                                  className="rounded-sm border border-border px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground hover:bg-secondary"
+                                >
+                                  {STATUS_LABEL[next]}
+                                </button>
+                              </form>
+                            ))
+                          : null}
                       </div>
                     </td>
                   </tr>

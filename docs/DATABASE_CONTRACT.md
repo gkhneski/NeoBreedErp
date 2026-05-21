@@ -35,7 +35,7 @@ These tables are readable only by Super Admins (RLS) and writable only by Super 
 
 ### 2.2 Membership tables
 - `profiles` — mirrors `auth.users` with display data.
-- `company_users` — links users to companies with a role. **Has `company_id`.** A user may belong to multiple companies (future-proof), but the active company is one at a time.
+- `company_users` — links users to companies with a role. **Has `company_id`.** A user may belong to multiple companies (future-proof), but the active company is one at a time. Valid roles are `company_admin`, `production_manager`, `quality_manager`, `operator`, `viewer`, plus legacy/demo `company_user`.
 
 ### 2.3 Operational tables (per company)
 All must carry `company_id`. Examples (each gets its own contract section before being built):

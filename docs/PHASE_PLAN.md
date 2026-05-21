@@ -92,7 +92,7 @@ Active company resolution is **path-based** (`/c/:companyId/...`). Cookie-based 
 
 **Allowed:**
 - `companies` table.
-- `company_users` (membership) table with role: `company_admin | company_user`.
+- `company_users` (membership) table with role: `company_admin | production_manager | quality_manager | operator | viewer` plus legacy/demo `company_user`.
 - A separate `platform_admins` table (or column) identifying Super Admins.
 - Active-company resolution (cookie or path segment) — design first, implement second.
 - RLS policies on `companies` and `company_users`.

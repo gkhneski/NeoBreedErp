@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { requireCompanyUser } from "@/lib/auth";
+import { requireCompanyRole } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import { QUALITY_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
 const codeRegex = /^[A-Za-z0-9._\-/]+$/;
 
@@ -99,7 +99,10 @@ export async function createQualityCheck(
     return { fieldErrors, error: "Form alanlarını kontrol edin." };
   }
 
-  const { ctx, companyId } = await requireCompanyUser(routeCompanyId);
+  const { ctx, companyId } = await requireCompanyRole(
+    routeCompanyId,
+    QUALITY_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   if (parsed.data.subject_kind === "material_lot") {
@@ -274,7 +277,10 @@ export async function saveQualityCheckResults(
     return { fieldErrors, error: "Form alanlarını kontrol edin." };
   }
 
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId } = await requireCompanyRole(
+    routeCompanyId,
+    QUALITY_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const { data: check } = await supabase
@@ -351,7 +357,10 @@ export async function signQualityCheck(
     return { error: "Geçersiz onay isteği." };
   }
 
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId } = await requireCompanyRole(
+    routeCompanyId,
+    QUALITY_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const { error } = await supabase.rpc("sign_quality_check", {
@@ -384,7 +393,10 @@ export async function cancelQualityCheck(
   });
   if (!parsed.success) return;
 
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId } = await requireCompanyRole(
+    routeCompanyId,
+    QUALITY_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const { error } = await supabase.rpc("cancel_quality_check", {

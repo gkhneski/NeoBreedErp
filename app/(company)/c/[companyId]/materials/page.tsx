@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import {
+  MASTER_DATA_WRITE_ROLES,
+  canWriteCompanyData,
+  companyModulePath,
+} from "@/types/roles";
 
 import { ALLERGEN_LABELS, type AllergenCode } from "./allergens";
 
@@ -37,7 +41,7 @@ function asAllergenList(value: unknown): AllergenCode[] {
 
 export default async function MaterialsListPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
 
   const { data: materials } = await supabase
@@ -63,9 +67,11 @@ export default async function MaterialsListPage({ params }: PageProps) {
             gelecek.
           </p>
         </div>
-        <Link href={newHref}>
-          <Button>Yeni Malzeme</Button>
-        </Link>
+        {canWriteCompanyData(role, MASTER_DATA_WRITE_ROLES) ? (
+          <Link href={newHref}>
+            <Button>Yeni Malzeme</Button>
+          </Link>
+        ) : null}
       </header>
 
       {rows.length > 0 ? (

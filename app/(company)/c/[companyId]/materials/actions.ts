@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { requireCompanyUser } from "@/lib/auth";
+import { requireCompanyRole } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import { MASTER_DATA_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
 import { ALLERGEN_CODES } from "./allergens";
 
@@ -101,7 +101,10 @@ export async function createMaterial(
     return { fieldErrors, error: "Form alanlarını kontrol edin." };
   }
 
-  const { ctx, companyId } = await requireCompanyUser(parsed.data.company_id);
+  const { ctx, companyId } = await requireCompanyRole(
+    parsed.data.company_id,
+    MASTER_DATA_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const { error } = await supabase.from("materials").insert({

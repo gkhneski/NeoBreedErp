@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import {
+  STOCK_WRITE_ROLES,
+  canWriteCompanyData,
+  companyModulePath,
+} from "@/types/roles";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -44,7 +48,7 @@ function formatNumber(n: number): string {
 
 export default async function WarehousePage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
 
   const [{ data: lots }, { data: movements }] = await Promise.all([
@@ -86,14 +90,16 @@ export default async function WarehousePage({ params }: PageProps) {
             Lot durumu ve son stok hareketleri için depo çalışma ekranı.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link href={companyModulePath(companyId, "lots", "new")}>
-            <Button>Mal Kabul</Button>
-          </Link>
-          <Link href={companyModulePath(companyId, "stock", "new")}>
-            <Button variant="outline">Stok Hareketi</Button>
-          </Link>
-        </div>
+        {canWriteCompanyData(role, STOCK_WRITE_ROLES) ? (
+          <div className="flex gap-2">
+            <Link href={companyModulePath(companyId, "lots", "new")}>
+              <Button>Mal Kabul</Button>
+            </Link>
+            <Link href={companyModulePath(companyId, "stock", "new")}>
+              <Button variant="outline">Stok Hareketi</Button>
+            </Link>
+          </div>
+        ) : null}
       </header>
 
       <section className="grid gap-3 sm:grid-cols-3">

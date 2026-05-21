@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireCompanyUser } from "@/lib/auth";
+import { requireCompanyRole } from "@/lib/auth";
 import {
   TENANT_FILES_BUCKET,
   buildStoragePath,
@@ -13,7 +13,7 @@ import {
 } from "@/lib/storage/attachments";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { FileAttachmentSubjectKind } from "@/types/database";
-import { companyModulePath } from "@/types/roles";
+import { FILE_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
 const uploadSchema = z.object({
   subject_kind: z.enum(["material_lot", "quality_check"]),
@@ -124,7 +124,10 @@ export async function uploadAttachment(
     };
   }
 
-  const { ctx, companyId } = await requireCompanyUser(routeCompanyId);
+  const { ctx, companyId } = await requireCompanyRole(
+    routeCompanyId,
+    FILE_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const subjectCheck = await verifySubjectInCompany(
@@ -196,7 +199,10 @@ export async function deleteAttachment(
   });
   if (!parsed.success) return;
 
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId } = await requireCompanyRole(
+    routeCompanyId,
+    FILE_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const { data: row } = await supabase

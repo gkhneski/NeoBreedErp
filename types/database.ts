@@ -1,5 +1,11 @@
 export type CompanyStatus = "active" | "suspended" | "archived";
-export type CompanyUserRole = "company_admin" | "company_user";
+export type CompanyUserRole =
+  | "company_admin"
+  | "production_manager"
+  | "quality_manager"
+  | "operator"
+  | "viewer"
+  | "company_user";
 export type MaterialType = "raw" | "finished";
 export type RecipeStatus = "draft" | "published" | "archived";
 export type RecipeMode = "quantity" | "percentage";

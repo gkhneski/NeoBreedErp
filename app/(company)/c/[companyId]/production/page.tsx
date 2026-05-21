@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import {
+  PRODUCTION_WRITE_ROLES,
+  canWriteCompanyData,
+  companyModulePath,
+} from "@/types/roles";
 import type { ProductionOrderStatus } from "@/types/database";
 
 interface PageProps {
@@ -60,7 +64,7 @@ function formatDate(iso: string | null): string {
 
 export default async function ProductionOrdersListPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
 
   const { data: orders } = await supabase
@@ -89,9 +93,11 @@ export default async function ProductionOrdersListPage({ params }: PageProps) {
             ve çıkış lotu) Adım 2&apos;de devreye girer.
           </p>
         </div>
-        <Link href={newHref}>
-          <Button>Yeni Üretim Emri</Button>
-        </Link>
+        {canWriteCompanyData(role, PRODUCTION_WRITE_ROLES) ? (
+          <Link href={newHref}>
+            <Button>Yeni Üretim Emri</Button>
+          </Link>
+        ) : null}
       </header>
 
       {rows.length > 0 ? (

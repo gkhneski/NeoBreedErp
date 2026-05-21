@@ -9,11 +9,12 @@ import {
   createServerSupabaseClient,
   createServiceRoleClient,
 } from "@/lib/supabase/server";
+import { COMPANY_ROLE_VALUES } from "@/types/roles";
 
 const schema = z.object({
   company_id: z.string().uuid("Geçersiz firma kimliği."),
   email: z.string().trim().email("Geçerli bir e-posta girin."),
-  role: z.enum(["company_admin", "company_user"]).default("company_admin"),
+  role: z.enum(COMPANY_ROLE_VALUES).default("company_admin"),
 });
 
 export type InviteFormState = {

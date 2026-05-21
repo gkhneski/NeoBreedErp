@@ -2,9 +2,9 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { requireCompanyUser } from "@/lib/auth";
+import { requireCompanyRole } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import { PRODUCTION_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
 import { ProductionOrderForm } from "./production-form";
 
@@ -25,7 +25,10 @@ type RecipeOption = {
 
 export default async function NewProductionOrderPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId } = await requireCompanyRole(
+    routeCompanyId,
+    PRODUCTION_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const { data: recipes } = await supabase

@@ -7,6 +7,7 @@ import {
   ROUTE_LOGIN,
   ROUTE_PLATFORM,
   companyHomePath,
+  canWriteCompanyData,
   type CompanyRole,
   type SessionContext,
 } from "@/types/roles";
@@ -67,6 +68,19 @@ export async function requireCompanyUser(companyId: string): Promise<{
   if (!membership) notFound();
 
   return { ctx, companyId: membership.companyId, role: membership.role };
+}
+
+export async function requireCompanyRole(
+  companyId: string,
+  allowedRoles: readonly CompanyRole[],
+): Promise<{
+  ctx: SessionContext;
+  companyId: string;
+  role: CompanyRole;
+}> {
+  const membership = await requireCompanyUser(companyId);
+  if (!canWriteCompanyData(membership.role, allowedRoles)) notFound();
+  return membership;
 }
 
 export function postLoginRedirectFor(ctx: SessionContext): string {

@@ -3,6 +3,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import type { CompanyRole } from "@/types/roles";
+import { COMPANY_ROLE_LABELS } from "@/types/roles";
 
 export default async function PlatformUsersPage() {
   await requirePlatformAdmin();
@@ -18,7 +20,7 @@ export default async function PlatformUsersPage() {
 
   type Row = {
     user_id: string;
-    role: string;
+    role: CompanyRole;
     created_at: string;
     company_id: string;
     companies: { name: string } | { name: string }[] | null;
@@ -72,9 +74,7 @@ export default async function PlatformUsersPage() {
                         row.role === "company_admin" ? "default" : "secondary"
                       }
                     >
-                      {row.role === "company_admin"
-                        ? "Firma Admini"
-                        : "Kullanıcı"}
+                      {COMPANY_ROLE_LABELS[row.role] ?? row.role}
                     </Badge>
                   </td>
                   <td className="px-4 py-2 text-muted-foreground">

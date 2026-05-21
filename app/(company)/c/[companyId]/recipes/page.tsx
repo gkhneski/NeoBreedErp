@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import {
+  MASTER_DATA_WRITE_ROLES,
+  canWriteCompanyData,
+  companyModulePath,
+} from "@/types/roles";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -24,7 +28,7 @@ const MODE_LABEL: Record<string, string> = {
 
 export default async function RecipesListPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
 
   const { data: recipes } = await supabase
@@ -62,9 +66,11 @@ export default async function RecipesListPage({ params }: PageProps) {
             kullanılır.
           </p>
         </div>
-        <Link href={newHref}>
-          <Button>Yeni Reçete</Button>
-        </Link>
+        {canWriteCompanyData(role, MASTER_DATA_WRITE_ROLES) ? (
+          <Link href={newHref}>
+            <Button>Yeni Reçete</Button>
+          </Link>
+        ) : null}
       </header>
 
       {recipes && recipes.length > 0 ? (

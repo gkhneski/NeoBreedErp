@@ -4,7 +4,7 @@ import { SignOutButton } from "@/components/auth/sign-out-button";
 import { CompanySidebar } from "@/components/layout/company-sidebar";
 import { requireCompanyUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyHomePath } from "@/types/roles";
+import { COMPANY_ROLE_BADGE_LABELS, companyHomePath } from "@/types/roles";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -39,7 +39,7 @@ export default async function CompanyAppLayout({ children, params }: LayoutProps
               </span>
             </span>
             <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-              {role === "company_admin" ? "Firma Admini" : "Kullanıcı"}
+              {COMPANY_ROLE_BADGE_LABELS[role]}
             </span>
             <span className="text-muted-foreground">{ctx.email}</span>
             <SignOutButton />

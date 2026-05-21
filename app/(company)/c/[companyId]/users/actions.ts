@@ -7,11 +7,15 @@ import { requireCompanyUser } from "@/lib/auth";
 import {
   createServiceRoleClient,
 } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import {
+  COMPANY_ROLE_VALUES,
+  canManageCompanyUsers,
+  companyModulePath,
+} from "@/types/roles";
 
 const inviteSchema = z.object({
   email: z.string().trim().email("Geçerli bir e-posta girin."),
-  role: z.enum(["company_admin", "company_user"]).default("company_user"),
+  role: z.enum(COMPANY_ROLE_VALUES).default("viewer"),
 });
 
 export type CompanyInviteState = {
@@ -55,13 +59,13 @@ export async function inviteCompanyUser(
   formData: FormData,
 ): Promise<CompanyInviteState> {
   const { role, companyId } = await requireCompanyUser(routeCompanyId);
-  if (role !== "company_admin") {
+  if (!canManageCompanyUsers(role)) {
     return { error: "Bu işlem için firma admini yetkisi gerekir." };
   }
 
   const parsed = inviteSchema.safeParse({
     email: formData.get("email") ?? "",
-    role: (formData.get("role") as string) || "company_user",
+    role: (formData.get("role") as string) || "viewer",
   });
 
   if (!parsed.success) {

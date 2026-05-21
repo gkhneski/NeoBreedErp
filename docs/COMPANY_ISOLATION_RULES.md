@@ -28,7 +28,7 @@ Isolation must hold:
 
 - A user is a member of a company only if a row exists in `company_users` with `(user_id, company_id)` and `deleted_at is null`.
 - A user may belong to multiple companies (future-proof). The active one is determined per-request.
-- Roles inside a company: `company_admin`, `company_user`. The list is short and explicit; do not invent roles ad hoc.
+- Roles inside a company: `company_admin`, `production_manager`, `quality_manager`, `operator`, `viewer`. Legacy/demo memberships may still use `company_user`, which maps to broad MVP operational access until reassigned.
 
 ---
 

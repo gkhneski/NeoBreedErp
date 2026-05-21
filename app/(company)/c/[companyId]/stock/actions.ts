@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { requireCompanyUser } from "@/lib/auth";
+import { requireCompanyRole } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import { STOCK_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
 const movementSchema = z
   .object({
@@ -88,7 +88,10 @@ export async function recordStockMovement(
     return { fieldErrors, error: "Form alanlarını kontrol edin." };
   }
 
-  const { ctx, companyId } = await requireCompanyUser(parsed.data.company_id);
+  const { ctx, companyId } = await requireCompanyRole(
+    parsed.data.company_id,
+    STOCK_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const { data: lot, error: lotErr } = await supabase

@@ -1,5 +1,6 @@
-import { requireCompanyUser } from "@/lib/auth";
+import { requireCompanyRole } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { MASTER_DATA_WRITE_ROLES } from "@/types/roles";
 
 import { MaterialForm } from "./material-form";
 
@@ -9,7 +10,10 @@ interface PageProps {
 
 export default async function NewMaterialPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId } = await requireCompanyRole(
+    routeCompanyId,
+    MASTER_DATA_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const { data: suppliers } = await supabase

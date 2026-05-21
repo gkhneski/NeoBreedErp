@@ -7,6 +7,7 @@ import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { COMPANY_ROLE_LABELS, COMPANY_ROLE_VALUES } from "@/types/roles";
 
 import { inviteCompanyMember, type InviteFormState } from "./actions";
 
@@ -69,8 +70,13 @@ export function InviteForm({
           defaultValue="company_admin"
           className="flex h-9 w-full max-w-[18rem] rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <option value="company_admin">Firma Admini</option>
-          <option value="company_user">Kullanıcı</option>
+          {COMPANY_ROLE_VALUES.filter((role) => role !== "company_user").map(
+            (role) => (
+              <option key={role} value={role}>
+                {COMPANY_ROLE_LABELS[role]}
+              </option>
+            ),
+          )}
         </select>
         <FieldError message={state.fieldErrors?.role} />
       </div>

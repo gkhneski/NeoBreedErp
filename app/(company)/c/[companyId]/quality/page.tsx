@@ -9,7 +9,11 @@ import type {
   QualityCheckStatus,
   QualityCheckSubjectKind,
 } from "@/types/database";
-import { companyModulePath } from "@/types/roles";
+import {
+  QUALITY_WRITE_ROLES,
+  canWriteCompanyData,
+  companyModulePath,
+} from "@/types/roles";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -69,7 +73,7 @@ function formatDate(iso: string | null): string {
 
 export default async function QualityListPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
 
   const { data: checks } = await supabase
@@ -98,9 +102,11 @@ export default async function QualityListPage({ params }: PageProps) {
             &quot;Bloklu&quot;ya çevirir; partide ek olarak partiyi kapatır.
           </p>
         </div>
-        <Link href={newHref}>
-          <Button>Yeni QC</Button>
-        </Link>
+        {canWriteCompanyData(role, QUALITY_WRITE_ROLES) ? (
+          <Link href={newHref}>
+            <Button>Yeni QC</Button>
+          </Link>
+        ) : null}
       </header>
 
       {rows.length > 0 ? (

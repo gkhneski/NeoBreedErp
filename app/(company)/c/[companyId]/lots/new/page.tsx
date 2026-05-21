@@ -1,9 +1,9 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { requireCompanyUser } from "@/lib/auth";
+import { requireCompanyRole } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import { STOCK_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
 import { LotForm } from "./lot-form";
 
@@ -13,7 +13,10 @@ interface PageProps {
 
 export default async function NewLotPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId } = await requireCompanyRole(
+    routeCompanyId,
+    STOCK_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const [materialsRes, suppliersRes] = await Promise.all([

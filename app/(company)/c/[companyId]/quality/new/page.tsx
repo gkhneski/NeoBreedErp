@@ -1,9 +1,9 @@
 import Link from "next/link";
 
 import { EmptyState } from "@/components/ui/empty-state";
-import { requireCompanyUser } from "@/lib/auth";
+import { requireCompanyRole } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import { QUALITY_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
 import { QualityCheckForm, type SubjectOption } from "./quality-form";
 
@@ -33,7 +33,10 @@ type BatchRow = {
 
 export default async function NewQualityCheckPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId } = await requireCompanyRole(
+    routeCompanyId,
+    QUALITY_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const [{ data: lots }, { data: batches }, { data: latest }] =

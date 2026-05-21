@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import {
+  STOCK_WRITE_ROLES,
+  canWriteCompanyData,
+  companyModulePath,
+} from "@/types/roles";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -54,7 +58,7 @@ function formatDateTime(iso: string): string {
 
 export default async function StockLedgerPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
 
   const { data: movements } = await supabase
@@ -85,9 +89,11 @@ export default async function StockLedgerPage({ params }: PageProps) {
             kaydedin. Son 200 kayıt gösteriliyor.
           </p>
         </div>
-        <Link href={newHref}>
-          <Button>Yeni Hareket</Button>
-        </Link>
+        {canWriteCompanyData(role, STOCK_WRITE_ROLES) ? (
+          <Link href={newHref}>
+            <Button>Yeni Hareket</Button>
+          </Link>
+        ) : null}
       </header>
 
       {rows.length > 0 ? (

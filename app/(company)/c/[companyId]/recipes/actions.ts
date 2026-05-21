@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { requireCompanyUser } from "@/lib/auth";
+import { requireCompanyRole } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import { MASTER_DATA_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
 const ALLOWED_UOM = ["g", "kg", "mg", "mL", "L", "unit"] as const;
 
@@ -67,7 +67,10 @@ export async function createRecipe(
     return { fieldErrors, error: "Form alanlarını kontrol edin." };
   }
 
-  const { ctx, companyId } = await requireCompanyUser(parsed.data.company_id);
+  const { ctx, companyId } = await requireCompanyRole(
+    parsed.data.company_id,
+    MASTER_DATA_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const { data, error } = await supabase
@@ -156,7 +159,10 @@ export async function addRecipeItem(
     return { fieldErrors, error: "Form alanlarını kontrol edin." };
   }
 
-  const { ctx, companyId } = await requireCompanyUser(parsed.data.company_id);
+  const { ctx, companyId } = await requireCompanyRole(
+    parsed.data.company_id,
+    MASTER_DATA_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const { data: recipe, error: recipeError } = await supabase
@@ -209,7 +215,7 @@ export async function removeRecipeItem(
   recipeId: string,
   itemId: string,
 ): Promise<void> {
-  await requireCompanyUser(companyId);
+  await requireCompanyRole(companyId, MASTER_DATA_WRITE_ROLES);
   const supabase = await createServerSupabaseClient();
 
   const { data: recipe } = await supabase
@@ -240,7 +246,7 @@ export async function publishRecipe(
   companyId: string,
   recipeId: string,
 ): Promise<void> {
-  const { ctx } = await requireCompanyUser(companyId);
+  const { ctx } = await requireCompanyRole(companyId, MASTER_DATA_WRITE_ROLES);
   const supabase = await createServerSupabaseClient();
 
   const { data: recipe } = await supabase
@@ -298,7 +304,7 @@ export async function createNewRecipeVersion(
   companyId: string,
   recipeId: string,
 ): Promise<void> {
-  const { ctx } = await requireCompanyUser(companyId);
+  const { ctx } = await requireCompanyRole(companyId, MASTER_DATA_WRITE_ROLES);
   const supabase = await createServerSupabaseClient();
 
   const { data: source } = await supabase

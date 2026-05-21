@@ -1,4 +1,5 @@
-import { requireCompanyUser } from "@/lib/auth";
+import { requireCompanyRole } from "@/lib/auth";
+import { MASTER_DATA_WRITE_ROLES } from "@/types/roles";
 
 import { SupplierForm } from "./supplier-form";
 
@@ -8,7 +9,10 @@ interface PageProps {
 
 export default async function NewSupplierPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId } = await requireCompanyRole(
+    routeCompanyId,
+    MASTER_DATA_WRITE_ROLES,
+  );
 
   return (
     <div className="max-w-3xl space-y-6">

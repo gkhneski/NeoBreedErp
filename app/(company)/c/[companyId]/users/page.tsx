@@ -1,6 +1,11 @@
 import { Badge } from "@/components/ui/badge";
 import { requireCompanyUser } from "@/lib/auth";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  createServerSupabaseClient,
+  createServiceRoleClient,
+} from "@/lib/supabase/server";
+import type { CompanyRole } from "@/types/roles";
+import { COMPANY_ROLE_LABELS, canManageCompanyUsers } from "@/types/roles";
 
 import { InviteUserForm } from "./invite-user-form";
 
@@ -10,20 +15,17 @@ interface PageProps {
 
 type MemberRow = {
   user_id: string;
-  role: "company_admin" | "company_user";
+  role: CompanyRole;
   created_at: string;
   profiles: { email: string | null; full_name: string | null } | null;
-};
-
-const ROLE_LABEL: Record<MemberRow["role"], string> = {
-  company_admin: "Firma Admini",
-  company_user: "Firma Kullanıcısı",
 };
 
 export default async function UsersPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
   const { companyId, role } = await requireCompanyUser(routeCompanyId);
-  const supabase = await createServerSupabaseClient();
+  const supabase = canManageCompanyUsers(role)
+    ? createServiceRoleClient()
+    : await createServerSupabaseClient();
 
   const { data: members } = await supabase
     .from("company_users")
@@ -44,7 +46,7 @@ export default async function UsersPage({ params }: PageProps) {
         </p>
       </header>
 
-      {role === "company_admin" ? (
+      {canManageCompanyUsers(role) ? (
         <section className="space-y-3">
           <h2 className="text-sm font-semibold">Kullanıcı Davet Et</h2>
           <InviteUserForm companyId={companyId} />
@@ -76,7 +78,7 @@ export default async function UsersPage({ params }: PageProps) {
                       member.role === "company_admin" ? "default" : "secondary"
                     }
                   >
-                    {ROLE_LABEL[member.role]}
+                    {COMPANY_ROLE_LABELS[member.role]}
                   </Badge>
                 </td>
                 <td className="px-3 py-2 text-xs text-muted-foreground">

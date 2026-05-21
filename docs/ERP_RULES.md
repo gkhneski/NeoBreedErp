@@ -109,7 +109,11 @@ Material codes are **unique per company**, not globally.
 ## 11. Permissions Inside a Company
 
 - `company_admin` — full company access, manages users and packages-related limits (within what their package allows).
-- `company_user` — operational access; specifics (who can sign QC, who can close a batch) are introduced as needed, defaulting to "all company users can do all operational actions" in early MVP unless the user requests finer roles.
+- `production_manager` - manages materials, suppliers, recipes, lots, stock movements, production orders, and production batches. Reads QC but does not sign QC.
+- `quality_manager` - manages QC records, QC results, QC sign-off, lot release/block decisions, and quality documents. Reads production and stock context.
+- `operator` - performs shop-floor work such as lot receipt, stock issue/adjustment, and production execution. Cannot manage users, settings, recipes, or QC sign-off.
+- `viewer` - read-only company access. Cannot create, update, sign, upload, or delete company operational data.
+- `company_user` - legacy/demo broad operational role kept for existing memberships. New users should be assigned one of the explicit roles above.
 
 ---
 

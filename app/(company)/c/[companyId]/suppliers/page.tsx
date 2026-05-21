@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import {
+  MASTER_DATA_WRITE_ROLES,
+  canWriteCompanyData,
+  companyModulePath,
+} from "@/types/roles";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -12,7 +16,7 @@ interface PageProps {
 
 export default async function SuppliersListPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
 
   const { data: suppliers } = await supabase
@@ -34,9 +38,11 @@ export default async function SuppliersListPage({ params }: PageProps) {
             olarak seçilebilir.
           </p>
         </div>
-        <Link href={newHref}>
-          <Button>Yeni Tedarikçi</Button>
-        </Link>
+        {canWriteCompanyData(role, MASTER_DATA_WRITE_ROLES) ? (
+          <Link href={newHref}>
+            <Button>Yeni Tedarikçi</Button>
+          </Link>
+        ) : null}
       </header>
 
       {suppliers && suppliers.length > 0 ? (

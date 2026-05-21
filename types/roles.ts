@@ -1,5 +1,84 @@
 export type PlatformRole = "platform_admin";
-export type CompanyRole = "company_admin" | "company_user";
+export const COMPANY_ROLE_VALUES = [
+  "company_admin",
+  "production_manager",
+  "quality_manager",
+  "operator",
+  "viewer",
+  "company_user",
+] as const;
+
+export type CompanyRole = (typeof COMPANY_ROLE_VALUES)[number];
+
+export const COMPANY_ROLE_LABELS: Record<CompanyRole, string> = {
+  company_admin: "Firma Admini",
+  production_manager: "Uretim Sorumlusu",
+  quality_manager: "Kalite Sorumlusu",
+  operator: "Operator",
+  viewer: "Salt Okuma",
+  company_user: "Firma Kullanicisi",
+};
+
+export const COMPANY_ROLE_BADGE_LABELS: Record<CompanyRole, string> = {
+  company_admin: "FIRMA ADMINI",
+  production_manager: "URETIM",
+  quality_manager: "KALITE",
+  operator: "OPERATOR",
+  viewer: "OKUMA",
+  company_user: "KULLANICI",
+};
+
+export const COMPANY_WRITE_ROLES = [
+  "company_admin",
+  "production_manager",
+  "quality_manager",
+  "operator",
+  "company_user",
+] as const satisfies readonly CompanyRole[];
+
+export const MASTER_DATA_WRITE_ROLES = [
+  "company_admin",
+  "production_manager",
+  "company_user",
+] as const satisfies readonly CompanyRole[];
+
+export const PRODUCTION_WRITE_ROLES = [
+  "company_admin",
+  "production_manager",
+  "operator",
+  "company_user",
+] as const satisfies readonly CompanyRole[];
+
+export const QUALITY_WRITE_ROLES = [
+  "company_admin",
+  "quality_manager",
+  "company_user",
+] as const satisfies readonly CompanyRole[];
+
+export const STOCK_WRITE_ROLES = [
+  "company_admin",
+  "production_manager",
+  "operator",
+  "company_user",
+] as const satisfies readonly CompanyRole[];
+
+export const FILE_WRITE_ROLES = [
+  "company_admin",
+  "production_manager",
+  "quality_manager",
+  "company_user",
+] as const satisfies readonly CompanyRole[];
+
+export function canManageCompanyUsers(role: CompanyRole): boolean {
+  return role === "company_admin";
+}
+
+export function canWriteCompanyData(
+  role: CompanyRole,
+  allowed: readonly CompanyRole[],
+): boolean {
+  return allowed.includes(role);
+}
 
 export interface SessionContext {
   userId: string;

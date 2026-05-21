@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { requireCompanyUser } from "@/lib/auth";
+import { requireCompanyRole } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import { PRODUCTION_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
 const productionOrderCreateSchema = z.object({
   recipe_id: z.string().uuid({ message: "Reçete seçiniz." }),
@@ -95,7 +95,10 @@ export async function createProductionOrder(
     };
   }
 
-  const { ctx, companyId } = await requireCompanyUser(routeCompanyId);
+  const { ctx, companyId } = await requireCompanyRole(
+    routeCompanyId,
+    PRODUCTION_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const { data: recipe, error: recipeError } = await supabase
@@ -168,7 +171,10 @@ export async function planProductionOrder(
   });
   if (!parsed.success) return;
 
-  const { ctx, companyId } = await requireCompanyUser(routeCompanyId);
+  const { ctx, companyId } = await requireCompanyRole(
+    routeCompanyId,
+    PRODUCTION_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const { data: order } = await supabase
@@ -233,7 +239,10 @@ export async function startProductionOrder(
     return { fieldErrors, error: "Form alanlarını kontrol edin." };
   }
 
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId } = await requireCompanyRole(
+    routeCompanyId,
+    PRODUCTION_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const { error } = await supabase.rpc("start_production_order", {
@@ -361,7 +370,10 @@ export async function completeProductionBatch(
     return { fieldErrors, error: "Form alanlarını kontrol edin." };
   }
 
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId } = await requireCompanyRole(
+    routeCompanyId,
+    PRODUCTION_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const consumed = parsed.data.items.map((i) => ({
@@ -417,7 +429,10 @@ export async function cancelProductionOrder(
   });
   if (!parsed.success) return;
 
-  const { ctx, companyId } = await requireCompanyUser(routeCompanyId);
+  const { ctx, companyId } = await requireCompanyRole(
+    routeCompanyId,
+    PRODUCTION_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const { data: order } = await supabase

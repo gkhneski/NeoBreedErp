@@ -7,6 +7,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { companyStatusLabel, formatDate, formatDateTime } from "@/lib/format";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import type { CompanyRole } from "@/types/roles";
+import { COMPANY_ROLE_LABELS } from "@/types/roles";
 
 import { StatusActions } from "./status-actions";
 
@@ -170,7 +172,7 @@ export default async function CompanyDetailPage({
                   </p>
                 </div>
                 <Badge variant={m.role === "company_admin" ? "default" : "secondary"}>
-                  {m.role === "company_admin" ? "Firma Admini" : "Kullanıcı"}
+                  {COMPANY_ROLE_LABELS[m.role as CompanyRole] ?? m.role}
                 </Badge>
               </li>
             ))}

@@ -4,9 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { requireCompanyUser } from "@/lib/auth";
+import { requireCompanyRole } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import {
+  QUALITY_WRITE_ROLES,
+  STOCK_WRITE_ROLES,
+  companyModulePath,
+} from "@/types/roles";
 
 const uuidRegex =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -115,7 +119,10 @@ export async function createLot(
     return { fieldErrors, error: "Form alanlarını kontrol edin." };
   }
 
-  const { companyId } = await requireCompanyUser(parsed.data.company_id);
+  const { companyId } = await requireCompanyRole(
+    parsed.data.company_id,
+    STOCK_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   const { error } = await supabase.rpc("create_lot_with_receipt", {
@@ -169,7 +176,10 @@ export async function updateLotStatus(formData: FormData): Promise<void> {
   });
   if (!parsed.success) return;
 
-  const { ctx, companyId } = await requireCompanyUser(parsed.data.company_id);
+  const { ctx, companyId } = await requireCompanyRole(
+    parsed.data.company_id,
+    QUALITY_WRITE_ROLES,
+  );
   const supabase = await createServerSupabaseClient();
 
   await supabase

@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { COMPANY_ROLE_LABELS, COMPANY_ROLE_VALUES } from "@/types/roles";
 
 import {
   inviteCompanyUser,
@@ -65,11 +66,16 @@ export function InviteUserForm({ companyId }: { companyId: string }) {
           <select
             id="invite_role"
             name="role"
-            defaultValue="company_user"
+            defaultValue="viewer"
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <option value="company_user">Firma Kullanıcısı</option>
-            <option value="company_admin">Firma Admini</option>
+            {COMPANY_ROLE_VALUES.filter((role) => role !== "company_user").map(
+              (role) => (
+                <option key={role} value={role}>
+                  {COMPANY_ROLE_LABELS[role]}
+                </option>
+              ),
+            )}
           </select>
           <FieldError message={state.fieldErrors?.role} />
         </div>
