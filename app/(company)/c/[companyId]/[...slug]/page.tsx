@@ -3,11 +3,6 @@ import { requireCompanyUser } from "@/lib/auth";
 
 const MODULE_LABELS: Record<string, { title: string; phase: string }> = {
   products: { title: "Ürünler", phase: "5b" },
-  materials: { title: "Hammaddeler", phase: "5b" },
-  stock: { title: "Stok", phase: "5b" },
-  recipes: { title: "Reçeteler", phase: "5a" },
-  production: { title: "Üretim", phase: "5c" },
-  quality: { title: "Kalite Kontrol", phase: "5d" },
   warehouse: { title: "Depo Hareketleri", phase: "5b" },
   orders: { title: "Siparişler", phase: "5+" },
   reports: { title: "Raporlar", phase: "5+" },

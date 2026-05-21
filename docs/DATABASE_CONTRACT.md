@@ -358,3 +358,115 @@ Append-only ledger. Quantity is **signed** (positive = into stock, negative = ou
 - `coa_file_path` is reserved; the `materials` Storage bucket and CoA upload UI are deferred to Phase 5f.
 - Multi-location / `transfer` kind: deferred (locations out of MVP).
 - Lot status transitions (`quarantine → released | blocked`) are stored but the QC-driven flip happens in Phase 5d. Manual override is allowed in Step 2 via a lot status action, app-layer only.
+
+---
+
+## 12. Phase 5c - Production Orders & Batches
+
+### 12.1 `production_orders`
+
+Per-company production order header. Each row carries `company_id uuid not null`, `code`, `finished_material_id`, `recipe_id`, planned quantity/UoM, status, lifecycle timestamps, notes, soft delete, and audit columns.
+
+**Status:** `draft | planned | in_progress | completed | closed | cancelled`.
+
+**Indexes:** `(company_id)`, unique `(company_id, code) where deleted_at is null`, `(company_id, status)`, `(recipe_id)`, `(finished_material_id)`, `(company_id, planned_start_at)`, `(deleted_at)`.
+
+**RLS:** canonical member select/modify policies. No platform-admin bypass.
+
+**Cross-tenant invariants:** trigger ensures `finished_material_id` belongs to the same company and is `materials.type = 'finished'`; `recipe_id` belongs to the same company, is `published`, and references the same finished material.
+
+### 12.2 `production_batches`
+
+Per-company execution row for a production order. Each row carries `company_id`, `production_order_id`, `batch_number`, `recipe_id`, optional `output_lot_id`, planned/actual quantity, UoM, status, lifecycle timestamps, batch cost summary, soft delete, and audit columns.
+
+**Status:** `in_progress | completed | closed | cancelled`.
+
+**Indexes:** `(company_id)`, unique `(company_id, batch_number) where deleted_at is null`, `(production_order_id)`, `(company_id, status)`, `(output_lot_id)`, `(deleted_at)`.
+
+**RLS:** canonical member select/modify policies.
+
+**Cross-tenant invariants:** trigger ensures order, recipe, and output lot all belong to the batch company. If `output_lot_id` is present, its material must equal the order's finished material.
+
+**Stock integration:** `stock_movements.batch_id` is added as nullable FK to `production_batches(id) on delete restrict`; the stock movement parent guard also validates batch same-company.
+
+**RPCs:** `start_production_order(company, order, batch_number)` moves `planned -> in_progress` and creates a batch. `complete_production_batch(company, batch, actual_quantity, output_lot_number, output_expiry_date, consumed[])` issues consumed released lots, creates a quarantine output lot, records receipt, completes the batch/order, and writes costing data when available. RPCs are `security invoker`; RLS still applies.
+
+**Files affected:** `supabase/migrations/20260520000100_phase5c_production_orders.sql`, `supabase/migrations/20260521000000_phase5c_production_batches.sql`, and company routes under `app/(company)/c/[companyId]/production/`.
+
+---
+
+## 13. Phase 5d - Quality Control
+
+### 13.1 `quality_checks`
+
+Per-company QC header. Each row carries `company_id`, `code`, `subject_kind`, exactly one subject FK (`material_lot_id` or `production_batch_id`), status, signer/timestamp, notes, soft delete, and audit columns.
+
+**Subject kind:** `material_lot | production_batch`.
+
+**Status:** `draft | passed | failed | cancelled`.
+
+**Indexes:** `(company_id)`, unique `(company_id, code) where deleted_at is null`, `(company_id, status)`, `(material_lot_id)`, `(production_batch_id)`, `(company_id, signed_at desc)`, `(deleted_at)`.
+
+**RLS:** canonical member select/modify policies.
+
+**Cross-tenant invariants:** trigger ensures the selected lot or production batch belongs to the same company.
+
+### 13.2 `quality_check_results`
+
+Per-check QC line items. Each row carries `company_id`, `quality_check_id`, `position`, spec target, measured value, verdict, notes, and timestamps.
+
+**Verdict:** `pending | pass | fail | na`.
+
+**Indexes:** `(company_id)`, `(quality_check_id)`, unique `(quality_check_id, position)`.
+
+**RLS:** canonical member select/modify policies.
+
+**Mutation rule:** result rows are editable only while the parent check is `draft`; signed, failed, cancelled, or deleted checks freeze results via trigger.
+
+**RPCs:** `sign_quality_check(company, check, verdict)` validates all result rows, signs the check, and releases/blocks the lot. Passed production-batch QC also closes the batch and order. `cancel_quality_check(company, check)` soft-cancels draft checks. RPCs are `security invoker`.
+
+**Files affected:** `supabase/migrations/20260522000000_phase5d_quality_control.sql` and company routes under `app/(company)/c/[companyId]/quality/`.
+
+---
+
+## 14. Phase 5e - Cost Snapshots
+
+### 14.1 `cost_snapshots`
+
+Append-only per-batch material cost lines created when a production batch is completed. Each row carries `company_id`, `production_batch_id`, `material_id`, `lot_id`, quantity, unit cost, currency, line cost, `created_at`, and `created_by`.
+
+**Indexes:** `(company_id)`, `(production_batch_id)`, `(company_id, material_id)`, `(lot_id)`.
+
+**RLS:** canonical member select/modify policies, with DB trigger blocking update/delete.
+
+**Cross-tenant invariants:** trigger ensures batch, material, and lot all belong to the same company, and the lot material matches the snapshot material.
+
+**Files affected:** `supabase/migrations/20260523000000_phase5e_cost_snapshots.sql`.
+
+---
+
+## 15. Phase 5f - Per-Company File Storage
+
+### 15.1 Storage bucket
+
+Private Supabase Storage bucket: `tenant-files`.
+
+**Path rule:** every object path starts with `<company_id>/`; domain sub-prefixes include `lots/` and `quality/`.
+
+**Storage RLS:** policies on `storage.objects` are scoped to `bucket_id = 'tenant-files'` and require the first path segment to be a company where `auth.uid()` has active membership.
+
+### 15.2 `file_attachments`
+
+Per-company metadata table for files attached to either a material lot or a QC check. Each row carries `company_id`, `subject_kind`, exactly one subject FK, `kind`, `storage_path`, original file name, MIME type, size, notes, `created_at`, and `created_by`.
+
+**Subject kind:** `material_lot | quality_check`.
+
+**Kind:** `coa | msds | invoice | lab_report | other`.
+
+**Indexes:** `(company_id)`, `(material_lot_id) where material_lot_id is not null`, `(quality_check_id) where quality_check_id is not null`, `(company_id, kind)`, unique `(storage_path)`.
+
+**RLS:** canonical member select/modify policies. Storage path is immutable and must start with the row `company_id`.
+
+**Server validation:** upload surfaces accept PDF/JPG/PNG/WEBP; default app limit is 10 MB, DB max guard is 25 MB.
+
+**Files affected:** `supabase/migrations/20260524000000_phase5f_file_attachments.sql`, `lib/storage/attachments.ts`, `components/files/*`, and file actions under `app/(company)/c/[companyId]/files/actions.ts`.

@@ -5,6 +5,28 @@ export type RecipeStatus = "draft" | "published" | "archived";
 export type RecipeMode = "quantity" | "percentage";
 export type LotStatus = "quarantine" | "released" | "blocked";
 export type StockMovementKind = "receipt" | "issue" | "adjustment";
+export type ProductionOrderStatus =
+  | "draft"
+  | "planned"
+  | "in_progress"
+  | "completed"
+  | "closed"
+  | "cancelled";
+export type ProductionBatchStatus =
+  | "in_progress"
+  | "completed"
+  | "closed"
+  | "cancelled";
+export type QualityCheckSubjectKind = "material_lot" | "production_batch";
+export type QualityCheckStatus = "draft" | "passed" | "failed" | "cancelled";
+export type QualityResultVerdict = "pending" | "pass" | "fail" | "na";
+export type FileAttachmentSubjectKind = "material_lot" | "quality_check";
+export type FileAttachmentKind =
+  | "coa"
+  | "msds"
+  | "invoice"
+  | "lab_report"
+  | "other";
 
 type Json =
   | string
@@ -487,6 +509,7 @@ export type Database = {
           company_id: string;
           material_id: string;
           lot_id: string;
+          batch_id: string | null;
           kind: StockMovementKind;
           quantity: number;
           unit_cost: number | null;
@@ -501,6 +524,7 @@ export type Database = {
           company_id: string;
           material_id: string;
           lot_id: string;
+          batch_id?: string | null;
           kind: StockMovementKind;
           quantity: number;
           unit_cost?: number | null;
@@ -512,6 +536,421 @@ export type Database = {
         };
         Update: never;
         Relationships: [];
+      };
+      production_orders: {
+        Row: {
+          id: string;
+          company_id: string;
+          code: string;
+          finished_material_id: string;
+          recipe_id: string;
+          planned_quantity: number;
+          planned_uom: string;
+          status: ProductionOrderStatus;
+          planned_start_at: string | null;
+          planned_end_at: string | null;
+          started_at: string | null;
+          completed_at: string | null;
+          closed_at: string | null;
+          cancelled_at: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          code: string;
+          finished_material_id: string;
+          recipe_id: string;
+          planned_quantity: number;
+          planned_uom: string;
+          status?: ProductionOrderStatus;
+          planned_start_at?: string | null;
+          planned_end_at?: string | null;
+          started_at?: string | null;
+          completed_at?: string | null;
+          closed_at?: string | null;
+          cancelled_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          code?: string;
+          finished_material_id?: string;
+          recipe_id?: string;
+          planned_quantity?: number;
+          planned_uom?: string;
+          status?: ProductionOrderStatus;
+          planned_start_at?: string | null;
+          planned_end_at?: string | null;
+          started_at?: string | null;
+          completed_at?: string | null;
+          closed_at?: string | null;
+          cancelled_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "production_orders_finished_material_id_fkey";
+            columns: ["finished_material_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "production_orders_recipe_id_fkey";
+            columns: ["recipe_id"];
+            isOneToOne: false;
+            referencedRelation: "recipes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      production_batches: {
+        Row: {
+          id: string;
+          company_id: string;
+          production_order_id: string;
+          batch_number: string;
+          recipe_id: string;
+          output_lot_id: string | null;
+          planned_quantity: number;
+          actual_quantity: number | null;
+          uom: string;
+          status: ProductionBatchStatus;
+          started_at: string | null;
+          completed_at: string | null;
+          closed_at: string | null;
+          cancelled_at: string | null;
+          cost_total: number | null;
+          cost_currency: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          production_order_id: string;
+          batch_number: string;
+          recipe_id: string;
+          output_lot_id?: string | null;
+          planned_quantity: number;
+          actual_quantity?: number | null;
+          uom: string;
+          status?: ProductionBatchStatus;
+          started_at?: string | null;
+          completed_at?: string | null;
+          closed_at?: string | null;
+          cancelled_at?: string | null;
+          cost_total?: number | null;
+          cost_currency?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          production_order_id?: string;
+          batch_number?: string;
+          recipe_id?: string;
+          output_lot_id?: string | null;
+          planned_quantity?: number;
+          actual_quantity?: number | null;
+          uom?: string;
+          status?: ProductionBatchStatus;
+          started_at?: string | null;
+          completed_at?: string | null;
+          closed_at?: string | null;
+          cancelled_at?: string | null;
+          cost_total?: number | null;
+          cost_currency?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "production_batches_production_order_id_fkey";
+            columns: ["production_order_id"];
+            isOneToOne: false;
+            referencedRelation: "production_orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "production_batches_recipe_id_fkey";
+            columns: ["recipe_id"];
+            isOneToOne: false;
+            referencedRelation: "recipes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "production_batches_output_lot_id_fkey";
+            columns: ["output_lot_id"];
+            isOneToOne: false;
+            referencedRelation: "material_lots";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      quality_checks: {
+        Row: {
+          id: string;
+          company_id: string;
+          code: string;
+          subject_kind: QualityCheckSubjectKind;
+          material_lot_id: string | null;
+          production_batch_id: string | null;
+          status: QualityCheckStatus;
+          signed_by: string | null;
+          signed_at: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          code: string;
+          subject_kind: QualityCheckSubjectKind;
+          material_lot_id?: string | null;
+          production_batch_id?: string | null;
+          status?: QualityCheckStatus;
+          signed_by?: string | null;
+          signed_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          code?: string;
+          subject_kind?: QualityCheckSubjectKind;
+          material_lot_id?: string | null;
+          production_batch_id?: string | null;
+          status?: QualityCheckStatus;
+          signed_by?: string | null;
+          signed_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "quality_checks_material_lot_id_fkey";
+            columns: ["material_lot_id"];
+            isOneToOne: false;
+            referencedRelation: "material_lots";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "quality_checks_production_batch_id_fkey";
+            columns: ["production_batch_id"];
+            isOneToOne: false;
+            referencedRelation: "production_batches";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      quality_check_results: {
+        Row: {
+          id: string;
+          company_id: string;
+          quality_check_id: string;
+          position: number;
+          spec_name: string;
+          spec_target: string | null;
+          measured_value: string | null;
+          verdict: QualityResultVerdict;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          quality_check_id: string;
+          position: number;
+          spec_name: string;
+          spec_target?: string | null;
+          measured_value?: string | null;
+          verdict?: QualityResultVerdict;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          quality_check_id?: string;
+          position?: number;
+          spec_name?: string;
+          spec_target?: string | null;
+          measured_value?: string | null;
+          verdict?: QualityResultVerdict;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "quality_check_results_quality_check_id_fkey";
+            columns: ["quality_check_id"];
+            isOneToOne: false;
+            referencedRelation: "quality_checks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      cost_snapshots: {
+        Row: {
+          id: string;
+          company_id: string;
+          production_batch_id: string;
+          material_id: string;
+          lot_id: string;
+          quantity: number;
+          unit_cost: number | null;
+          currency: string | null;
+          line_cost: number | null;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          production_batch_id: string;
+          material_id: string;
+          lot_id: string;
+          quantity: number;
+          unit_cost?: number | null;
+          currency?: string | null;
+          line_cost?: number | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: "cost_snapshots_production_batch_id_fkey";
+            columns: ["production_batch_id"];
+            isOneToOne: false;
+            referencedRelation: "production_batches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cost_snapshots_material_id_fkey";
+            columns: ["material_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cost_snapshots_lot_id_fkey";
+            columns: ["lot_id"];
+            isOneToOne: false;
+            referencedRelation: "material_lots";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      file_attachments: {
+        Row: {
+          id: string;
+          company_id: string;
+          subject_kind: FileAttachmentSubjectKind;
+          material_lot_id: string | null;
+          quality_check_id: string | null;
+          kind: FileAttachmentKind;
+          storage_path: string;
+          file_name: string;
+          mime_type: string;
+          size_bytes: number;
+          notes: string | null;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          subject_kind: FileAttachmentSubjectKind;
+          material_lot_id?: string | null;
+          quality_check_id?: string | null;
+          kind: FileAttachmentKind;
+          storage_path: string;
+          file_name: string;
+          mime_type: string;
+          size_bytes: number;
+          notes?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          subject_kind?: FileAttachmentSubjectKind;
+          material_lot_id?: string | null;
+          quality_check_id?: string | null;
+          kind?: FileAttachmentKind;
+          storage_path?: string;
+          file_name?: string;
+          mime_type?: string;
+          size_bytes?: number;
+          notes?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "file_attachments_material_lot_id_fkey";
+            columns: ["material_lot_id"];
+            isOneToOne: false;
+            referencedRelation: "material_lots";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "file_attachments_quality_check_id_fkey";
+            columns: ["quality_check_id"];
+            isOneToOne: false;
+            referencedRelation: "quality_checks";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: {
@@ -533,6 +972,40 @@ export type Database = {
           p_movement_notes: string | null;
         };
         Returns: string;
+      };
+      start_production_order: {
+        Args: {
+          p_company_id: string;
+          p_order_id: string;
+          p_batch_number: string;
+        };
+        Returns: string;
+      };
+      complete_production_batch: {
+        Args: {
+          p_company_id: string;
+          p_batch_id: string;
+          p_actual_quantity: number;
+          p_output_lot_number: string;
+          p_output_expiry_date: string | null;
+          p_consumed: Json;
+        };
+        Returns: string;
+      };
+      sign_quality_check: {
+        Args: {
+          p_company_id: string;
+          p_check_id: string;
+          p_overall_verdict: "passed" | "failed";
+        };
+        Returns: string;
+      };
+      cancel_quality_check: {
+        Args: {
+          p_company_id: string;
+          p_check_id: string;
+        };
+        Returns: undefined;
       };
     };
     Enums: {
@@ -559,3 +1032,15 @@ export type Supplier = Database["public"]["Tables"]["suppliers"]["Row"];
 export type MaterialLot = Database["public"]["Tables"]["material_lots"]["Row"];
 export type StockMovement =
   Database["public"]["Tables"]["stock_movements"]["Row"];
+export type ProductionOrder =
+  Database["public"]["Tables"]["production_orders"]["Row"];
+export type ProductionBatch =
+  Database["public"]["Tables"]["production_batches"]["Row"];
+export type QualityCheck =
+  Database["public"]["Tables"]["quality_checks"]["Row"];
+export type QualityCheckResult =
+  Database["public"]["Tables"]["quality_check_results"]["Row"];
+export type CostSnapshot =
+  Database["public"]["Tables"]["cost_snapshots"]["Row"];
+export type FileAttachment =
+  Database["public"]["Tables"]["file_attachments"]["Row"];
