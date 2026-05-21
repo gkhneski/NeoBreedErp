@@ -8,7 +8,6 @@ import { companyHomePath, companyModulePath } from "@/types/roles";
 
 const MODULES = [
   { key: "", label: "Panel", exact: true },
-  { key: "products", label: "Ürünler" },
   { key: "materials", label: "Hammaddeler" },
   { key: "suppliers", label: "Tedarikçiler" },
   { key: "lots", label: "Lotlar" },
@@ -16,11 +15,6 @@ const MODULES = [
   { key: "recipes", label: "Reçeteler" },
   { key: "production", label: "Üretim" },
   { key: "quality", label: "Kalite Kontrol" },
-  { key: "warehouse", label: "Depo Hareketleri" },
-  { key: "orders", label: "Siparişler" },
-  { key: "reports", label: "Raporlar" },
-  { key: "users", label: "Kullanıcılar" },
-  { key: "settings", label: "Ayarlar" },
 ];
 
 export function CompanySidebar({ companyId }: { companyId: string }) {
