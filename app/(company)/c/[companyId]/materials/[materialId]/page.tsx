@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AttachmentList } from "@/components/files/attachment-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requireCompanyUser } from "@/lib/auth";
@@ -13,6 +14,8 @@ import {
 
 import { ALLERGEN_LABELS, type AllergenCode } from "../allergens";
 import { deleteMaterial } from "../actions";
+import { MaterialCertificateUploader } from "./certificate-uploader";
+import type { FileAttachment } from "@/types/database";
 
 interface PageProps {
   params: Promise<{ companyId: string; materialId: string }>;
@@ -37,6 +40,12 @@ type MaterialDetail = {
   created_at: string;
   updated_at: string;
   suppliers: { id: string; code: string; name: string } | null;
+};
+
+type LotOption = {
+  id: string;
+  lot_number: string;
+  quantity_on_hand: number;
 };
 
 function asAllergenList(value: unknown): AllergenCode[] {
@@ -77,6 +86,30 @@ export default async function MaterialDetailPage({ params }: PageProps) {
     .maybeSingle<MaterialDetail>();
 
   if (!material) notFound();
+
+  const { data: lots } = await supabase
+    .from("material_lots")
+    .select("id, lot_number, quantity_on_hand")
+    .eq("company_id", companyId)
+    .eq("material_id", material.id)
+    .is("deleted_at", null)
+    .order("received_at", { ascending: false })
+    .returns<LotOption[]>();
+
+  const lotIds = (lots ?? []).map((lot) => lot.id);
+  const { data: certificates } =
+    lotIds.length > 0
+      ? await supabase
+          .from("file_attachments")
+          .select(
+            "id, company_id, subject_kind, material_lot_id, quality_check_id, kind, storage_path, file_name, mime_type, size_bytes, notes, created_at, created_by",
+          )
+          .eq("company_id", companyId)
+          .eq("kind", "coa")
+          .in("material_lot_id", lotIds)
+          .order("created_at", { ascending: false })
+          .returns<FileAttachment[]>()
+      : { data: [] };
 
   const allergens = asAllergenList(material.allergen_flags);
   const listHref = companyModulePath(companyId, "materials");
@@ -192,6 +225,24 @@ export default async function MaterialDetailPage({ params }: PageProps) {
           <p className="whitespace-pre-wrap text-sm">{material.notes}</p>
         </section>
       ) : null}
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-sm font-medium">Analiz Sertifikalari</h2>
+          <p className="text-xs text-muted-foreground">
+            Sertifikalar lot bazli saklanir; burada bu malzemenin tum lot CoA
+            dosyalari gorunur.
+          </p>
+        </div>
+        <AttachmentList
+          companyId={companyId}
+          rows={certificates ?? []}
+          canDelete={canWrite}
+        />
+        {canWrite ? (
+          <MaterialCertificateUploader companyId={companyId} lots={lots ?? []} />
+        ) : null}
+      </section>
 
       <footer className="text-xs text-muted-foreground">
         Oluşturuldu: {new Date(material.created_at).toLocaleString("tr-TR")} ·

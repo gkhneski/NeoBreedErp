@@ -4,6 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyUser } from "@/lib/auth";
+import {
+  SIGNED_URL_TTL_SECONDS,
+  TENANT_FILES_BUCKET,
+} from "@/lib/storage/attachments";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   MASTER_DATA_WRITE_ROLES,
@@ -12,6 +16,7 @@ import {
 } from "@/types/roles";
 
 import { deleteMaterial } from "../materials/actions";
+import Image from "next/image";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -56,6 +61,19 @@ export default async function ProductsPage({ params }: PageProps) {
   const rows = products ?? [];
   const newHref = companyModulePath(companyId, "products", "new");
   const canWrite = canWriteCompanyData(role, MASTER_DATA_WRITE_ROLES);
+  const thumbnailPaths = rows.map((row) => `${companyId}/products/${row.id}/thumbnail`);
+  const { data: signedThumbnails } =
+    thumbnailPaths.length > 0
+      ? await supabase.storage
+          .from(TENANT_FILES_BUCKET)
+          .createSignedUrls(thumbnailPaths, SIGNED_URL_TTL_SECONDS)
+      : { data: [] };
+  const thumbnailByPath = new Map<string, string>();
+  for (const entry of signedThumbnails ?? []) {
+    if (entry?.path && entry.signedUrl) {
+      thumbnailByPath.set(entry.path, entry.signedUrl);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -79,6 +97,7 @@ export default async function ProductsPage({ params }: PageProps) {
             <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">Kod</th>
+                <th className="px-3 py-2 text-left font-medium">Gorsel</th>
                 <th className="px-3 py-2 text-left font-medium">Ad</th>
                 <th className="px-3 py-2 text-right font-medium">Serbest Stok</th>
                 <th className="px-3 py-2 text-right font-medium">Karantina</th>
@@ -100,6 +119,9 @@ export default async function ProductsPage({ params }: PageProps) {
                   .reduce((sum, lot) => sum + Number(lot.quantity_on_hand), 0);
                 const detailHref = companyModulePath(companyId, "materials", row.id);
                 const editHref = companyModulePath(companyId, "products", row.id, "edit");
+                const thumbnailUrl = thumbnailByPath.get(
+                  `${companyId}/products/${row.id}/thumbnail`,
+                );
                 const deleteAction = deleteMaterial.bind(
                   null,
                   companyId,
@@ -113,6 +135,20 @@ export default async function ProductsPage({ params }: PageProps) {
                       <Link href={detailHref} className="hover:underline">
                         {row.code}
                       </Link>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="relative h-10 w-10 overflow-hidden rounded border border-border bg-secondary">
+                        {thumbnailUrl ? (
+                          <Image
+                            src={thumbnailUrl}
+                            alt=""
+                            fill
+                            sizes="40px"
+                            className="object-cover"
+                            unoptimized
+                          />
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-3 py-2">{row.name}</td>
                     <td className="px-3 py-2 text-right font-mono text-xs">

@@ -5,10 +5,13 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireCompanyRole } from "@/lib/auth";
+import { TENANT_FILES_BUCKET } from "@/lib/storage/attachments";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { MASTER_DATA_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
 const ALLOWED_UOM = ["g", "kg", "mg", "mL", "L", "unit"] as const;
+const THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024;
+const THUMBNAIL_MIME = ["image/jpeg", "image/png", "image/webp"] as const;
 
 const productRecipeSchema = z.object({
   company_id: z.string().uuid(),
@@ -213,4 +216,59 @@ export async function createProductWithRecipe(
   revalidatePath(companyModulePath(companyId, "materials"));
   revalidatePath(companyModulePath(companyId, "recipes"));
   redirect(companyModulePath(companyId, "recipes", recipe.id));
+}
+
+export type ProductThumbnailState = {
+  error?: string;
+  ok?: boolean;
+};
+
+export async function uploadProductThumbnail(
+  routeCompanyId: string,
+  productId: string,
+  _prev: ProductThumbnailState,
+  formData: FormData,
+): Promise<ProductThumbnailState> {
+  const { companyId } = await requireCompanyRole(
+    routeCompanyId,
+    MASTER_DATA_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { data: product } = await supabase
+    .from("materials")
+    .select("id, type, company_id")
+    .eq("id", productId)
+    .eq("company_id", companyId)
+    .eq("type", "finished")
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!product) return { error: "Urun bulunamadi." };
+
+  const file = formData.get("thumbnail");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Bir gorsel seciniz." };
+  }
+  if (!THUMBNAIL_MIME.includes(file.type as (typeof THUMBNAIL_MIME)[number])) {
+    return { error: "Yalnizca JPG, PNG veya WEBP kabul edilir." };
+  }
+  if (file.size > THUMBNAIL_MAX_BYTES) {
+    return { error: "Gorsel en fazla 2 MB olabilir." };
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const storagePath = `${companyId}/products/${productId}/thumbnail`;
+  const { error } = await supabase.storage
+    .from(TENANT_FILES_BUCKET)
+    .upload(storagePath, bytes, {
+      contentType: file.type,
+      upsert: true,
+    });
+
+  if (error) return { error: error.message };
+
+  revalidatePath(companyModulePath(companyId, "products"));
+  revalidatePath(companyModulePath(companyId, "products", productId, "edit"));
+  return { ok: true };
 }

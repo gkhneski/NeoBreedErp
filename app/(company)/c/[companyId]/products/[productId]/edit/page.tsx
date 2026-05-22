@@ -1,10 +1,15 @@
 import { notFound } from "next/navigation";
 
 import { requireCompanyRole } from "@/lib/auth";
+import {
+  SIGNED_URL_TTL_SECONDS,
+  TENANT_FILES_BUCKET,
+} from "@/lib/storage/attachments";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { MASTER_DATA_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
 import { MaterialForm } from "../../../materials/new/material-form";
+import { ProductThumbnailForm } from "./product-thumbnail-form";
 
 interface PageProps {
   params: Promise<{ companyId: string; productId: string }>;
@@ -53,6 +58,11 @@ export default async function EditProductPage({ params }: PageProps) {
 
   if (!product) notFound();
 
+  const thumbnailPath = `${companyId}/products/${product.id}/thumbnail`;
+  const { data: signedThumbnail } = await supabase.storage
+    .from(TENANT_FILES_BUCKET)
+    .createSignedUrl(thumbnailPath, SIGNED_URL_TTL_SECONDS);
+
   return (
     <div className="max-w-3xl space-y-6">
       <header className="space-y-1">
@@ -66,6 +76,14 @@ export default async function EditProductPage({ params }: PageProps) {
         returnTo={companyModulePath(companyId, "products")}
         initial={product}
       />
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold">Thumbnail</h2>
+        <ProductThumbnailForm
+          companyId={companyId}
+          productId={product.id}
+          thumbnailUrl={signedThumbnail?.signedUrl ?? null}
+        />
+      </section>
     </div>
   );
 }
