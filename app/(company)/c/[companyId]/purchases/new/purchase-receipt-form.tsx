@@ -47,7 +47,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending}>
-      {pending ? "Kaydediliyor..." : "Stoga Al"}
+      {pending ? "Kaydediliyor..." : "Stoğa Al"}
     </Button>
   );
 }
@@ -109,14 +109,14 @@ export function PurchaseReceiptForm({
             }}
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <option value="new_lot">Yeni lot ac</option>
+            <option value="new_lot">Yeni lot aç</option>
             <option value="existing_lot">Mevcut lota ekle</option>
           </select>
           <FieldError message={state.fieldErrors?.receipt_mode} />
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="received_at">Belge / Alis Tarihi</Label>
+          <Label htmlFor="received_at">Belge / Alış Tarihi</Label>
           <Input
             id="received_at"
             name="received_at"
@@ -133,7 +133,7 @@ export function PurchaseReceiptForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="dispatch_note_number">Irsaliye No</Label>
+          <Label htmlFor="dispatch_note_number">İrsaliye No</Label>
           <Input id="dispatch_note_number" name="dispatch_note_number" />
           <FieldError message={state.fieldErrors?.dispatch_note_number} />
         </div>
@@ -151,7 +151,7 @@ export function PurchaseReceiptForm({
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="" disabled>
-                  -- Seciniz --
+                  -- Seçiniz --
                 </option>
                 {materials.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -163,13 +163,13 @@ export function PurchaseReceiptForm({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="lot_number">Lot Numarasi *</Label>
+              <Label htmlFor="lot_number">Lot Numarası *</Label>
               <Input id="lot_number" name="lot_number" required />
               <FieldError message={state.fieldErrors?.lot_number} />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="supplier_id">Tedarikci</Label>
+              <Label htmlFor="supplier_id">Tedarikçi</Label>
               <select
                 id="supplier_id"
                 name="supplier_id"
@@ -177,7 +177,7 @@ export function PurchaseReceiptForm({
                 key={`supplier-${materialId}`}
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <option value="">-- Secilmedi --</option>
+                <option value="">-- Seçilmedi --</option>
                 {suppliers.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.code} - {s.name}
@@ -205,7 +205,7 @@ export function PurchaseReceiptForm({
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <option value="" disabled>
-                -- Seciniz --
+                -- Seçiniz --
               </option>
               {lots.map((l) => (
                 <option key={l.id} value={l.id}>
@@ -275,7 +275,7 @@ export function PurchaseReceiptForm({
         <SubmitButton />
         <Link href={cancelHref}>
           <Button type="button" variant="outline">
-            Iptal
+            İptal
           </Button>
         </Link>
       </div>

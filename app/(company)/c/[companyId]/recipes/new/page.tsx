@@ -29,6 +29,14 @@ export default async function NewRecipePage({ params }: PageProps) {
     .order("name", { ascending: true });
 
   if (!finishedMaterials || finishedMaterials.length === 0) {
+    const newFinishedMaterialHref = `${companyModulePath(
+      companyId,
+      "materials",
+      "new",
+    )}?type=finished&returnTo=${encodeURIComponent(
+      companyModulePath(companyId, "recipes", "new"),
+    )}`;
+
     return (
       <div className="max-w-3xl space-y-6">
         <header className="space-y-1">
@@ -39,8 +47,8 @@ export default async function NewRecipePage({ params }: PageProps) {
           description="Reçete bir bitmiş ürüne bağlıdır. Önce malzemeler bölümünden 'Bitmiş Ürün' tipinde en az bir kayıt oluşturun."
         />
         <div>
-          <Link href={companyModulePath(companyId, "materials", "new")}>
-            <Button>Malzeme Ekle</Button>
+          <Link href={newFinishedMaterialHref}>
+            <Button>Bitmiş Ürün Ekle</Button>
           </Link>
         </div>
       </div>

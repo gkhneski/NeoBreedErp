@@ -33,6 +33,10 @@ function readSiteUrl(): string {
   return url.replace(/\/$/, "");
 }
 
+function welcomeRedirectUrl(): string {
+  return `${readSiteUrl()}/auth/callback?next=/welcome`;
+}
+
 async function findUserIdByEmail(email: string): Promise<string | null> {
   const admin = createServiceRoleClient();
   let page = 1;
@@ -70,8 +74,7 @@ export async function inviteCompanyMember(
   }
 
   const { company_id, email, role } = parsed.data;
-  const siteUrl = readSiteUrl();
-  const redirectTo = `${siteUrl}/auth/callback?next=/welcome`;
+  const redirectTo = welcomeRedirectUrl();
 
   const admin = createServiceRoleClient();
 
@@ -94,6 +97,14 @@ export async function inviteCompanyMember(
     if (!userId) {
       return {
         error: "E-posta zaten kayıtlı görünüyor fakat kullanıcı bulunamadı.",
+      };
+    }
+    const { error: resetError } = await admin.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+    if (resetError) {
+      return {
+        error: `Şifre belirleme e-postası gönderilemedi: ${resetError.message}`,
       };
     }
   } else {

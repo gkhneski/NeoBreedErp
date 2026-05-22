@@ -34,6 +34,10 @@ function readSiteUrl(): string {
   return url.replace(/\/$/, "");
 }
 
+function welcomeRedirectUrl(): string {
+  return `${readSiteUrl()}/auth/callback?next=/welcome`;
+}
+
 async function findUserIdByEmail(email: string): Promise<string | null> {
   const admin = createServiceRoleClient();
   const needle = email.toLowerCase();
@@ -78,7 +82,7 @@ export async function inviteCompanyUser(
   }
 
   const { email, role: invitedRole } = parsed.data;
-  const redirectTo = `${readSiteUrl()}/auth/callback?next=/welcome`;
+  const redirectTo = welcomeRedirectUrl();
   const admin = createServiceRoleClient();
 
   let userId: string | null = null;
@@ -102,6 +106,14 @@ export async function inviteCompanyUser(
     if (!userId) {
       return {
         error: "E-posta kayıtlı görünüyor fakat kullanıcı bulunamadı.",
+      };
+    }
+    const { error: resetError } = await admin.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+    if (resetError) {
+      return {
+        error: `Şifre belirleme e-postası gönderilemedi: ${resetError.message}`,
       };
     }
   } else {
@@ -134,4 +146,42 @@ export async function inviteCompanyUser(
       ? "Davet gönderildi ve kullanıcı firmaya eklendi."
       : "Kayıtlı kullanıcı firmaya eklendi.",
   };
+}
+
+export async function resendWelcomeEmail(
+  routeCompanyId: string,
+  userId: string,
+): Promise<void> {
+  const { role, companyId } = await requireCompanyUser(routeCompanyId);
+  if (!canManageCompanyUsers(role)) {
+    throw new Error("Bu işlem için firma admini yetkisi gerekir.");
+  }
+
+  const admin = createServiceRoleClient();
+  const { data: membership } = await admin
+    .from("company_users")
+    .select("user_id")
+    .eq("company_id", companyId)
+    .eq("user_id", userId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!membership) {
+    throw new Error("Kullanıcı bu firmaya ait değil.");
+  }
+
+  const { data, error } = await admin.auth.admin.getUserById(userId);
+  if (error || !data.user?.email) {
+    throw new Error(error?.message ?? "Kullanıcı e-postası bulunamadı.");
+  }
+
+  const { error: resetError } = await admin.auth.resetPasswordForEmail(
+    data.user.email,
+    { redirectTo: welcomeRedirectUrl() },
+  );
+  if (resetError) {
+    throw new Error(resetError.message);
+  }
+
+  revalidatePath(companyModulePath(companyId, "users"));
 }

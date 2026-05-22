@@ -44,7 +44,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending}>
-      {pending ? "Olusturuluyor..." : "Urun ve Recete Olustur"}
+      {pending ? "Oluşturuluyor..." : "Ürün ve Reçete Oluştur"}
     </Button>
   );
 }
@@ -80,9 +80,9 @@ export function ProductRecipeForm({
 
       <section className="space-y-4 rounded-md border border-border bg-card p-4">
         <div>
-          <h2 className="text-sm font-semibold">Urun Karti</h2>
+          <h2 className="text-sm font-semibold">Ürün Kartı</h2>
           <p className="text-xs text-muted-foreground">
-            Urun kodu URN-01 formatinda otomatik verilir.
+            Ürün kodu URN-01 formatında otomatik verilir.
           </p>
         </div>
 
@@ -92,12 +92,12 @@ export function ProductRecipeForm({
             <Input value="URN-01 otomatik" disabled />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="product_name">Urun Adi *</Label>
+            <Label htmlFor="product_name">Ürün Adı *</Label>
             <Input id="product_name" name="product_name" required />
             <FieldError message={state.fieldErrors?.product_name} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="product_uom">Urun Baz Birimi *</Label>
+            <Label htmlFor="product_uom">Ürün Baz Birimi *</Label>
             <select
               id="product_uom"
               name="product_uom"
@@ -118,9 +118,9 @@ export function ProductRecipeForm({
 
       <section className="space-y-4 rounded-md border border-border bg-card p-4">
         <div>
-          <h2 className="text-sm font-semibold">Recete Bilgisi</h2>
+          <h2 className="text-sm font-semibold">Reçete Bilgisi</h2>
           <p className="text-xs text-muted-foreground">
-            Recete kodu REC-01 formatinda otomatik verilir.
+            Reçete kodu REC-01 formatında otomatik verilir.
           </p>
         </div>
 
@@ -130,12 +130,12 @@ export function ProductRecipeForm({
             <Input value="REC-01 otomatik" disabled />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="recipe_name">Recete Adi *</Label>
+            <Label htmlFor="recipe_name">Reçete Adı *</Label>
             <Input id="recipe_name" name="recipe_name" required />
             <FieldError message={state.fieldErrors?.recipe_name} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="yield_quantity">Verim Miktari *</Label>
+            <Label htmlFor="yield_quantity">Verim Miktarı *</Label>
             <Input
               id="yield_quantity"
               name="yield_quantity"
@@ -169,9 +169,9 @@ export function ProductRecipeForm({
 
       <section className="space-y-3">
         <div>
-          <h2 className="text-sm font-semibold">Hammadde ve Ambalaj Secimi</h2>
+          <h2 className="text-sm font-semibold">Hammadde ve Ambalaj Seçimi</h2>
           <p className="text-xs text-muted-foreground">
-            Urunun recetesinde kullanilacak kayitli malzemeleri secin.
+            Ürünün reçetesinde kullanılacak kayıtlı malzemeleri seçin.
           </p>
         </div>
 
@@ -179,7 +179,7 @@ export function ProductRecipeForm({
           <table className="w-full text-sm">
             <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 text-left font-medium">Sec</th>
+                <th className="px-3 py-2 text-left font-medium">Seç</th>
                 <th className="px-3 py-2 text-left font-medium">Malzeme</th>
                 <th className="px-3 py-2 text-right font-medium">Serbest Stok</th>
                 <th className="px-3 py-2 text-right font-medium">Karantina</th>
@@ -269,7 +269,7 @@ export function ProductRecipeForm({
         <SubmitButton />
         <Link href={cancelHref}>
           <Button type="button" variant="outline">
-            Iptal
+            İptal
           </Button>
         </Link>
       </div>

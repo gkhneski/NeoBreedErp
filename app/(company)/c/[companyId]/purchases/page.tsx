@@ -61,10 +61,10 @@ export default async function PurchaseReceiptsPage({ params }: PageProps) {
       <header className="flex items-end justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Fatura / Irsaliye
+            Fatura / İrsaliye
           </h1>
           <p className="text-sm text-muted-foreground">
-            Sirket ici manuel alim belgeleri. Bu ekrandan kaydedilen satirlar
+            Sirket ici manuel alım belgeleri. Bu ekrandan kaydedilen satirlar
             stok defterine mal kabul olarak islenir.
           </p>
         </div>
@@ -81,7 +81,7 @@ export default async function PurchaseReceiptsPage({ params }: PageProps) {
             <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">Tarih</th>
-                <th className="px-3 py-2 text-left font-medium">Tur</th>
+                <th className="px-3 py-2 text-left font-medium">Tür</th>
                 <th className="px-3 py-2 text-left font-medium">Malzeme</th>
                 <th className="px-3 py-2 text-left font-medium">Lot</th>
                 <th className="px-3 py-2 text-right font-medium">Miktar</th>
@@ -128,7 +128,7 @@ export default async function PurchaseReceiptsPage({ params }: PageProps) {
         </div>
       ) : (
         <EmptyState
-          title="Henuz alim belgesi yok"
+          title="Henüz alım belgesi yok"
           description="Yeni belge kaydederek stoga mal kabul isleyebilirsiniz."
         />
       )}

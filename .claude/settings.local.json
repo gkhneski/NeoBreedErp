@@ -18,7 +18,20 @@
       "PowerShell(npm run *)",
       "Bash(git commit *)",
       "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 80)",
-      "PowerShell(npx tsc --noEmit; $LASTEXITCODE)"
+      "PowerShell(npx tsc --noEmit; $LASTEXITCODE)",
+      "Bash(tasklist)",
+      "Bash(supabase --version)",
+      "Bash(Get-ChildItem *)",
+      "Bash(mkdir -p /tmp/nb-backup)",
+      "Bash(cp docs/DATABASE_CONTRACT.md /tmp/nb-backup/DATABASE_CONTRACT.md.full)",
+      "Bash(cp types/database.ts /tmp/nb-backup/database.ts.full)",
+      "Bash(cp docs/PHASE_PLAN.md /tmp/nb-backup/PHASE_PLAN.md.full)",
+      "Bash(cp components/layout/company-sidebar.tsx /tmp/nb-backup/company-sidebar.tsx.full)",
+      "Bash(git restore *)",
+      "Bash(npx tsc *)",
+      "Bash(npx --no-install tsc --noEmit)",
+      "Bash(git stash *)",
+      "Bash(npx --no-install next lint)"
     ]
   }
 }

@@ -11,7 +11,7 @@ import { MASTER_DATA_WRITE_ROLES, companyModulePath } from "@/types/roles";
 const supplierSchema = z.object({
   company_id: z.string().uuid(),
   supplier_id: z.string().uuid().optional().or(z.literal("")),
-  name: z.string().trim().min(2, "Ad en az 2 karakter olmali.").max(200),
+  name: z.string().trim().min(2, "Ad en az 2 karakter olmalı.").max(200),
   tax_number: z.string().trim().max(64).optional().or(z.literal("")),
   email: z
     .string()
@@ -21,7 +21,7 @@ const supplierSchema = z.object({
     .or(z.literal(""))
     .refine(
       (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
-      "Gecerli bir e-posta giriniz.",
+      "Geçerli bir e-posta giriniz.",
     ),
   phone: z.string().trim().max(64).optional().or(z.literal("")),
   address: z.string().trim().max(2000).optional().or(z.literal("")),
@@ -33,7 +33,7 @@ const supplierSchema = z.object({
     .or(z.literal(""))
     .refine(
       (v) => !v || /^[A-Za-z]{2}$/.test(v),
-      "Ulke kodu ISO 3166-1 alpha-2 olmali (orn. TR, DE).",
+      "Ülke kodu ISO 3166-1 alpha-2 olmalı (örn. TR, DE).",
     ),
   notes: z.string().trim().max(2000).optional().or(z.literal("")),
 });
@@ -128,7 +128,7 @@ export async function createSupplier(
 
   if (error) {
     if (error.code === "23505") {
-      return { error: "Otomatik kod olusturulamadi; lutfen tekrar deneyin." };
+      return { error: "Otomatik kod oluşturulamadı; lütfen tekrar deneyin." };
     }
     return { error: error.message };
   }

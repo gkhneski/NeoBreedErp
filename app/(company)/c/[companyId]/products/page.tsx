@@ -79,14 +79,14 @@ export default async function ProductsPage({ params }: PageProps) {
     <div className="space-y-6">
       <header className="flex items-end justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Urunler</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Ürünler</h1>
           <p className="text-sm text-muted-foreground">
-            Urun kodlari URN-01 formatinda otomatik verilir.
+            Ürün kodları URN-01 formatında otomatik verilir.
           </p>
         </div>
         {canWrite ? (
           <Link href={newHref}>
-            <Button>Yeni Urun</Button>
+            <Button>Yeni Ürün</Button>
           </Link>
         ) : null}
       </header>
@@ -97,14 +97,14 @@ export default async function ProductsPage({ params }: PageProps) {
             <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">Kod</th>
-                <th className="px-3 py-2 text-left font-medium">Gorsel</th>
+                <th className="px-3 py-2 text-left font-medium">Görsel</th>
                 <th className="px-3 py-2 text-left font-medium">Ad</th>
                 <th className="px-3 py-2 text-right font-medium">Serbest Stok</th>
                 <th className="px-3 py-2 text-right font-medium">Karantina</th>
                 <th className="px-3 py-2 text-left font-medium">Saklama</th>
                 <th className="px-3 py-2 text-left font-medium">Regulasyon</th>
                 {canWrite ? (
-                  <th className="px-3 py-2 text-right font-medium">Islem</th>
+                  <th className="px-3 py-2 text-right font-medium">İşlem</th>
                 ) : null}
               </tr>
             </thead>
@@ -117,7 +117,7 @@ export default async function ProductsPage({ params }: PageProps) {
                 const quarantine = lots
                   .filter((lot) => lot.status === "quarantine")
                   .reduce((sum, lot) => sum + Number(lot.quantity_on_hand), 0);
-                const detailHref = companyModulePath(companyId, "materials", row.id);
+                const detailHref = companyModulePath(companyId, "products", row.id);
                 const editHref = companyModulePath(companyId, "products", row.id, "edit");
                 const thumbnailUrl = thumbnailByPath.get(
                   `${companyId}/products/${row.id}/thumbnail`,
@@ -174,7 +174,7 @@ export default async function ProductsPage({ params }: PageProps) {
                       <td className="px-3 py-2 text-right">
                         <div className="flex justify-end gap-1">
                           <Link href={editHref}>
-                            <Button size="sm" variant="outline">Duzenle</Button>
+                            <Button size="sm" variant="outline">Düzenle</Button>
                           </Link>
                           <form action={deleteAction}>
                             <Button size="sm" variant="destructive" type="submit">
@@ -192,12 +192,12 @@ export default async function ProductsPage({ params }: PageProps) {
         </div>
       ) : (
         <EmptyState
-          title="Henuz bitmis urun yok"
-          description="Yeni urun ekleyerek URN kodlu bitmis urun ve taslak recete olusturun."
+          title="Henüz bitmiş ürün yok"
+          description="Yeni ürün ekleyerek URN kodlu bitmiş ürün ve taslak reçete oluşturun."
           action={
             canWrite ? (
               <Link href={newHref}>
-                <Button>Urun Ekle</Button>
+                <Button>Ürün Ekle</Button>
               </Link>
             ) : undefined
           }

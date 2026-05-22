@@ -55,7 +55,7 @@ export default async function EditMaterialPage({ params }: PageProps) {
   return (
     <div className="max-w-3xl space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Malzeme Duzenle</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Malzeme Düzenle</h1>
         <p className="font-mono text-sm text-muted-foreground">{material.code}</p>
       </header>
       <MaterialForm

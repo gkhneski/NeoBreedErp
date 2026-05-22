@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { requireCompanyUser } from "@/lib/auth";
 import {
   createServerSupabaseClient,
@@ -8,6 +9,7 @@ import type { CompanyRole } from "@/types/roles";
 import { COMPANY_ROLE_LABELS, canManageCompanyUsers } from "@/types/roles";
 
 import { InviteUserForm } from "./invite-user-form";
+import { resendWelcomeEmail } from "./actions";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -61,10 +63,20 @@ export default async function UsersPage({ params }: PageProps) {
               <th className="px-3 py-2 text-left font-medium">E-posta</th>
               <th className="px-3 py-2 text-left font-medium">Rol</th>
               <th className="px-3 py-2 text-left font-medium">Eklenme</th>
+              {canManageCompanyUsers(role) ? (
+                <th className="px-3 py-2 text-right font-medium">İşlem</th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
-            {rows.map((member) => (
+            {rows.map((member) => {
+              const resendAction = resendWelcomeEmail.bind(
+                null,
+                companyId,
+                member.user_id,
+              );
+
+              return (
               <tr key={member.user_id} className="border-t border-border">
                 <td className="px-3 py-2">
                   {member.profiles?.full_name ?? "İsimsiz kullanıcı"}
@@ -84,12 +96,22 @@ export default async function UsersPage({ params }: PageProps) {
                 <td className="px-3 py-2 text-xs text-muted-foreground">
                   {new Date(member.created_at).toLocaleDateString("tr-TR")}
                 </td>
+                {canManageCompanyUsers(role) ? (
+                  <td className="px-3 py-2 text-right">
+                    <form action={resendAction}>
+                      <Button type="submit" size="sm" variant="outline">
+                        Şifre Linki Gönder
+                      </Button>
+                    </form>
+                  </td>
+                ) : null}
               </tr>
-            ))}
+              );
+            })}
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={canManageCompanyUsers(role) ? 5 : 4}
                   className="px-3 py-8 text-center text-sm text-muted-foreground"
                 >
                   Görüntülenebilir kullanıcı kaydı yok.

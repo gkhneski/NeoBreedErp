@@ -42,7 +42,7 @@ function SubmitButton({ editing }: { editing: boolean }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending}>
-      {pending ? "Kaydediliyor..." : editing ? "Guncelle" : "Taslagi Olustur"}
+      {pending ? "Kaydediliyor..." : editing ? "Güncelle" : "Taslağı Oluştur"}
     </Button>
   );
 }
@@ -78,7 +78,7 @@ export function RecipeForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="finished_material_id">Bitmis Urun *</Label>
+          <Label htmlFor="finished_material_id">Bitmiş Ürün *</Label>
           <select
             id="finished_material_id"
             name="finished_material_id"
@@ -87,7 +87,7 @@ export function RecipeForm({
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="" disabled>
-              -- Seciniz --
+              -- Seçiniz --
             </option>
             {finishedMaterials.map((m) => (
               <option key={m.id} value={m.id}>
@@ -103,7 +103,7 @@ export function RecipeForm({
           <Input value={initial?.code ?? "REC-01 otomatik"} disabled />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="name">Recete Adi *</Label>
+          <Label htmlFor="name">Reçete Adı *</Label>
           <Input id="name" name="name" required defaultValue={initial?.name ?? ""} />
           <FieldError message={state.fieldErrors?.name} />
         </div>
@@ -117,15 +117,15 @@ export function RecipeForm({
             defaultValue={initial?.mode ?? "quantity"}
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <option value="quantity">Miktar bazli</option>
-            <option value="percentage">Yuzde bazli</option>
+            <option value="quantity">Miktar bazlı</option>
+            <option value="percentage">Yüzde bazlı</option>
           </select>
           <FieldError message={state.fieldErrors?.mode} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="yield_quantity">Verim Miktari *</Label>
+            <Label htmlFor="yield_quantity">Verim Miktarı *</Label>
             <Input
               id="yield_quantity"
               name="yield_quantity"
@@ -177,7 +177,7 @@ export function RecipeForm({
         <SubmitButton editing={!!initial} />
         <Link href={cancelHref}>
           <Button type="button" variant="outline">
-            Iptal
+            İptal
           </Button>
         </Link>
       </div>

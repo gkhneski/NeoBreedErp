@@ -64,7 +64,7 @@ function SubmitButton({ editing }: { editing: boolean }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending}>
-      {pending ? "Kaydediliyor..." : editing ? "Guncelle" : "Kaydet"}
+      {pending ? "Kaydediliyor..." : editing ? "Güncelle" : "Kaydet"}
     </Button>
   );
 }
@@ -111,7 +111,7 @@ export function MaterialForm({
           <Input value={codePreview} disabled />
           {!initial ? (
             <p className="text-xs text-muted-foreground">
-              Kod kayit sirasinda otomatik verilir.
+              Kod kayıt sirasinda otomatik verilir.
             </p>
           ) : null}
         </div>
@@ -130,7 +130,7 @@ export function MaterialForm({
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="raw">Hammadde</option>
-            <option value="finished">Bitmis Urun</option>
+            <option value="finished">Bitmiş Ürün</option>
           </select>
           <FieldError message={state.fieldErrors?.type} />
         </div>
@@ -144,7 +144,7 @@ export function MaterialForm({
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="" disabled>
-              -- Seciniz --
+              -- Seçiniz --
             </option>
             {UOM_OPTIONS.map((u) => (
               <option key={u.value} value={u.value}>
@@ -155,27 +155,27 @@ export function MaterialForm({
           <FieldError message={state.fieldErrors?.base_uom} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="density">Yogunluk (g/mL)</Label>
+          <Label htmlFor="density">Yoğunluk (g/mL)</Label>
           <Input
             id="density"
             name="density"
             type="number"
             step="0.000001"
             min="0"
-            placeholder="orn. 1.000000"
+            placeholder="örn. 1.000000"
             defaultValue={initial?.density ?? ""}
           />
           <FieldError message={state.fieldErrors?.density} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="default_supplier_id">Varsayilan Tedarikci</Label>
+          <Label htmlFor="default_supplier_id">Varsayılan Tedarikçi</Label>
           <select
             id="default_supplier_id"
             name="default_supplier_id"
             defaultValue={initial?.default_supplier_id ?? ""}
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <option value="">-- Secilmedi --</option>
+            <option value="">-- Seçilmedi --</option>
             {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.code} - {s.name}
@@ -184,12 +184,12 @@ export function MaterialForm({
           </select>
           {suppliers.length === 0 ? (
             <p className="text-xs text-muted-foreground">
-              Henuz tedarikci yok.{" "}
+              Henüz tedarikçi yok.{" "}
               <Link
                 href={companyModulePath(companyId, "suppliers", "new")}
                 className="underline"
               >
-                Yeni tedarikci ekleyin
+                Yeni tedarikçi ekleyin
               </Link>
               .
             </p>
@@ -223,12 +223,12 @@ export function MaterialForm({
       </fieldset>
 
       <div className="space-y-1.5">
-        <Label htmlFor="storage_conditions">Saklama Kosullari</Label>
+        <Label htmlFor="storage_conditions">Saklama Koşulları</Label>
         <Input
           id="storage_conditions"
           name="storage_conditions"
           list="storage-options"
-          placeholder="orn. Oda sicakligi (15-25 C)"
+          placeholder="örn. Oda sıcaklığı (15-25 C)"
           defaultValue={initial?.storage_conditions ?? ""}
         />
         <datalist id="storage-options">
@@ -240,7 +240,7 @@ export function MaterialForm({
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="regulatory_notes">Mevzuat Notlari</Label>
+        <Label htmlFor="regulatory_notes">Mevzuat Notları</Label>
         <Textarea
           id="regulatory_notes"
           name="regulatory_notes"
@@ -266,7 +266,7 @@ export function MaterialForm({
         <SubmitButton editing={!!initial} />
         <Link href={cancelHref}>
           <Button type="button" variant="outline">
-            Iptal
+            İptal
           </Button>
         </Link>
       </div>

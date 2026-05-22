@@ -73,14 +73,14 @@ export default async function NewPurchaseReceiptPage({ params }: PageProps) {
     return (
       <div className="max-w-3xl space-y-4">
         <h1 className="text-2xl font-semibold tracking-tight">
-          Yeni Fatura / Irsaliye
+          Yeni Fatura / İrsaliye
         </h1>
         <EmptyState
-          title="Stoga alinacak malzeme yok"
-          description="Yeni alim belgesi olusturmak icin once hammadde veya urun karti acin."
+          title="Stoğa alınacak malzeme yok"
+          description="Yeni alım belgesi oluşturmak için önce hammadde veya ürün kartı açın."
         />
         <Link href={companyModulePath(companyId, "materials", "new")}>
-          <Button>Malzeme Olustur</Button>
+          <Button>Malzeme Oluştur</Button>
         </Link>
       </div>
     );
@@ -90,10 +90,10 @@ export default async function NewPurchaseReceiptPage({ params }: PageProps) {
     <div className="max-w-3xl space-y-6">
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">
-          Yeni Fatura / Irsaliye
+          Yeni Fatura / İrsaliye
         </h1>
         <p className="text-sm text-muted-foreground">
-          Sirket ici manuel alim belgesi. Yeni lot acabilir veya mevcut bir
+          Sirket ici manuel alım belgesi. Yeni lot acabilir veya mevcut bir
           lota ek stok girisi yapabilirsiniz.
         </p>
       </header>

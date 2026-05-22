@@ -35,14 +35,14 @@ export default async function SuppliersListPage({ params }: PageProps) {
     <div className="space-y-6">
       <header className="flex items-end justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Tedarikciler</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Tedarikçiler</h1>
           <p className="text-sm text-muted-foreground">
-            Tedarikci kodlari TED-01 formatinda otomatik verilir.
+            Tedarikçi kodları TED-01 formatında otomatik verilir.
           </p>
         </div>
         {canWrite ? (
           <Link href={newHref}>
-            <Button>Yeni Tedarikci</Button>
+            <Button>Yeni Tedarikçi</Button>
           </Link>
         ) : null}
       </header>
@@ -57,9 +57,9 @@ export default async function SuppliersListPage({ params }: PageProps) {
                 <th className="px-3 py-2 text-left font-medium">Vergi No</th>
                 <th className="px-3 py-2 text-left font-medium">E-posta</th>
                 <th className="px-3 py-2 text-left font-medium">Telefon</th>
-                <th className="px-3 py-2 text-left font-medium">Ulke</th>
+                <th className="px-3 py-2 text-left font-medium">Ülke</th>
                 {canWrite ? (
-                  <th className="px-3 py-2 text-right font-medium">Islem</th>
+                  <th className="px-3 py-2 text-right font-medium">İşlem</th>
                 ) : null}
               </tr>
             </thead>
@@ -87,7 +87,7 @@ export default async function SuppliersListPage({ params }: PageProps) {
                       <td className="px-3 py-2 text-right">
                         <div className="flex justify-end gap-1">
                           <Link href={editHref}>
-                            <Button size="sm" variant="outline">Duzenle</Button>
+                            <Button size="sm" variant="outline">Düzenle</Button>
                           </Link>
                           <form action={deleteAction}>
                             <Button size="sm" variant="destructive" type="submit">
@@ -105,8 +105,8 @@ export default async function SuppliersListPage({ params }: PageProps) {
         </div>
       ) : (
         <EmptyState
-          title="Henuz tedarikci yok"
-          description="Ilk tedarikcinizi ekleyin; sonra malzeme kayitlarinda varsayilan tedarikci olarak secebilirsiniz."
+          title="Henüz tedarikçi yok"
+          description="İlk tedarikçinizi ekleyin; sonra malzeme kayıtlarında varsayılan tedarikçi olarak seçebilirsiniz."
         />
       )}
     </div>

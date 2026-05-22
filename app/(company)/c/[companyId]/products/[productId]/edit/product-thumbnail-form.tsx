@@ -19,7 +19,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" size="sm" disabled={pending}>
-      {pending ? "Yukleniyor..." : "Thumbnail Yukle"}
+      {pending ? "Yükleniyor..." : "Thumbnail Yükle"}
     </Button>
   );
 }
@@ -63,7 +63,7 @@ export function ProductThumbnailForm({
           ) : null}
         </div>
         <div className="min-w-0 flex-1 space-y-1">
-          <Label htmlFor="thumbnail">Urun thumbnail</Label>
+          <Label htmlFor="thumbnail">Ürün thumbnail</Label>
           <Input
             id="thumbnail"
             name="thumbnail"
@@ -72,7 +72,7 @@ export function ProductThumbnailForm({
             required
           />
           <p className="text-xs text-muted-foreground">
-            JPG, PNG veya WEBP. Liste icin kucuk gorsel; en fazla 2 MB.
+            JPG, PNG veya WEBP. Liste için küçük görsel; en fazla 2 MB.
           </p>
         </div>
       </div>
@@ -84,7 +84,7 @@ export function ProductThumbnailForm({
       ) : null}
       {state.ok ? (
         <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600">
-          Thumbnail yuklendi.
+          Thumbnail yüklendi.
         </p>
       ) : null}
 

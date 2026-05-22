@@ -17,7 +17,7 @@ const optionalUuid = z
   .optional()
   .transform((v) => (v && v.length > 0 ? v : null))
   .refine((v) => v === null || uuidRegex.test(v), {
-    message: "Gecersiz secim.",
+    message: "Geçersiz seçim.",
   });
 
 const dateOptional = z
@@ -26,7 +26,7 @@ const dateOptional = z
   .optional()
   .transform((v) => (v && v.length > 0 ? v : null))
   .refine((v) => v === null || /^\d{4}-\d{2}-\d{2}$/.test(v), {
-    message: "Tarih formati yyyy-aa-gg olmali.",
+    message: "Tarih formatı yyyy-aa-gg olmalı.",
   });
 
 const purchaseReceiptSchema = z
@@ -52,7 +52,7 @@ const purchaseReceiptSchema = z
       .min(1, "Miktar gerekli.")
       .transform((v) => Number(v))
       .refine((v) => Number.isFinite(v) && v > 0, {
-        message: "Miktar pozitif bir sayi olmali.",
+        message: "Miktar pozitif bir sayı olmalı.",
       }),
     unit_cost: z
       .string()
@@ -60,7 +60,7 @@ const purchaseReceiptSchema = z
       .optional()
       .transform((v) => (v && v.length > 0 ? Number(v) : null))
       .refine((v) => v === null || (Number.isFinite(v) && v >= 0), {
-        message: "Birim maliyet 0 veya pozitif olmali.",
+        message: "Birim maliyet 0 veya pozitif olmalı.",
       }),
     currency: z
       .string()
@@ -70,7 +70,7 @@ const purchaseReceiptSchema = z
       .or(z.literal(""))
       .refine(
         (v) => !v || /^[A-Za-z]{3}$/.test(v),
-        "Para birimi ISO 4217 (orn. TRY, EUR) olmali.",
+        "Para birimi ISO 4217 (örn. TRY, EUR) olmalı.",
       ),
     notes: z.string().trim().max(2000).optional().or(z.literal("")),
   })
@@ -87,14 +87,14 @@ const purchaseReceiptSchema = z
         ctx.addIssue({
           code: "custom",
           path: ["material_id"],
-          message: "Malzeme seciniz.",
+          message: "Malzeme seçiniz.",
         });
       }
       if (!d.lot_number || d.lot_number.trim().length === 0) {
         ctx.addIssue({
           code: "custom",
           path: ["lot_number"],
-          message: "Yeni alim icin lot numarasi gerekli.",
+          message: "Yeni alım için lot numarası gerekli.",
         });
       }
     }
@@ -102,14 +102,14 @@ const purchaseReceiptSchema = z
       ctx.addIssue({
         code: "custom",
         path: ["lot_id"],
-        message: "Mevcut lot seciniz.",
+        message: "Mevcut lot seçiniz.",
       });
     }
     if (d.expiry_date && d.received_at && d.expiry_date < d.received_at) {
       ctx.addIssue({
         code: "custom",
         path: ["expiry_date"],
-        message: "Son kullanma alis tarihinden once olamaz.",
+        message: "Son kullanma alış tarihinden önce olamaz.",
       });
     }
   });
@@ -131,7 +131,7 @@ function buildReceiptNotes(data: z.output<typeof purchaseReceiptSchema>) {
   const parts = [
     data.invoice_number ? `Fatura No: ${data.invoice_number}` : null,
     data.dispatch_note_number
-      ? `Irsaliye No: ${data.dispatch_note_number}`
+      ? `İrsaliye No: ${data.dispatch_note_number}`
       : null,
     data.notes ? `Not: ${data.notes}` : null,
   ].filter(Boolean);
@@ -182,7 +182,7 @@ export async function recordPurchaseReceipt(
     const materialId = parsed.data.material_id;
     const lotNumber = parsed.data.lot_number?.trim();
     if (!materialId || !lotNumber) {
-      return { error: "Malzeme ve lot numarasi gerekli." };
+      return { error: "Malzeme ve lot numarası gerekli." };
     }
 
     const { error } = await supabase.rpc("create_lot_with_receipt", {
@@ -202,19 +202,19 @@ export async function recordPurchaseReceipt(
     if (error) {
       if (error.code === "23505") {
         return {
-          error: "Bu malzeme icin ayni lot numarasi zaten kayitli.",
-          fieldErrors: { lot_number: "Lot numarasi benzersiz olmali." },
+          error: "Bu malzeme için aynı lot numarası zaten kayıtlı.",
+          fieldErrors: { lot_number: "Lot numarası benzersiz olmalı." },
         };
       }
       if (error.code === "23503") {
-        return { error: "Secilen malzeme veya tedarikci bulunamadi." };
+        return { error: "Seçilen malzeme veya tedarikçi bulunamadı." };
       }
       return { error: error.message };
     }
   } else {
     const lotId = parsed.data.lot_id;
     if (!lotId) {
-      return { error: "Mevcut lot seciniz." };
+      return { error: "Mevcut lot seçiniz." };
     }
 
     const { data: lot, error: lotErr } = await supabase
@@ -226,7 +226,7 @@ export async function recordPurchaseReceipt(
       .maybeSingle();
 
     if (lotErr || !lot) {
-      return { error: "Mevcut lot bulunamadi veya bu firmaya ait degil." };
+      return { error: "Mevcut lot bulunamadı veya bu firmaya ait değil." };
     }
 
     const { error } = await supabase.from("stock_movements").insert({

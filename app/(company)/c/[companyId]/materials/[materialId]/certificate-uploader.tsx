@@ -24,7 +24,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" size="sm" disabled={pending}>
-      {pending ? "Yukleniyor..." : "Analiz Sertifikasi Yukle"}
+      {pending ? "Yükleniyor..." : "Analiz Sertifikasi Yükle"}
     </Button>
   );
 }
@@ -49,7 +49,7 @@ export function MaterialCertificateUploader({
   if (lots.length === 0) {
     return (
       <p className="rounded-md border border-dashed border-border bg-card/40 px-3 py-4 text-xs text-muted-foreground">
-        Sertifika yuklemek icin once bu malzeme icin lot acin.
+        Sertifika yüklemek için önce bu malzeme için lot açin.
       </p>
     );
   }
@@ -74,7 +74,7 @@ export function MaterialCertificateUploader({
             className="flex h-9 w-full rounded-md border border-border bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="" disabled>
-              -- Seciniz --
+              -- Seçiniz --
             </option>
             {lots.map((lot) => (
               <option key={lot.id} value={lot.id}>
@@ -101,7 +101,7 @@ export function MaterialCertificateUploader({
           id="notes"
           name="notes"
           rows={2}
-          placeholder="Orn. Tedarikci CoA, analiz tarihi, rapor no"
+          placeholder="Örn. Tedarikçi CoA, analiz tarihi, rapor no"
         />
       </div>
 
@@ -112,7 +112,7 @@ export function MaterialCertificateUploader({
       ) : null}
       {state.ok ? (
         <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600">
-          Sertifika yuklendi.
+          Sertifika yüklendi.
         </p>
       ) : null}
 

@@ -13,17 +13,17 @@ const ALLOWED_UOM = ["g", "kg", "mg", "mL", "L", "unit"] as const;
 const recipeSchema = z.object({
   company_id: z.string().uuid(),
   recipe_id: z.string().uuid().optional().or(z.literal("")),
-  finished_material_id: z.string().uuid("Bitmis urun seciniz."),
-  name: z.string().trim().min(2, "Ad en az 2 karakter olmali.").max(200),
-  mode: z.enum(["quantity", "percentage"], { message: "Mod seciniz." }),
+  finished_material_id: z.string().uuid("Bitmiş ürün seçiniz."),
+  name: z.string().trim().min(2, "Ad en az 2 karakter olmalı.").max(200),
+  mode: z.enum(["quantity", "percentage"], { message: "Mod seçiniz." }),
   yield_quantity: z
     .string()
     .trim()
     .transform((v) => Number(v))
     .refine((v) => Number.isFinite(v) && v > 0, {
-      message: "Verim miktari pozitif bir sayi olmali.",
+      message: "Verim miktarı pozitif bir sayı olmalı.",
     }),
-  yield_uom: z.enum(ALLOWED_UOM, { message: "Gecerli bir birim seciniz." }),
+  yield_uom: z.enum(ALLOWED_UOM, { message: "Geçerli bir birim seçiniz." }),
   notes: z.string().trim().max(2000).optional().or(z.literal("")),
 });
 
@@ -121,9 +121,9 @@ export async function createRecipe(
 
   if (error || !data) {
     if (error?.code === "23505") {
-      return { error: "Bu bitmis urun icin bu versiyon zaten var." };
+      return { error: "Bu bitmiş ürün için bu versiyon zaten var." };
     }
-    return { error: error?.message ?? "Recete olusturulamadi." };
+    return { error: error?.message ?? "Reçete oluşturulamadı." };
   }
 
   revalidatePath(companyModulePath(companyId, "recipes"));
@@ -158,9 +158,9 @@ export async function updateRecipe(
     .eq("company_id", companyId)
     .maybeSingle();
 
-  if (!recipe) return { error: "Recete bulunamadi." };
+  if (!recipe) return { error: "Reçete bulunamadı." };
   if (recipe.status !== "draft") {
-    return { error: "Yalnizca taslak receteler duzenlenebilir." };
+    return { error: "Yalnızca taslak reçeteler düzenlenebilir." };
   }
 
   const { error } = await supabase
@@ -187,22 +187,22 @@ export async function updateRecipe(
 const recipeItemAddSchema = z.object({
   company_id: z.string().uuid(),
   recipe_id: z.string().uuid(),
-  material_id: z.string().uuid("Malzeme seciniz."),
+  material_id: z.string().uuid("Malzeme seçiniz."),
   quantity: z
     .string()
     .trim()
     .transform((v) => Number(v))
     .refine((v) => Number.isFinite(v) && v > 0, {
-      message: "Miktar pozitif bir sayi olmali.",
+      message: "Miktar pozitif bir sayı olmalı.",
     }),
-  uom: z.enum(ALLOWED_UOM, { message: "Birim seciniz." }),
+  uom: z.enum(ALLOWED_UOM, { message: "Birim seçiniz." }),
   percentage: z
     .string()
     .trim()
     .optional()
     .transform((v) => (v && v.length > 0 ? Number(v) : null))
     .refine((v) => v === null || (Number.isFinite(v) && v >= 0 && v <= 100), {
-      message: "Yuzde 0 ile 100 arasi olmali.",
+      message: "Yüzde 0 ile 100 arası olmalı.",
     }),
   active: z
     .string()
@@ -253,10 +253,10 @@ export async function addRecipeItem(
     .maybeSingle();
 
   if (recipeError || !recipe || recipe.company_id !== companyId) {
-    return { error: "Recete bulunamadi." };
+    return { error: "Reçete bulunamadı." };
   }
   if (recipe.status !== "draft") {
-    return { error: "Yalnizca taslak recetelere kalem eklenebilir." };
+    return { error: "Yalnızca taslak reçetelere kalem eklenebilir." };
   }
 
   const { data: maxPositionRow } = await supabase
@@ -304,10 +304,10 @@ export async function removeRecipeItem(
     .maybeSingle();
 
   if (!recipe || recipe.company_id !== companyId) {
-    throw new Error("Recete bulunamadi.");
+    throw new Error("Reçete bulunamadı.");
   }
   if (recipe.status !== "draft") {
-    throw new Error("Yalnizca taslak recetelerden kalem silinebilir.");
+    throw new Error("Yalnızca taslak reçetelerden kalem silinebilir.");
   }
 
   const { error } = await supabase
@@ -335,10 +335,10 @@ export async function publishRecipe(
     .maybeSingle();
 
   if (!recipe || recipe.company_id !== companyId) {
-    throw new Error("Recete bulunamadi.");
+    throw new Error("Reçete bulunamadı.");
   }
   if (recipe.status !== "draft") {
-    throw new Error("Yalnizca taslak receteler yayinlanabilir.");
+    throw new Error("Yalnızca taslak reçeteler yayınlanabilir.");
   }
 
   const { data: items } = await supabase
@@ -347,7 +347,7 @@ export async function publishRecipe(
     .eq("recipe_id", recipeId);
 
   if (!items || items.length === 0) {
-    throw new Error("Recete en az bir kalem icermeli.");
+    throw new Error("Reçete en az bir kalem içermeli.");
   }
 
   if (recipe.mode === "percentage") {
@@ -355,7 +355,7 @@ export async function publishRecipe(
       .filter((i) => i.active)
       .reduce((sum, i) => sum + (i.percentage ?? 0), 0);
     if (Math.abs(total - 100) > 0.0001) {
-      throw new Error(`Aktif kalemlerin yuzdesi 100 olmali (su an: ${total.toFixed(4)}).`);
+      throw new Error(`Aktif kalemlerin yüzdesi 100 olmalı (şu an: ${total.toFixed(4)}).`);
     }
   }
 
@@ -367,7 +367,7 @@ export async function publishRecipe(
   if (error) {
     if (error.code === "23505") {
       throw new Error(
-        "Bu bitmis urun icin zaten yayinlanmis bir recete var. Once onu arsivleyin.",
+        "Bu bitmiş ürün için zaten yayınlanmış bir reçete var. Önce onu arşivleyin.",
       );
     }
     throw new Error(error.message);
@@ -393,10 +393,10 @@ export async function createNewRecipeVersion(
     .maybeSingle();
 
   if (!source || source.company_id !== companyId) {
-    throw new Error("Recete bulunamadi.");
+    throw new Error("Reçete bulunamadı.");
   }
   if (source.status !== "published") {
-    throw new Error("Yalnizca yayinlanmis bir receteden yeni versiyon olusturulabilir.");
+    throw new Error("Yalnızca yayınlanmış bir reçeteden yeni versiyon oluşturulabilir.");
   }
 
   const { data: latest } = await supabase
@@ -432,7 +432,7 @@ export async function createNewRecipeVersion(
     .single();
 
   if (insertError || !newRecipe) {
-    throw new Error(insertError?.message ?? "Yeni versiyon olusturulamadi.");
+    throw new Error(insertError?.message ?? "Yeni versiyon oluşturulamadı.");
   }
 
   const { data: sourceItems } = await supabase

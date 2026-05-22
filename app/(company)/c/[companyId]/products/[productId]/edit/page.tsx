@@ -66,7 +66,7 @@ export default async function EditProductPage({ params }: PageProps) {
   return (
     <div className="max-w-3xl space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Urun Duzenle</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Ürün Düzenle</h1>
         <p className="font-mono text-sm text-muted-foreground">{product.code}</p>
       </header>
       <MaterialForm

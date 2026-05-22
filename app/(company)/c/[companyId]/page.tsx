@@ -69,8 +69,8 @@ function buildQuickActions(companyId: string): QuickAction[] {
     },
     {
       label: "Ürün Ekle",
-      href: companyModulePath(companyId, "materials", "new"),
-      description: "Hammadde veya bitmiş ürün tanımlayın.",
+      href: companyModulePath(companyId, "products", "new"),
+      description: "Yeni bitmiş ürün kartı tanımlayın.",
     },
     {
       label: "Reçete Oluştur",

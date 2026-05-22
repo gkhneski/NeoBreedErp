@@ -34,7 +34,7 @@ function SubmitButton({ editing }: { editing: boolean }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending}>
-      {pending ? "Kaydediliyor..." : editing ? "Guncelle" : "Kaydet"}
+      {pending ? "Kaydediliyor..." : editing ? "Güncelle" : "Kaydet"}
     </Button>
   );
 }
@@ -68,7 +68,7 @@ export function SupplierForm({
           <Input value={initial?.code ?? "TED-01 otomatik"} disabled />
           {!initial ? (
             <p className="text-xs text-muted-foreground">
-              Kod kayit sirasinda otomatik verilir.
+              Kod kayıt sirasinda otomatik verilir.
             </p>
           ) : null}
         </div>
@@ -87,7 +87,7 @@ export function SupplierForm({
           <FieldError message={state.fieldErrors?.tax_number} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="country">Ulke (ISO-2)</Label>
+          <Label htmlFor="country">Ülke (ISO-2)</Label>
           <Input
             id="country"
             name="country"
@@ -142,7 +142,7 @@ export function SupplierForm({
         <SubmitButton editing={!!initial} />
         <Link href={cancelHref}>
           <Button type="button" variant="outline">
-            Iptal
+            İptal
           </Button>
         </Link>
       </div>

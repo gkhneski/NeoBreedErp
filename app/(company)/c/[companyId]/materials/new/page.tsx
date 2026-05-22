@@ -6,10 +6,16 @@ import { MaterialForm } from "./material-form";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
+  searchParams: Promise<{
+    type?: string;
+    preset?: string;
+    returnTo?: string;
+  }>;
 }
 
-export default async function NewMaterialPage({ params }: PageProps) {
+export default async function NewMaterialPage({ params, searchParams }: PageProps) {
   const { companyId: routeCompanyId } = await params;
+  const { type, preset, returnTo } = await searchParams;
   const { companyId } = await requireCompanyRole(
     routeCompanyId,
     MASTER_DATA_WRITE_ROLES,
@@ -32,7 +38,15 @@ export default async function NewMaterialPage({ params }: PageProps) {
           stok hareketleri sonraki adımda gelecek.
         </p>
       </header>
-      <MaterialForm companyId={companyId} suppliers={suppliers ?? []} />
+      <MaterialForm
+        companyId={companyId}
+        suppliers={suppliers ?? []}
+        defaultType={type === "finished" ? "finished" : "raw"}
+        preset={preset === "packaging" ? "packaging" : undefined}
+        returnTo={
+          returnTo?.startsWith(`/c/${companyId}/`) ? returnTo : undefined
+        }
+      />
     </div>
   );
 }

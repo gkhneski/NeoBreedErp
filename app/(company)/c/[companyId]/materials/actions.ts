@@ -16,16 +16,16 @@ const materialSchema = z.object({
   company_id: z.string().uuid(),
   material_id: z.string().uuid().optional().or(z.literal("")),
   preset: z.enum(["packaging"]).optional().or(z.literal("")),
-  name: z.string().trim().min(2, "Ad en az 2 karakter olmali.").max(200),
-  type: z.enum(["raw", "finished"], { message: "Tip seciniz." }),
-  base_uom: z.enum(ALLOWED_UOM, { message: "Gecerli bir birim seciniz." }),
+  name: z.string().trim().min(2, "Ad en az 2 karakter olmalı.").max(200),
+  type: z.enum(["raw", "finished"], { message: "Tip seçiniz." }),
+  base_uom: z.enum(ALLOWED_UOM, { message: "Geçerli bir birim seçiniz." }),
   density: z
     .string()
     .trim()
     .optional()
     .transform((v) => (v && v.length > 0 ? Number(v) : null))
     .refine((v) => v === null || (Number.isFinite(v) && v > 0), {
-      message: "Yogunluk pozitif bir sayi olmali.",
+      message: "Yoğunluk pozitif bir sayı olmalı.",
     }),
   default_supplier_id: z
     .string()
@@ -36,7 +36,7 @@ const materialSchema = z.object({
       (v) =>
         v === null ||
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v),
-      { message: "Gecersiz tedarikci." },
+      { message: "Geçersiz tedarikçi." },
     ),
   allergen_flags: z
     .array(z.enum(ALLERGEN_CODES))
@@ -151,12 +151,12 @@ export async function createMaterial(
 
   if (error) {
     if (error.code === "23505") {
-      return { error: "Otomatik kod olusturulamadi; lutfen tekrar deneyin." };
+      return { error: "Otomatik kod oluşturulamadı; lütfen tekrar deneyin." };
     }
     if (error.code === "23514") {
       return {
-        error: "Secilen tedarikci farkli bir firmaya ait.",
-        fieldErrors: { default_supplier_id: "Gecersiz tedarikci." },
+        error: "Seçilen tedarikçi farklı bir firmaya ait.",
+        fieldErrors: { default_supplier_id: "Geçersiz tedarikçi." },
       };
     }
     return { error: error.message };
@@ -214,8 +214,8 @@ export async function updateMaterial(
   if (error) {
     if (error.code === "23514") {
       return {
-        error: "Secilen tedarikci farkli bir firmaya ait.",
-        fieldErrors: { default_supplier_id: "Gecersiz tedarikci." },
+        error: "Seçilen tedarikçi farklı bir firmaya ait.",
+        fieldErrors: { default_supplier_id: "Geçersiz tedarikçi." },
       };
     }
     return { error: error.message };
