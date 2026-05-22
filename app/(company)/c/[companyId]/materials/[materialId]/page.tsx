@@ -5,9 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requireCompanyUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import {
+  MASTER_DATA_WRITE_ROLES,
+  canWriteCompanyData,
+  companyModulePath,
+} from "@/types/roles";
 
 import { ALLERGEN_LABELS, type AllergenCode } from "../allergens";
+import { deleteMaterial } from "../actions";
 
 interface PageProps {
   params: Promise<{ companyId: string; materialId: string }>;
@@ -58,7 +63,7 @@ function DefinitionRow({
 
 export default async function MaterialDetailPage({ params }: PageProps) {
   const { companyId: routeCompanyId, materialId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
 
   const { data: material } = await supabase
@@ -75,6 +80,9 @@ export default async function MaterialDetailPage({ params }: PageProps) {
 
   const allergens = asAllergenList(material.allergen_flags);
   const listHref = companyModulePath(companyId, "materials");
+  const canWrite = canWriteCompanyData(role, MASTER_DATA_WRITE_ROLES);
+  const editHref = companyModulePath(companyId, "materials", material.id, "edit");
+  const deleteAction = deleteMaterial.bind(null, companyId, material.id, listHref);
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -90,6 +98,18 @@ export default async function MaterialDetailPage({ params }: PageProps) {
             {material.code}
           </p>
         </div>
+        {canWrite ? (
+          <div className="flex gap-2">
+            <Link href={editHref}>
+              <Button variant="outline">Duzenle</Button>
+            </Link>
+            <form action={deleteAction}>
+              <Button type="submit" variant="destructive">
+                Sil
+              </Button>
+            </form>
+          </div>
+        ) : null}
         <Link href={listHref}>
           <Button variant="outline">Listeye Dön</Button>
         </Link>

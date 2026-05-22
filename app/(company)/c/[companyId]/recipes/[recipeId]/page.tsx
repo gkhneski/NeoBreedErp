@@ -9,6 +9,7 @@ import { companyModulePath } from "@/types/roles";
 
 import {
   createNewRecipeVersion,
+  deleteRecipe,
   publishRecipe,
   removeRecipeItem,
 } from "../actions";
@@ -82,8 +83,10 @@ export default async function RecipeDetailPage({ params }: PageProps) {
       : null;
 
   const backHref = companyModulePath(companyId, "recipes");
+  const editHref = companyModulePath(companyId, "recipes", recipe.id, "edit");
   const publishAction = publishRecipe.bind(null, companyId, recipe.id);
   const newVersionAction = createNewRecipeVersion.bind(null, companyId, recipe.id);
+  const deleteAction = deleteRecipe.bind(null, companyId, recipe.id);
 
   return (
     <div className="space-y-6">
@@ -109,17 +112,29 @@ export default async function RecipeDetailPage({ params }: PageProps) {
             </span>
           </p>
         </div>
-        <Badge
-          variant={
-            recipe.status === "published"
-              ? "default"
-              : recipe.status === "archived"
-                ? "secondary"
-                : "outline"
-          }
-        >
-          {STATUS_LABEL[recipe.status] ?? recipe.status}
-        </Badge>
+        <div className="flex items-center gap-2">
+          {isDraft ? (
+            <Link href={editHref}>
+              <Button size="sm" variant="outline">Duzenle</Button>
+            </Link>
+          ) : null}
+          <form action={deleteAction}>
+            <Button size="sm" variant="destructive" type="submit">
+              Sil
+            </Button>
+          </form>
+          <Badge
+            variant={
+              recipe.status === "published"
+                ? "default"
+                : recipe.status === "archived"
+                  ? "secondary"
+                  : "outline"
+            }
+          >
+            {STATUS_LABEL[recipe.status] ?? recipe.status}
+          </Badge>
+        </div>
       </div>
 
       <section className="grid gap-3 rounded-md border border-border bg-card p-4 text-sm sm:grid-cols-3">

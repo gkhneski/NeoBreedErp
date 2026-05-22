@@ -10,7 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { companyModulePath } from "@/types/roles";
 
-import { createRecipe, type RecipeFormState } from "../actions";
+import {
+  createRecipe,
+  updateRecipe,
+  type RecipeFormState,
+} from "../actions";
 
 const initialState: RecipeFormState = {};
 
@@ -23,11 +27,22 @@ const UOM_OPTIONS = [
   { value: "unit", label: "adet" },
 ];
 
-function SubmitButton() {
+type RecipeInitial = {
+  id: string;
+  code: string;
+  finished_material_id: string;
+  name: string;
+  mode: "quantity" | "percentage";
+  yield_quantity: number;
+  yield_uom: string;
+  notes: string | null;
+};
+
+function SubmitButton({ editing }: { editing: boolean }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending}>
-      {pending ? "Kaydediliyor..." : "Taslağı Oluştur"}
+      {pending ? "Kaydediliyor..." : editing ? "Guncelle" : "Taslagi Olustur"}
     </Button>
   );
 }
@@ -40,28 +55,39 @@ function FieldError({ message }: { message?: string }) {
 interface RecipeFormProps {
   companyId: string;
   finishedMaterials: Array<{ id: string; label: string }>;
+  initial?: RecipeInitial;
 }
 
-export function RecipeForm({ companyId, finishedMaterials }: RecipeFormProps) {
-  const [state, formAction] = useActionState(createRecipe, initialState);
-  const cancelHref = companyModulePath(companyId, "recipes");
+export function RecipeForm({
+  companyId,
+  finishedMaterials,
+  initial,
+}: RecipeFormProps) {
+  const [state, formAction] = useActionState(
+    initial ? updateRecipe : createRecipe,
+    initialState,
+  );
+  const cancelHref = initial
+    ? companyModulePath(companyId, "recipes", initial.id)
+    : companyModulePath(companyId, "recipes");
 
   return (
     <form action={formAction} className="space-y-5">
       <input type="hidden" name="company_id" value={companyId} />
+      {initial ? <input type="hidden" name="recipe_id" value={initial.id} /> : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="finished_material_id">Bitmiş Ürün *</Label>
+          <Label htmlFor="finished_material_id">Bitmis Urun *</Label>
           <select
             id="finished_material_id"
             name="finished_material_id"
             required
-            defaultValue=""
+            defaultValue={initial?.finished_material_id ?? ""}
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="" disabled>
-              — Seçiniz —
+              -- Seciniz --
             </option>
             {finishedMaterials.map((m) => (
               <option key={m.id} value={m.id}>
@@ -73,13 +99,12 @@ export function RecipeForm({ companyId, finishedMaterials }: RecipeFormProps) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="code">Reçete Kodu *</Label>
-          <Input id="code" name="code" required placeholder="REC-001" />
-          <FieldError message={state.fieldErrors?.code} />
+          <Label>Kod</Label>
+          <Input value={initial?.code ?? "REC-01 otomatik"} disabled />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="name">Reçete Adı *</Label>
-          <Input id="name" name="name" required />
+          <Label htmlFor="name">Recete Adi *</Label>
+          <Input id="name" name="name" required defaultValue={initial?.name ?? ""} />
           <FieldError message={state.fieldErrors?.name} />
         </div>
 
@@ -89,21 +114,18 @@ export function RecipeForm({ companyId, finishedMaterials }: RecipeFormProps) {
             id="mode"
             name="mode"
             required
-            defaultValue="quantity"
+            defaultValue={initial?.mode ?? "quantity"}
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <option value="quantity">Miktar bazlı</option>
-            <option value="percentage">Yüzde bazlı</option>
+            <option value="quantity">Miktar bazli</option>
+            <option value="percentage">Yuzde bazli</option>
           </select>
-          <p className="text-xs text-muted-foreground">
-            Yüzde bazlı: aktif kalemlerin toplamı yayında %100 olmalı.
-          </p>
           <FieldError message={state.fieldErrors?.mode} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="yield_quantity">Verim Miktarı *</Label>
+            <Label htmlFor="yield_quantity">Verim Miktari *</Label>
             <Input
               id="yield_quantity"
               name="yield_quantity"
@@ -112,6 +134,7 @@ export function RecipeForm({ companyId, finishedMaterials }: RecipeFormProps) {
               min="0"
               required
               placeholder="1.000000"
+              defaultValue={initial?.yield_quantity ?? ""}
             />
             <FieldError message={state.fieldErrors?.yield_quantity} />
           </div>
@@ -121,11 +144,11 @@ export function RecipeForm({ companyId, finishedMaterials }: RecipeFormProps) {
               id="yield_uom"
               name="yield_uom"
               required
-              defaultValue=""
+              defaultValue={initial?.yield_uom ?? ""}
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <option value="" disabled>
-                —
+                --
               </option>
               {UOM_OPTIONS.map((u) => (
                 <option key={u.value} value={u.value}>
@@ -140,7 +163,7 @@ export function RecipeForm({ companyId, finishedMaterials }: RecipeFormProps) {
 
       <div className="space-y-1.5">
         <Label htmlFor="notes">Notlar</Label>
-        <Textarea id="notes" name="notes" rows={3} />
+        <Textarea id="notes" name="notes" rows={3} defaultValue={initial?.notes ?? ""} />
         <FieldError message={state.fieldErrors?.notes} />
       </div>
 
@@ -151,10 +174,10 @@ export function RecipeForm({ companyId, finishedMaterials }: RecipeFormProps) {
       ) : null}
 
       <div className="flex gap-2">
-        <SubmitButton />
+        <SubmitButton editing={!!initial} />
         <Link href={cancelHref}>
           <Button type="button" variant="outline">
-            İptal
+            Iptal
           </Button>
         </Link>
       </div>

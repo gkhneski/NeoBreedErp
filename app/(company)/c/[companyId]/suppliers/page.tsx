@@ -10,6 +10,8 @@ import {
   companyModulePath,
 } from "@/types/roles";
 
+import { deleteSupplier } from "./actions";
+
 interface PageProps {
   params: Promise<{ companyId: string }>;
 }
@@ -27,20 +29,20 @@ export default async function SuppliersListPage({ params }: PageProps) {
     .order("created_at", { ascending: false });
 
   const newHref = companyModulePath(companyId, "suppliers", "new");
+  const canWrite = canWriteCompanyData(role, MASTER_DATA_WRITE_ROLES);
 
   return (
     <div className="space-y-6">
       <header className="flex items-end justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Tedarikçiler</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Tedarikciler</h1>
           <p className="text-sm text-muted-foreground">
-            Hammadde tedarikçileri. Malzeme kayıtlarında varsayılan tedarikçi
-            olarak seçilebilir.
+            Tedarikci kodlari TED-01 formatinda otomatik verilir.
           </p>
         </div>
-        {canWriteCompanyData(role, MASTER_DATA_WRITE_ROLES) ? (
+        {canWrite ? (
           <Link href={newHref}>
-            <Button>Yeni Tedarikçi</Button>
+            <Button>Yeni Tedarikci</Button>
           </Link>
         ) : null}
       </header>
@@ -55,35 +57,56 @@ export default async function SuppliersListPage({ params }: PageProps) {
                 <th className="px-3 py-2 text-left font-medium">Vergi No</th>
                 <th className="px-3 py-2 text-left font-medium">E-posta</th>
                 <th className="px-3 py-2 text-left font-medium">Telefon</th>
-                <th className="px-3 py-2 text-left font-medium">Ülke</th>
+                <th className="px-3 py-2 text-left font-medium">Ulke</th>
+                {canWrite ? (
+                  <th className="px-3 py-2 text-right font-medium">Islem</th>
+                ) : null}
               </tr>
             </thead>
             <tbody>
-              {suppliers.map((s) => (
-                <tr key={s.id} className="border-t border-border">
-                  <td className="px-3 py-2 font-mono text-xs">{s.code}</td>
-                  <td className="px-3 py-2">{s.name}</td>
-                  <td className="px-3 py-2 text-muted-foreground">
-                    {s.tax_number ?? "—"}
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">
-                    {s.email ?? "—"}
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">
-                    {s.phone ?? "—"}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                    {s.country ?? "—"}
-                  </td>
-                </tr>
-              ))}
+              {suppliers.map((s) => {
+                const editHref = companyModulePath(companyId, "suppliers", s.id, "edit");
+                const deleteAction = deleteSupplier.bind(null, companyId, s.id);
+                return (
+                  <tr key={s.id} className="border-t border-border">
+                    <td className="px-3 py-2 font-mono text-xs">{s.code}</td>
+                    <td className="px-3 py-2">{s.name}</td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {s.tax_number ?? "--"}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {s.email ?? "--"}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {s.phone ?? "--"}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                      {s.country ?? "--"}
+                    </td>
+                    {canWrite ? (
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex justify-end gap-1">
+                          <Link href={editHref}>
+                            <Button size="sm" variant="outline">Duzenle</Button>
+                          </Link>
+                          <form action={deleteAction}>
+                            <Button size="sm" variant="destructive" type="submit">
+                              Sil
+                            </Button>
+                          </form>
+                        </div>
+                      </td>
+                    ) : null}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       ) : (
         <EmptyState
-          title="Henüz tedarikçi yok"
-          description="İlk tedarikçinizi ekleyin; sonra malzeme kayıtlarında varsayılan tedarikçi olarak seçebilirsiniz."
+          title="Henuz tedarikci yok"
+          description="Ilk tedarikcinizi ekleyin; sonra malzeme kayitlarinda varsayilan tedarikci olarak secebilirsiniz."
         />
       )}
     </div>

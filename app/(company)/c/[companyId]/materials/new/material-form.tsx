@@ -10,7 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { companyModulePath } from "@/types/roles";
 
-import { createMaterial, type MaterialFormState } from "../actions";
+import {
+  createMaterial,
+  updateMaterial,
+  type MaterialFormState,
+} from "../actions";
 import { ALLERGEN_CODES, ALLERGEN_LABELS } from "../allergens";
 
 const initialState: MaterialFormState = {};
@@ -25,24 +29,42 @@ const UOM_OPTIONS = [
 ];
 
 const STORAGE_SUGGESTIONS = [
-  "Oda sıcaklığı (15–25°C)",
-  "Soğuk (2–8°C)",
-  "Dondurulmuş (-18°C)",
+  "Oda sicakligi (15-25 C)",
+  "Soguk (2-8 C)",
+  "Dondurulmus (-18 C)",
   "Kuru ve serin yer",
-  "Işıktan uzak",
-  "Kontrollü atmosfer",
+  "Isiktan uzak",
+  "Kontrollu atmosfer",
 ];
+
+type MaterialInitial = {
+  id: string;
+  code: string;
+  name: string;
+  type: "raw" | "finished";
+  base_uom: string;
+  density: number | null;
+  default_supplier_id: string | null;
+  allergen_flags: unknown;
+  storage_conditions: string | null;
+  regulatory_notes: string | null;
+  notes: string | null;
+};
 
 interface MaterialFormProps {
   companyId: string;
   suppliers: Array<{ id: string; code: string; name: string }>;
+  defaultType?: "raw" | "finished";
+  preset?: "packaging";
+  returnTo?: string;
+  initial?: MaterialInitial;
 }
 
-function SubmitButton() {
+function SubmitButton({ editing }: { editing: boolean }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending}>
-      {pending ? "Kaydediliyor..." : "Kaydet"}
+      {pending ? "Kaydediliyor..." : editing ? "Guncelle" : "Kaydet"}
     </Button>
   );
 }
@@ -52,23 +74,50 @@ function FieldError({ message }: { message?: string }) {
   return <p className="text-xs text-destructive">{message}</p>;
 }
 
-export function MaterialForm({ companyId, suppliers }: MaterialFormProps) {
-  const [state, formAction] = useActionState(createMaterial, initialState);
-  const cancelHref = companyModulePath(companyId, "materials");
+export function MaterialForm({
+  companyId,
+  suppliers,
+  defaultType = "raw",
+  preset,
+  returnTo,
+  initial,
+}: MaterialFormProps) {
+  const [state, formAction] = useActionState(
+    initial ? updateMaterial : createMaterial,
+    initialState,
+  );
+  const cancelHref = returnTo ?? companyModulePath(companyId, "materials");
+  const selectedAllergens = Array.isArray(initial?.allergen_flags)
+    ? initial.allergen_flags
+    : [];
+  const codePreview =
+    initial?.code ??
+    (preset === "packaging"
+      ? "AMB-01 otomatik"
+      : defaultType === "finished"
+        ? "URN-01 otomatik"
+        : "HAM-01 otomatik");
 
   return (
     <form action={formAction} className="space-y-5">
       <input type="hidden" name="company_id" value={companyId} />
+      {initial ? <input type="hidden" name="material_id" value={initial.id} /> : null}
+      {preset ? <input type="hidden" name="preset" value={preset} /> : null}
+      {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="code">Kod *</Label>
-          <Input id="code" name="code" required placeholder="RM-001" />
-          <FieldError message={state.fieldErrors?.code} />
+          <Label>Kod</Label>
+          <Input value={codePreview} disabled />
+          {!initial ? (
+            <p className="text-xs text-muted-foreground">
+              Kod kayit sirasinda otomatik verilir.
+            </p>
+          ) : null}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="name">Ad *</Label>
-          <Input id="name" name="name" required />
+          <Input id="name" name="name" required defaultValue={initial?.name ?? ""} />
           <FieldError message={state.fieldErrors?.name} />
         </div>
         <div className="space-y-1.5">
@@ -77,11 +126,11 @@ export function MaterialForm({ companyId, suppliers }: MaterialFormProps) {
             id="type"
             name="type"
             required
-            defaultValue="raw"
+            defaultValue={initial?.type ?? defaultType}
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="raw">Hammadde</option>
-            <option value="finished">Bitmiş Ürün</option>
+            <option value="finished">Bitmis Urun</option>
           </select>
           <FieldError message={state.fieldErrors?.type} />
         </div>
@@ -91,11 +140,11 @@ export function MaterialForm({ companyId, suppliers }: MaterialFormProps) {
             id="base_uom"
             name="base_uom"
             required
-            defaultValue=""
+            defaultValue={initial?.base_uom ?? ""}
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="" disabled>
-              — Seçiniz —
+              -- Seciniz --
             </option>
             {UOM_OPTIONS.map((u) => (
               <option key={u.value} value={u.value}>
@@ -106,43 +155,41 @@ export function MaterialForm({ companyId, suppliers }: MaterialFormProps) {
           <FieldError message={state.fieldErrors?.base_uom} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="density">Yoğunluk (g/mL)</Label>
+          <Label htmlFor="density">Yogunluk (g/mL)</Label>
           <Input
             id="density"
             name="density"
             type="number"
             step="0.000001"
             min="0"
-            placeholder="örn. 1.000000"
+            placeholder="orn. 1.000000"
+            defaultValue={initial?.density ?? ""}
           />
-          <p className="text-xs text-muted-foreground">
-            Kütle/hacim dönüşümü gerekiyorsa zorunlu.
-          </p>
           <FieldError message={state.fieldErrors?.density} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="default_supplier_id">Varsayılan Tedarikçi</Label>
+          <Label htmlFor="default_supplier_id">Varsayilan Tedarikci</Label>
           <select
             id="default_supplier_id"
             name="default_supplier_id"
-            defaultValue=""
+            defaultValue={initial?.default_supplier_id ?? ""}
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <option value="">— Seçilmedi —</option>
+            <option value="">-- Secilmedi --</option>
             {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.code} — {s.name}
+                {s.code} - {s.name}
               </option>
             ))}
           </select>
           {suppliers.length === 0 ? (
             <p className="text-xs text-muted-foreground">
-              Henüz tedarikçi yok.{" "}
+              Henuz tedarikci yok.{" "}
               <Link
                 href={companyModulePath(companyId, "suppliers", "new")}
                 className="underline"
               >
-                Yeni tedarikçi ekleyin
+                Yeni tedarikci ekleyin
               </Link>
               .
             </p>
@@ -165,6 +212,7 @@ export function MaterialForm({ companyId, suppliers }: MaterialFormProps) {
                 type="checkbox"
                 name="allergen_flags"
                 value={code}
+                defaultChecked={selectedAllergens.includes(code)}
                 className="h-3.5 w-3.5 rounded border-input"
               />
               <span>{ALLERGEN_LABELS[code]}</span>
@@ -175,12 +223,13 @@ export function MaterialForm({ companyId, suppliers }: MaterialFormProps) {
       </fieldset>
 
       <div className="space-y-1.5">
-        <Label htmlFor="storage_conditions">Saklama Koşulları</Label>
+        <Label htmlFor="storage_conditions">Saklama Kosullari</Label>
         <Input
           id="storage_conditions"
           name="storage_conditions"
           list="storage-options"
-          placeholder="örn. Oda sıcaklığı (15–25°C)"
+          placeholder="orn. Oda sicakligi (15-25 C)"
+          defaultValue={initial?.storage_conditions ?? ""}
         />
         <datalist id="storage-options">
           {STORAGE_SUGGESTIONS.map((s) => (
@@ -191,19 +240,19 @@ export function MaterialForm({ companyId, suppliers }: MaterialFormProps) {
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="regulatory_notes">Mevzuat Notları</Label>
+        <Label htmlFor="regulatory_notes">Mevzuat Notlari</Label>
         <Textarea
           id="regulatory_notes"
           name="regulatory_notes"
           rows={3}
-          placeholder="TGK referansı, ihracat kısıtları, sertifika gereklilikleri…"
+          defaultValue={initial?.regulatory_notes ?? ""}
         />
         <FieldError message={state.fieldErrors?.regulatory_notes} />
       </div>
 
       <div className="space-y-1.5">
         <Label htmlFor="notes">Notlar</Label>
-        <Textarea id="notes" name="notes" rows={3} />
+        <Textarea id="notes" name="notes" rows={3} defaultValue={initial?.notes ?? ""} />
         <FieldError message={state.fieldErrors?.notes} />
       </div>
 
@@ -214,10 +263,10 @@ export function MaterialForm({ companyId, suppliers }: MaterialFormProps) {
       ) : null}
 
       <div className="flex gap-2">
-        <SubmitButton />
+        <SubmitButton editing={!!initial} />
         <Link href={cancelHref}>
           <Button type="button" variant="outline">
-            İptal
+            Iptal
           </Button>
         </Link>
       </div>

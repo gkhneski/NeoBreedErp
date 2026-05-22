@@ -5,7 +5,13 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import {
+  MASTER_DATA_WRITE_ROLES,
+  canWriteCompanyData,
+  companyModulePath,
+} from "@/types/roles";
+
+import { deleteMaterial } from "../materials/actions";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -33,7 +39,7 @@ function formatNumber(n: number): string {
 
 export default async function ProductsPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
 
   const { data: products } = await supabase
@@ -48,20 +54,23 @@ export default async function ProductsPage({ params }: PageProps) {
     .returns<ProductRow[]>();
 
   const rows = products ?? [];
-  const newHref = companyModulePath(companyId, "materials", "new");
+  const newHref = companyModulePath(companyId, "products", "new");
+  const canWrite = canWriteCompanyData(role, MASTER_DATA_WRITE_ROLES);
 
   return (
     <div className="space-y-6">
       <header className="flex items-end justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Ürünler</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Urunler</h1>
           <p className="text-sm text-muted-foreground">
-            Bitmiş ürün kartları ve lotlardan gelen stok özeti.
+            Urun kodlari URN-01 formatinda otomatik verilir.
           </p>
         </div>
-        <Link href={newHref}>
-          <Button>Yeni Ürün</Button>
-        </Link>
+        {canWrite ? (
+          <Link href={newHref}>
+            <Button>Yeni Urun</Button>
+          </Link>
+        ) : null}
       </header>
 
       {rows.length > 0 ? (
@@ -74,7 +83,10 @@ export default async function ProductsPage({ params }: PageProps) {
                 <th className="px-3 py-2 text-right font-medium">Serbest Stok</th>
                 <th className="px-3 py-2 text-right font-medium">Karantina</th>
                 <th className="px-3 py-2 text-left font-medium">Saklama</th>
-                <th className="px-3 py-2 text-left font-medium">Regülasyon</th>
+                <th className="px-3 py-2 text-left font-medium">Regulasyon</th>
+                {canWrite ? (
+                  <th className="px-3 py-2 text-right font-medium">Islem</th>
+                ) : null}
               </tr>
             </thead>
             <tbody>
@@ -86,22 +98,26 @@ export default async function ProductsPage({ params }: PageProps) {
                 const quarantine = lots
                   .filter((lot) => lot.status === "quarantine")
                   .reduce((sum, lot) => sum + Number(lot.quantity_on_hand), 0);
+                const detailHref = companyModulePath(companyId, "materials", row.id);
+                const editHref = companyModulePath(companyId, "products", row.id, "edit");
+                const deleteAction = deleteMaterial.bind(
+                  null,
+                  companyId,
+                  row.id,
+                  companyModulePath(companyId, "products"),
+                );
+
                 return (
                   <tr key={row.id} className="border-t border-border">
                     <td className="px-3 py-2 font-mono text-xs">
-                      <Link
-                        href={companyModulePath(companyId, "materials", row.id)}
-                        className="hover:underline"
-                      >
+                      <Link href={detailHref} className="hover:underline">
                         {row.code}
                       </Link>
                     </td>
                     <td className="px-3 py-2">{row.name}</td>
                     <td className="px-3 py-2 text-right font-mono text-xs">
                       {formatNumber(released)}{" "}
-                      <span className="text-muted-foreground">
-                        {row.base_uom}
-                      </span>
+                      <span className="text-muted-foreground">{row.base_uom}</span>
                     </td>
                     <td className="px-3 py-2 text-right font-mono text-xs">
                       {quarantine > 0 ? (
@@ -113,11 +129,25 @@ export default async function ProductsPage({ params }: PageProps) {
                       )}
                     </td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {row.storage_conditions ?? "—"}
+                      {row.storage_conditions ?? "--"}
                     </td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {row.regulatory_notes ?? "—"}
+                      {row.regulatory_notes ?? "--"}
                     </td>
+                    {canWrite ? (
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex justify-end gap-1">
+                          <Link href={editHref}>
+                            <Button size="sm" variant="outline">Duzenle</Button>
+                          </Link>
+                          <form action={deleteAction}>
+                            <Button size="sm" variant="destructive" type="submit">
+                              Sil
+                            </Button>
+                          </form>
+                        </div>
+                      </td>
+                    ) : null}
                   </tr>
                 );
               })}
@@ -126,12 +156,14 @@ export default async function ProductsPage({ params }: PageProps) {
         </div>
       ) : (
         <EmptyState
-          title="Henüz bitmiş ürün yok"
-          description="Malzemeler ekranından tipi bitmiş ürün olan bir kayıt açın."
+          title="Henuz bitmis urun yok"
+          description="Yeni urun ekleyerek URN kodlu bitmis urun ve taslak recete olusturun."
           action={
-            <Link href={newHref}>
-              <Button>Ürün Ekle</Button>
-            </Link>
+            canWrite ? (
+              <Link href={newHref}>
+                <Button>Urun Ekle</Button>
+              </Link>
+            ) : undefined
           }
         />
       )}
