@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requirePlatformAdmin } from "@/lib/auth";
+import { authAcceptRedirectUrl } from "@/lib/site-url";
 import {
   createServerSupabaseClient,
   createServiceRoleClient,
@@ -22,20 +23,6 @@ export type InviteFormState = {
   fieldErrors?: Partial<Record<"email" | "role", string>>;
   success?: string;
 };
-
-function readSiteUrl(): string {
-  const url = process.env.NEXT_PUBLIC_SITE_URL;
-  if (!url) {
-    throw new Error(
-      "NEXT_PUBLIC_SITE_URL ortam değişkeni tanımlı değil. Davet linki üretilemiyor.",
-    );
-  }
-  return url.replace(/\/$/, "");
-}
-
-function welcomeRedirectUrl(): string {
-  return `${readSiteUrl()}/auth/callback?next=/welcome`;
-}
 
 async function findUserIdByEmail(email: string): Promise<string | null> {
   const admin = createServiceRoleClient();
@@ -74,7 +61,7 @@ export async function inviteCompanyMember(
   }
 
   const { company_id, email, role } = parsed.data;
-  const redirectTo = welcomeRedirectUrl();
+  const redirectTo = authAcceptRedirectUrl();
 
   const admin = createServiceRoleClient();
 

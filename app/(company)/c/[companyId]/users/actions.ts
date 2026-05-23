@@ -4,9 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireCompanyUser } from "@/lib/auth";
-import {
-  createServiceRoleClient,
-} from "@/lib/supabase/server";
+import { authAcceptRedirectUrl } from "@/lib/site-url";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
   COMPANY_ROLE_VALUES,
   canManageCompanyUsers,
@@ -24,20 +23,6 @@ export type CompanyInviteState = {
   fieldErrors?: Partial<Record<"full_name" | "email" | "role", string>>;
   success?: string;
 };
-
-function readSiteUrl(): string {
-  const url = process.env.NEXT_PUBLIC_SITE_URL;
-  if (!url) {
-    throw new Error(
-      "NEXT_PUBLIC_SITE_URL ortam değişkeni tanımlı değil. Davet linki üretilemiyor.",
-    );
-  }
-  return url.replace(/\/$/, "");
-}
-
-function welcomeRedirectUrl(): string {
-  return `${readSiteUrl()}/auth/callback?next=/welcome`;
-}
 
 async function findUserIdByEmail(email: string): Promise<string | null> {
   const admin = createServiceRoleClient();
@@ -110,7 +95,7 @@ export async function inviteCompanyUser(
   const email = parsed.data.email.toLowerCase();
   const fullName = parsed.data.full_name?.trim() || null;
   const { role: invitedRole } = parsed.data;
-  const redirectTo = welcomeRedirectUrl();
+  const redirectTo = authAcceptRedirectUrl();
   const admin = createServiceRoleClient();
 
   let userId: string | null = null;
@@ -210,7 +195,7 @@ export async function resendWelcomeEmail(
 
   const { error: resetError } = await admin.auth.resetPasswordForEmail(
     data.user.email,
-    { redirectTo: welcomeRedirectUrl() },
+    { redirectTo: authAcceptRedirectUrl() },
   );
   if (resetError) {
     throw new Error(resetError.message);
