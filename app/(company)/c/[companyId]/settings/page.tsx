@@ -8,7 +8,10 @@ import {
   SUPPORTED_CURRENCIES,
   normalizeSupportedCurrency,
 } from "@/lib/currencies";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  createServerSupabaseClient,
+  createServiceRoleClient,
+} from "@/lib/supabase/server";
 import { formatBytes } from "@/lib/storage/attachments";
 import {
   COMPANY_ROLE_LABELS,
@@ -145,6 +148,9 @@ export default async function SettingsPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
   const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
+  const membershipClient = canManageCompanyUsers(role)
+    ? createServiceRoleClient()
+    : supabase;
 
   const [
     { data: company },
@@ -171,7 +177,7 @@ export default async function SettingsPage({ params }: PageProps) {
       )
       .eq("id", companyId)
       .maybeSingle<CompanyRow>(),
-    supabase
+    membershipClient
       .from("company_users")
       .select("role")
       .eq("company_id", companyId)
