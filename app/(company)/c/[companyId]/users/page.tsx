@@ -27,6 +27,38 @@ type ProfileRow = {
   full_name: string | null;
 };
 
+type CompanyRow = {
+  contact_email: string | null;
+  contact_name: string | null;
+};
+
+function nameFromEmail(email: string | null | undefined): string {
+  if (!email) return "İsimsiz kullanıcı";
+  const localPart = email.split("@")[0] ?? "";
+  const readable = localPart
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toLocaleUpperCase("tr-TR") + part.slice(1))
+    .join(" ");
+  return readable || "İsimsiz kullanıcı";
+}
+
+function displayNameFor(
+  profile: ProfileRow | null,
+  company: CompanyRow | null,
+): string {
+  if (profile?.full_name) return profile.full_name;
+  if (
+    profile?.email &&
+    company?.contact_email &&
+    profile.email.toLowerCase() === company.contact_email.toLowerCase() &&
+    company.contact_name
+  ) {
+    return company.contact_name;
+  }
+  return nameFromEmail(profile?.email);
+}
+
 export default async function UsersPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
   const { companyId, role } = await requireCompanyUser(routeCompanyId);
@@ -34,13 +66,21 @@ export default async function UsersPage({ params }: PageProps) {
     ? createServiceRoleClient()
     : await createServerSupabaseClient();
 
-  const { data: members, error: membersError } = await supabase
-    .from("company_users")
-    .select("user_id, role, created_at")
-    .eq("company_id", companyId)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: true })
-    .returns<MemberRow[]>();
+  const [{ data: company }, { data: members, error: membersError }] =
+    await Promise.all([
+      supabase
+        .from("companies")
+        .select("contact_email, contact_name")
+        .eq("id", companyId)
+        .maybeSingle<CompanyRow>(),
+      supabase
+        .from("company_users")
+        .select("user_id, role, created_at")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true })
+        .returns<MemberRow[]>(),
+    ]);
 
   if (membersError) {
     throw new Error(membersError.message);
@@ -105,11 +145,12 @@ export default async function UsersPage({ params }: PageProps) {
                 companyId,
                 member.user_id,
               );
+              const displayName = displayNameFor(member.profile, company);
 
               return (
               <tr key={member.user_id} className="border-t border-border">
                 <td className="px-3 py-2">
-                  {member.profile?.full_name ?? "İsimsiz kullanıcı"}
+                  {displayName}
                 </td>
                 <td className="px-3 py-2 text-muted-foreground">
                   {member.profile?.email ?? "—"}
