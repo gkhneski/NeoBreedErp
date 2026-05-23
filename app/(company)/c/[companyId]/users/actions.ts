@@ -67,6 +67,11 @@ async function ensureProfile(args: {
   if (error) throw new Error(error.message);
 }
 
+function isRateLimitError(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return normalized.includes("rate limit") || normalized.includes("too many");
+}
+
 export async function inviteCompanyUser(
   routeCompanyId: string,
   _prev: CompanyInviteState,
@@ -105,44 +110,41 @@ export async function inviteCompanyUser(
 
   let userId: string | null = null;
   let invited = false;
+  let passwordEmailSent = false;
 
-  const { data: invitedData, error: inviteError } =
-    await admin.auth.admin.inviteUserByEmail(email, {
-      redirectTo,
-      data: {
-        ...(fullName ? { full_name: fullName } : {}),
-        company_name: company?.name ?? "NeoBreed-ERP",
-      },
-    });
+  userId = await findUserIdByEmail(email);
 
-  if (inviteError) {
-    const msg = inviteError.message.toLowerCase();
-    const userAlreadyExists =
-      msg.includes("already") ||
-      msg.includes("registered") ||
-      msg.includes("exists");
-
-    if (!userAlreadyExists) {
-      return { error: `Davet gönderilemedi: ${inviteError.message}` };
-    }
-
-    userId = await findUserIdByEmail(email);
-    if (!userId) {
-      return {
-        error: "E-posta kayıtlı görünüyor fakat kullanıcı bulunamadı.",
-      };
-    }
+  if (userId) {
     const { error: resetError } = await admin.auth.resetPasswordForEmail(email, {
       redirectTo,
     });
-    if (resetError) {
+    if (!resetError) {
+      passwordEmailSent = true;
+    } else if (!isRateLimitError(resetError.message)) {
       return {
         error: `Şifre belirleme e-postası gönderilemedi: ${resetError.message}`,
       };
     }
   } else {
+    const { data: invitedData, error: inviteError } =
+      await admin.auth.admin.inviteUserByEmail(email, {
+        redirectTo,
+        data: {
+          ...(fullName ? { full_name: fullName } : {}),
+          company_name: company?.name ?? "NeoBreed-ERP",
+        },
+      });
+
+    if (inviteError) {
+      return {
+        error: isRateLimitError(inviteError.message)
+          ? "Supabase e-posta limiti doldu. Birkaç dakika bekleyip tekrar deneyin."
+          : `Davet gönderilemedi: ${inviteError.message}`,
+      };
+    }
     userId = invitedData.user?.id ?? null;
     invited = true;
+    passwordEmailSent = true;
     if (!userId) {
       return { error: "Davet gönderildi fakat kullanıcı kimliği alınamadı." };
     }
@@ -167,6 +169,13 @@ export async function inviteCompanyUser(
   }
 
   revalidatePath(companyModulePath(companyId, "users"));
+  if (!passwordEmailSent) {
+    return {
+      success:
+        "Kullanıcı firmaya eklendi. Supabase e-posta limiti dolduğu için şifre linki gönderilemedi; birkaç dakika sonra listedeki 'Şifre Linki Gönder' düğmesini kullanın.",
+    };
+  }
+
   return {
     success: invited
       ? "Davet gönderildi, profil hazırlandı ve kullanıcı firmaya eklendi."
