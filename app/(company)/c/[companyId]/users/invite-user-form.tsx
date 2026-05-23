@@ -51,7 +51,7 @@ export function InviteUserForm({ companyId }: { companyId: string }) {
           <Input
             id="invite_full_name"
             name="full_name"
-            placeholder="Burak Yılmaz"
+            placeholder="Ad Soyad"
             autoComplete="name"
           />
           <FieldError message={state.fieldErrors?.full_name} />
