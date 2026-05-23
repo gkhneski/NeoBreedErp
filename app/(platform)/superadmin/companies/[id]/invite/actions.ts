@@ -64,12 +64,20 @@ export async function inviteCompanyMember(
   const redirectTo = authAcceptRedirectUrl();
 
   const admin = createServiceRoleClient();
+  const { data: company } = await admin
+    .from("companies")
+    .select("name")
+    .eq("id", company_id)
+    .maybeSingle();
 
   let userId: string | null = null;
   let invited = false;
 
   const { data: invited_data, error: inviteError } =
-    await admin.auth.admin.inviteUserByEmail(email, { redirectTo });
+    await admin.auth.admin.inviteUserByEmail(email, {
+      redirectTo,
+      data: { company_name: company?.name ?? "NeoBreed-ERP" },
+    });
 
   if (inviteError) {
     const msg = inviteError.message.toLowerCase();

@@ -97,6 +97,11 @@ export async function inviteCompanyUser(
   const { role: invitedRole } = parsed.data;
   const redirectTo = authAcceptRedirectUrl();
   const admin = createServiceRoleClient();
+  const { data: company } = await admin
+    .from("companies")
+    .select("name")
+    .eq("id", companyId)
+    .maybeSingle();
 
   let userId: string | null = null;
   let invited = false;
@@ -104,7 +109,10 @@ export async function inviteCompanyUser(
   const { data: invitedData, error: inviteError } =
     await admin.auth.admin.inviteUserByEmail(email, {
       redirectTo,
-      data: fullName ? { full_name: fullName } : undefined,
+      data: {
+        ...(fullName ? { full_name: fullName } : {}),
+        company_name: company?.name ?? "NeoBreed-ERP",
+      },
     });
 
   if (inviteError) {
