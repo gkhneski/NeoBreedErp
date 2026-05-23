@@ -14,13 +14,14 @@ import {
 } from "@/types/roles";
 
 const inviteSchema = z.object({
+  full_name: z.string().trim().max(120).optional().or(z.literal("")),
   email: z.string().trim().email("Geçerli bir e-posta girin."),
   role: z.enum(COMPANY_ROLE_VALUES).default("viewer"),
 });
 
 export type CompanyInviteState = {
   error?: string;
-  fieldErrors?: Partial<Record<"email" | "role", string>>;
+  fieldErrors?: Partial<Record<"full_name" | "email" | "role", string>>;
   success?: string;
 };
 
@@ -57,6 +58,30 @@ async function findUserIdByEmail(email: string): Promise<string | null> {
   return null;
 }
 
+async function ensureProfile(args: {
+  userId: string;
+  email: string;
+  fullName: string | null;
+}) {
+  const admin = createServiceRoleClient();
+  const { userId, email, fullName } = args;
+
+  const { data: existing } = await admin
+    .from("profiles")
+    .select("id, full_name")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const profile = {
+    id: userId,
+    email: email.toLowerCase(),
+    full_name: fullName ?? existing?.full_name ?? null,
+  };
+
+  const { error } = await admin.from("profiles").upsert(profile);
+  if (error) throw new Error(error.message);
+}
+
 export async function inviteCompanyUser(
   routeCompanyId: string,
   _prev: CompanyInviteState,
@@ -68,6 +93,7 @@ export async function inviteCompanyUser(
   }
 
   const parsed = inviteSchema.safeParse({
+    full_name: formData.get("full_name") ?? "",
     email: formData.get("email") ?? "",
     role: (formData.get("role") as string) || "viewer",
   });
@@ -75,13 +101,15 @@ export async function inviteCompanyUser(
   if (!parsed.success) {
     const fieldErrors: CompanyInviteState["fieldErrors"] = {};
     for (const issue of parsed.error.issues) {
-      const key = issue.path[0] as "email" | "role";
+      const key = issue.path[0] as "full_name" | "email" | "role";
       if (!fieldErrors[key]) fieldErrors[key] = issue.message;
     }
     return { fieldErrors, error: "Form alanlarını kontrol edin." };
   }
 
-  const { email, role: invitedRole } = parsed.data;
+  const email = parsed.data.email.toLowerCase();
+  const fullName = parsed.data.full_name?.trim() || null;
+  const { role: invitedRole } = parsed.data;
   const redirectTo = welcomeRedirectUrl();
   const admin = createServiceRoleClient();
 
@@ -89,7 +117,10 @@ export async function inviteCompanyUser(
   let invited = false;
 
   const { data: invitedData, error: inviteError } =
-    await admin.auth.admin.inviteUserByEmail(email, { redirectTo });
+    await admin.auth.admin.inviteUserByEmail(email, {
+      redirectTo,
+      data: fullName ? { full_name: fullName } : undefined,
+    });
 
   if (inviteError) {
     const msg = inviteError.message.toLowerCase();
@@ -124,6 +155,8 @@ export async function inviteCompanyUser(
     }
   }
 
+  await ensureProfile({ userId, email, fullName });
+
   const { error: membershipError } = await admin.from("company_users").upsert(
     {
       user_id: userId,
@@ -143,8 +176,8 @@ export async function inviteCompanyUser(
   revalidatePath(companyModulePath(companyId, "users"));
   return {
     success: invited
-      ? "Davet gönderildi ve kullanıcı firmaya eklendi."
-      : "Kayıtlı kullanıcı firmaya eklendi.",
+      ? "Davet gönderildi, profil hazırlandı ve kullanıcı firmaya eklendi."
+      : "Kayıtlı kullanıcı firmaya eklendi; şifre belirleme bağlantısı e-posta ile gönderildi.",
   };
 }
 

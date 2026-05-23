@@ -8,10 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { COMPANY_ROLE_LABELS, COMPANY_ROLE_VALUES } from "@/types/roles";
 
-import {
-  inviteCompanyUser,
-  type CompanyInviteState,
-} from "./actions";
+import { inviteCompanyUser, type CompanyInviteState } from "./actions";
 
 const initialState: CompanyInviteState = {};
 
@@ -48,7 +45,18 @@ export function InviteUserForm({ companyId }: { companyId: string }) {
       action={formAction}
       className="space-y-4 rounded-md border border-border bg-card/40 p-4"
     >
-      <div className="grid gap-4 sm:grid-cols-[1fr_220px]">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="invite_full_name">Ad Soyad</Label>
+          <Input
+            id="invite_full_name"
+            name="full_name"
+            placeholder="Burak Yılmaz"
+            autoComplete="name"
+          />
+          <FieldError message={state.fieldErrors?.full_name} />
+        </div>
+
         <div className="space-y-1.5">
           <Label htmlFor="invite_email">E-posta *</Label>
           <Input
@@ -57,11 +65,12 @@ export function InviteUserForm({ companyId }: { companyId: string }) {
             type="email"
             required
             placeholder="kullanici@firma.com"
+            autoComplete="email"
           />
           <FieldError message={state.fieldErrors?.email} />
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 sm:max-w-[320px]">
           <Label htmlFor="invite_role">Rol</Label>
           <select
             id="invite_role"
@@ -81,6 +90,12 @@ export function InviteUserForm({ companyId }: { companyId: string }) {
         </div>
       </div>
 
+      <div className="rounded-md border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
+        Yeni kullanıcıya şifre belirleme daveti gider. E-posta zaten kayıtlıysa
+        kullanıcı bu firmaya bağlanır ve yine şifre belirleme bağlantısı
+        gönderilir.
+      </div>
+
       {state.error ? (
         <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
           {state.error}
@@ -97,8 +112,8 @@ export function InviteUserForm({ companyId }: { companyId: string }) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Kullanıcıya Supabase Auth davet e-postası gider. E-posta zaten
-        kayıtlıysa sadece bu firmaya üyeliği eklenir.
+        Düz metin şifre e-postası gönderilmez; kullanıcı maildeki güvenli
+        bağlantıdan kendi şifresini belirler.
       </p>
     </form>
   );
