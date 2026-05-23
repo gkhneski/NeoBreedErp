@@ -5,6 +5,10 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireCompanyRole } from "@/lib/auth";
+import {
+  isSupportedCurrency,
+  normalizeSupportedCurrency,
+} from "@/lib/currencies";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { STOCK_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
@@ -68,9 +72,10 @@ const purchaseReceiptSchema = z
       .max(3)
       .optional()
       .or(z.literal(""))
+      .transform((v) => (v ? v.toUpperCase() : ""))
       .refine(
-        (v) => !v || /^[A-Za-z]{3}$/.test(v),
-        "Para birimi ISO 4217 (örn. TRY, EUR) olmalı.",
+        (v) => !v || isSupportedCurrency(v),
+        "Para birimi TRY, USD veya EUR olmalı.",
       ),
     notes: z.string().trim().max(2000).optional().or(z.literal("")),
   })
@@ -174,9 +179,7 @@ export async function recordPurchaseReceipt(
   );
   const supabase = await createServerSupabaseClient();
   const receiptNotes = buildReceiptNotes(parsed.data);
-  const currency = parsed.data.currency
-    ? parsed.data.currency.toUpperCase()
-    : null;
+  const currency = normalizeSupportedCurrency(parsed.data.currency);
 
   if (parsed.data.receipt_mode === "new_lot") {
     const materialId = parsed.data.material_id;

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { SUPPORTED_CURRENCIES } from "@/lib/currencies";
 import { companyModulePath } from "@/types/roles";
 
 import { createLot, type LotFormState } from "../actions";
@@ -176,13 +177,19 @@ export function LotForm({ companyId, materials, suppliers }: LotFormProps) {
 
         <div className="space-y-1.5">
           <Label htmlFor="currency">Para Birimi (ISO 4217)</Label>
-          <Input
+          <select
             id="currency"
             name="currency"
-            maxLength={3}
-            placeholder="TRY"
-            style={{ textTransform: "uppercase" }}
-          />
+            defaultValue=""
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="">Seçiniz</option>
+            {SUPPORTED_CURRENCIES.map((currency) => (
+              <option key={currency} value={currency}>
+                {currency}
+              </option>
+            ))}
+          </select>
           <FieldError message={state.fieldErrors?.currency} />
         </div>
       </div>

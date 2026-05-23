@@ -5,6 +5,10 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireCompanyRole } from "@/lib/auth";
+import {
+  isSupportedCurrency,
+  normalizeSupportedCurrency,
+} from "@/lib/currencies";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   QUALITY_WRITE_ROLES,
@@ -71,9 +75,10 @@ const lotCreateSchema = z
       .max(3)
       .optional()
       .or(z.literal(""))
+      .transform((v) => (v ? v.toUpperCase() : ""))
       .refine(
-        (v) => !v || /^[A-Za-z]{3}$/.test(v),
-        "Para birimi ISO 4217 (örn. TRY, EUR) olmalı.",
+        (v) => !v || isSupportedCurrency(v),
+        "Para birimi TRY, USD veya EUR olmalı.",
       ),
     notes: z.string().trim().max(2000).optional().or(z.literal("")),
   })
@@ -133,9 +138,7 @@ export async function createLot(
     p_received_at: parsed.data.received_at,
     p_expiry_date: parsed.data.expiry_date,
     p_unit_cost: parsed.data.unit_cost,
-    p_currency: parsed.data.currency
-      ? parsed.data.currency.toUpperCase()
-      : null,
+    p_currency: normalizeSupportedCurrency(parsed.data.currency),
     p_quantity: parsed.data.quantity,
     p_notes: emptyToNull(parsed.data.notes),
     p_movement_notes: null,
