@@ -19,7 +19,12 @@ type MemberRow = {
   user_id: string;
   role: CompanyRole;
   created_at: string;
-  profiles: { email: string | null; full_name: string | null } | null;
+};
+
+type ProfileRow = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
 };
 
 export default async function UsersPage({ params }: PageProps) {
@@ -29,15 +34,40 @@ export default async function UsersPage({ params }: PageProps) {
     ? createServiceRoleClient()
     : await createServerSupabaseClient();
 
-  const { data: members } = await supabase
+  const { data: members, error: membersError } = await supabase
     .from("company_users")
-    .select("user_id, role, created_at, profiles:user_id(email, full_name)")
+    .select("user_id, role, created_at")
     .eq("company_id", companyId)
     .is("deleted_at", null)
     .order("created_at", { ascending: true })
     .returns<MemberRow[]>();
 
-  const rows = members ?? [];
+  if (membersError) {
+    throw new Error(membersError.message);
+  }
+
+  const memberRows = members ?? [];
+  const userIds = memberRows.map((member) => member.user_id);
+  const { data: profiles, error: profilesError } =
+    userIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select("id, email, full_name")
+          .in("id", userIds)
+          .returns<ProfileRow[]>()
+      : { data: [] as ProfileRow[], error: null };
+
+  if (profilesError) {
+    throw new Error(profilesError.message);
+  }
+
+  const profilesById = new Map(
+    (profiles ?? []).map((profile) => [profile.id, profile]),
+  );
+  const rows = memberRows.map((member) => ({
+    ...member,
+    profile: profilesById.get(member.user_id) ?? null,
+  }));
 
   return (
     <div className="space-y-6">
@@ -79,10 +109,10 @@ export default async function UsersPage({ params }: PageProps) {
               return (
               <tr key={member.user_id} className="border-t border-border">
                 <td className="px-3 py-2">
-                  {member.profiles?.full_name ?? "İsimsiz kullanıcı"}
+                  {member.profile?.full_name ?? "İsimsiz kullanıcı"}
                 </td>
                 <td className="px-3 py-2 text-muted-foreground">
-                  {member.profiles?.email ?? "—"}
+                  {member.profile?.email ?? "—"}
                 </td>
                 <td className="px-3 py-2">
                   <Badge
