@@ -16,7 +16,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending}>
-      {pending ? "Gönderiliyor..." : "Davet Gönder"}
+      {pending ? "Ekleniyor..." : "Kullanıcı Ekle"}
     </Button>
   );
 }
@@ -52,7 +52,7 @@ export function InviteUserForm({ companyId }: { companyId: string }) {
             id="invite_full_name"
             name="full_name"
             placeholder="Ad Soyad"
-            autoComplete="name"
+            autoComplete="off"
           />
           <FieldError message={state.fieldErrors?.full_name} />
         </div>
@@ -65,12 +65,25 @@ export function InviteUserForm({ companyId }: { companyId: string }) {
             type="email"
             required
             placeholder="kullanici@firma.com"
-            autoComplete="email"
+            autoComplete="off"
           />
           <FieldError message={state.fieldErrors?.email} />
         </div>
 
-        <div className="space-y-1.5 sm:max-w-[320px]">
+        <div className="space-y-1.5">
+          <Label htmlFor="invite_password">Başlangıç Şifresi *</Label>
+          <Input
+            id="invite_password"
+            name="password"
+            type="password"
+            required
+            placeholder="En az 8 karakter"
+            autoComplete="new-password"
+          />
+          <FieldError message={state.fieldErrors?.password} />
+        </div>
+
+        <div className="space-y-1.5">
           <Label htmlFor="invite_role">Rol</Label>
           <select
             id="invite_role"
@@ -90,12 +103,6 @@ export function InviteUserForm({ companyId }: { companyId: string }) {
         </div>
       </div>
 
-      <div className="rounded-md border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
-        Yeni kullanıcıya şifre belirleme daveti gider. E-posta zaten kayıtlıysa
-        kullanıcı bu firmaya bağlanır ve yine şifre belirleme bağlantısı
-        gönderilir.
-      </div>
-
       {state.error ? (
         <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
           {state.error}
@@ -110,11 +117,6 @@ export function InviteUserForm({ companyId }: { companyId: string }) {
       <div>
         <SubmitButton />
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        Düz metin şifre e-postası gönderilmez; kullanıcı maildeki güvenli
-        bağlantıdan kendi şifresini belirler.
-      </p>
     </form>
   );
 }

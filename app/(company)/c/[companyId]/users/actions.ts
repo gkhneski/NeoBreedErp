@@ -10,17 +10,19 @@ import {
   COMPANY_ROLE_VALUES,
   canManageCompanyUsers,
   companyModulePath,
+  type CompanyRole,
 } from "@/types/roles";
 
 const inviteSchema = z.object({
   full_name: z.string().trim().max(120).optional().or(z.literal("")),
   email: z.string().trim().email("Geçerli bir e-posta girin."),
+  password: z.string().min(8, "Şifre en az 8 karakter olmalıdır."),
   role: z.enum(COMPANY_ROLE_VALUES).default("viewer"),
 });
 
 export type CompanyInviteState = {
   error?: string;
-  fieldErrors?: Partial<Record<"full_name" | "email" | "role", string>>;
+  fieldErrors?: Partial<Record<"full_name" | "email" | "password" | "role", string>>;
   success?: string;
 };
 
@@ -67,11 +69,6 @@ async function ensureProfile(args: {
   if (error) throw new Error(error.message);
 }
 
-function isRateLimitError(message: string): boolean {
-  const normalized = message.toLowerCase();
-  return normalized.includes("rate limit") || normalized.includes("too many");
-}
-
 export async function inviteCompanyUser(
   routeCompanyId: string,
   _prev: CompanyInviteState,
@@ -85,13 +82,14 @@ export async function inviteCompanyUser(
   const parsed = inviteSchema.safeParse({
     full_name: formData.get("full_name") ?? "",
     email: formData.get("email") ?? "",
+    password: formData.get("password") ?? "",
     role: (formData.get("role") as string) || "viewer",
   });
 
   if (!parsed.success) {
     const fieldErrors: CompanyInviteState["fieldErrors"] = {};
     for (const issue of parsed.error.issues) {
-      const key = issue.path[0] as "full_name" | "email" | "role";
+      const key = issue.path[0] as "full_name" | "email" | "password" | "role";
       if (!fieldErrors[key]) fieldErrors[key] = issue.message;
     }
     return { fieldErrors, error: "Form alanlarını kontrol edin." };
@@ -99,54 +97,40 @@ export async function inviteCompanyUser(
 
   const email = parsed.data.email.toLowerCase();
   const fullName = parsed.data.full_name?.trim() || null;
-  const { role: invitedRole } = parsed.data;
-  const redirectTo = authAcceptRedirectUrl();
+  const { role: invitedRole, password } = parsed.data;
   const admin = createServiceRoleClient();
-  const { data: company } = await admin
-    .from("companies")
-    .select("name")
-    .eq("id", companyId)
-    .maybeSingle();
 
-  let userId: string | null = null;
-  let invited = false;
-  let passwordEmailSent = false;
+  let userId: string | null = await findUserIdByEmail(email);
+  let isNew = false;
 
-  userId = await findUserIdByEmail(email);
-
-  if (userId) {
-    const { error: resetError } = await admin.auth.resetPasswordForEmail(email, {
-      redirectTo,
-    });
-    if (!resetError) {
-      passwordEmailSent = true;
-    } else if (!isRateLimitError(resetError.message)) {
-      return {
-        error: `Şifre belirleme e-postası gönderilemedi: ${resetError.message}`,
-      };
-    }
-  } else {
-    const { data: invitedData, error: inviteError } =
-      await admin.auth.admin.inviteUserByEmail(email, {
-        redirectTo,
-        data: {
+  if (!userId) {
+    // New user — create immediately, email already confirmed, no verification email.
+    const { data: created, error: createError } =
+      await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
           ...(fullName ? { full_name: fullName } : {}),
-          company_name: company?.name ?? "NeoBreed-ERP",
         },
       });
 
-    if (inviteError) {
-      return {
-        error: isRateLimitError(inviteError.message)
-          ? "Supabase e-posta limiti doldu. Birkaç dakika bekleyip tekrar deneyin."
-          : `Davet gönderilemedi: ${inviteError.message}`,
-      };
+    if (createError) {
+      return { error: `Kullanıcı oluşturulamadı: ${createError.message}` };
     }
-    userId = invitedData.user?.id ?? null;
-    invited = true;
-    passwordEmailSent = true;
+
+    userId = created.user?.id ?? null;
+    isNew = true;
     if (!userId) {
-      return { error: "Davet gönderildi fakat kullanıcı kimliği alınamadı." };
+      return { error: "Kullanıcı oluşturuldu fakat kimlik alınamadı." };
+    }
+  } else {
+    // Existing user — update their password so they can log in with the new one.
+    const { error: updateError } = await admin.auth.admin.updateUserById(userId, {
+      password,
+    });
+    if (updateError) {
+      return { error: `Şifre güncellenemedi: ${updateError.message}` };
     }
   }
 
@@ -169,27 +153,75 @@ export async function inviteCompanyUser(
   }
 
   revalidatePath(companyModulePath(companyId, "users"));
-  if (!passwordEmailSent) {
-    return {
-      success:
-        "Kullanıcı firmaya eklendi. Supabase e-posta limiti dolduğu için şifre linki gönderilemedi; birkaç dakika sonra listedeki 'Şifre Linki Gönder' düğmesini kullanın.",
-    };
-  }
-
   return {
-    success: invited
-      ? "Davet gönderildi, profil hazırlandı ve kullanıcı firmaya eklendi."
-      : "Kayıtlı kullanıcı firmaya eklendi; şifre belirleme bağlantısı e-posta ile gönderildi.",
+    success: isNew
+      ? "Kullanıcı oluşturuldu ve firmaya eklendi. Hemen giriş yapabilir."
+      : "Mevcut kullanıcı firmaya eklendi, şifresi güncellendi.",
   };
 }
+
+export type ChangeRoleState = {
+  error?: string;
+  success?: string;
+};
+
+export async function changeUserRole(
+  routeCompanyId: string,
+  userId: string,
+  _prev: ChangeRoleState,
+  formData: FormData,
+): Promise<ChangeRoleState> {
+  const { role, companyId } = await requireCompanyUser(routeCompanyId);
+  if (!canManageCompanyUsers(role)) {
+    return { error: "Bu işlem için firma admini yetkisi gerekir." };
+  }
+
+  const newRole = formData.get("role") as string;
+  if (!COMPANY_ROLE_VALUES.includes(newRole as never)) {
+    return { error: "Geçersiz rol." };
+  }
+
+  const admin = createServiceRoleClient();
+
+  const { data: membership } = await admin
+    .from("company_users")
+    .select("user_id")
+    .eq("company_id", companyId)
+    .eq("user_id", userId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!membership) {
+    return { error: "Kullanıcı bu firmaya ait değil." };
+  }
+
+  const { error: updateError } = await admin
+    .from("company_users")
+    .update({ role: newRole as CompanyRole })
+    .eq("company_id", companyId)
+    .eq("user_id", userId);
+
+  if (updateError) {
+    return { error: updateError.message };
+  }
+
+  revalidatePath(companyModulePath(companyId, "users"));
+  return { success: "Rol güncellendi." };
+}
+
+export type ResendPasswordState = {
+  error?: string;
+  success?: string;
+};
 
 export async function resendWelcomeEmail(
   routeCompanyId: string,
   userId: string,
-): Promise<void> {
+  _prev: ResendPasswordState,
+): Promise<ResendPasswordState> {
   const { role, companyId } = await requireCompanyUser(routeCompanyId);
   if (!canManageCompanyUsers(role)) {
-    throw new Error("Bu işlem için firma admini yetkisi gerekir.");
+    return { error: "Bu işlem için firma admini yetkisi gerekir." };
   }
 
   const admin = createServiceRoleClient();
@@ -202,12 +234,12 @@ export async function resendWelcomeEmail(
     .maybeSingle();
 
   if (!membership) {
-    throw new Error("Kullanıcı bu firmaya ait değil.");
+    return { error: "Kullanıcı bu firmaya ait değil." };
   }
 
   const { data, error } = await admin.auth.admin.getUserById(userId);
   if (error || !data.user?.email) {
-    throw new Error(error?.message ?? "Kullanıcı e-postası bulunamadı.");
+    return { error: error?.message ?? "Kullanıcı e-postası bulunamadı." };
   }
 
   const { error: resetError } = await admin.auth.resetPasswordForEmail(
@@ -215,8 +247,9 @@ export async function resendWelcomeEmail(
     { redirectTo: authAcceptRedirectUrl() },
   );
   if (resetError) {
-    throw new Error(resetError.message);
+    return { error: resetError.message };
   }
 
   revalidatePath(companyModulePath(companyId, "users"));
+  return { success: "Şifre sıfırlama bağlantısı e-posta ile gönderildi." };
 }

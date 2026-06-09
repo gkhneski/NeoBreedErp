@@ -10,15 +10,6 @@ import { PRODUCTION_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
 const productionOrderCreateSchema = z.object({
   recipe_id: z.string().uuid({ message: "Reçete seçiniz." }),
-  code: z
-    .string()
-    .trim()
-    .min(1, "Üretim emri kodu boş bırakılamaz.")
-    .max(64, "Kod en fazla 64 karakter olabilir.")
-    .regex(
-      /^[A-Za-z0-9._\-/]+$/,
-      "Kod yalnızca harf, rakam, nokta, alt çizgi, tire ve eğik çizgi içerebilir.",
-    ),
   planned_quantity: z
     .string()
     .trim()
@@ -53,6 +44,24 @@ export type ProductionOrderFormState = {
   >;
 };
 
+async function nextProductionCode(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  companyId: string,
+): Promise<string> {
+  const { data } = await supabase
+    .from("production_orders")
+    .select("code")
+    .eq("company_id", companyId)
+    .like("code", "PO-%");
+
+  const max = (data ?? []).reduce((current, row) => {
+    const match = row.code.match(/^PO-(\d+)$/i);
+    return match ? Math.max(current, Number(match[1])) : current;
+  }, 0);
+
+  return `PO-${String(max + 1).padStart(6, "0")}`;
+}
+
 function emptyToNull(v: string | undefined | null) {
   if (v === undefined || v === null) return null;
   const t = v.trim();
@@ -66,7 +75,6 @@ export async function createProductionOrder(
 ): Promise<ProductionOrderFormState> {
   const parsed = productionOrderCreateSchema.safeParse({
     recipe_id: formData.get("recipe_id") ?? "",
-    code: formData.get("code") ?? "",
     planned_quantity: formData.get("planned_quantity") ?? "",
     planned_start_at: formData.get("planned_start_at") ?? "",
     planned_end_at: formData.get("planned_end_at") ?? "",
@@ -122,11 +130,13 @@ export async function createProductionOrder(
     };
   }
 
+  const code = await nextProductionCode(supabase, companyId);
+
   const { data, error } = await supabase
     .from("production_orders")
     .insert({
       company_id: companyId,
-      code: parsed.data.code,
+      code,
       finished_material_id: recipe.finished_material_id,
       recipe_id: recipe.id,
       planned_quantity: parsed.data.planned_quantity,
@@ -143,10 +153,7 @@ export async function createProductionOrder(
 
   if (error || !data) {
     if (error?.code === "23505") {
-      return {
-        error: "Bu kodla bir üretim emri zaten kayıtlı.",
-        fieldErrors: { code: "Kod benzersiz olmalı." },
-      };
+      return { error: "Kod çakışması oluştu, lütfen tekrar deneyin." };
     }
     if (error?.code === "23514") {
       return { error: error.message };

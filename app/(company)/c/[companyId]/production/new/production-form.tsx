@@ -57,12 +57,20 @@ export function ProductionOrderForm({
     initialState,
   );
   const [recipeId, setRecipeId] = useState<string>("");
+  const [plannedQty, setPlannedQty] = useState<string>("");
   const cancelHref = companyModulePath(companyId, "production");
 
   const selected = useMemo(
     () => recipes.find((r) => r.id === recipeId) ?? null,
     [recipes, recipeId],
   );
+
+  function handleRecipeChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const id = e.target.value;
+    setRecipeId(id);
+    const recipe = recipes.find((r) => r.id === id);
+    if (recipe) setPlannedQty(String(recipe.yield_quantity));
+  }
 
   return (
     <form action={formAction} className="space-y-5">
@@ -74,7 +82,7 @@ export function ProductionOrderForm({
             name="recipe_id"
             required
             value={recipeId}
-            onChange={(e) => setRecipeId(e.target.value)}
+            onChange={handleRecipeChange}
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="" disabled>
@@ -100,12 +108,6 @@ export function ProductionOrderForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="code">Üretim Emri Kodu *</Label>
-          <Input id="code" name="code" required placeholder="PO-000001" />
-          <FieldError message={state.fieldErrors?.code} />
-        </div>
-
-        <div className="space-y-1.5">
           <Label htmlFor="planned_quantity">
             Hedef Miktar *{" "}
             {selected ? (
@@ -121,6 +123,8 @@ export function ProductionOrderForm({
             step="0.000001"
             min="0"
             required
+            value={plannedQty}
+            onChange={(e) => setPlannedQty(e.target.value)}
             placeholder="örn. 100.000000"
           />
           <FieldError message={state.fieldErrors?.planned_quantity} />

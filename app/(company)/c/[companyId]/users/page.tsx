@@ -1,5 +1,4 @@
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { requireCompanyUser } from "@/lib/auth";
 import {
   createServerSupabaseClient,
@@ -8,8 +7,9 @@ import {
 import type { CompanyRole } from "@/types/roles";
 import { COMPANY_ROLE_LABELS, canManageCompanyUsers } from "@/types/roles";
 
+import { ChangeRoleSelect } from "./change-role-select";
 import { InviteUserForm } from "./invite-user-form";
-import { resendWelcomeEmail } from "./actions";
+import { ResendPasswordButton } from "./resend-password-button";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -140,11 +140,6 @@ export default async function UsersPage({ params }: PageProps) {
           </thead>
           <tbody>
             {rows.map((member) => {
-              const resendAction = resendWelcomeEmail.bind(
-                null,
-                companyId,
-                member.user_id,
-              );
               const displayName = displayNameFor(member.profile, company);
 
               return (
@@ -156,24 +151,31 @@ export default async function UsersPage({ params }: PageProps) {
                   {member.profile?.email ?? "—"}
                 </td>
                 <td className="px-3 py-2">
-                  <Badge
-                    variant={
-                      member.role === "company_admin" ? "default" : "secondary"
-                    }
-                  >
-                    {COMPANY_ROLE_LABELS[member.role]}
-                  </Badge>
+                  {canManageCompanyUsers(role) ? (
+                    <ChangeRoleSelect
+                      companyId={companyId}
+                      userId={member.user_id}
+                      currentRole={member.role}
+                    />
+                  ) : (
+                    <Badge
+                      variant={
+                        member.role === "company_admin" ? "default" : "secondary"
+                      }
+                    >
+                      {COMPANY_ROLE_LABELS[member.role]}
+                    </Badge>
+                  )}
                 </td>
                 <td className="px-3 py-2 text-xs text-muted-foreground">
                   {new Date(member.created_at).toLocaleDateString("tr-TR")}
                 </td>
                 {canManageCompanyUsers(role) ? (
                   <td className="px-3 py-2 text-right">
-                    <form action={resendAction}>
-                      <Button type="submit" size="sm" variant="outline">
-                        Şifre Linki Gönder
-                      </Button>
-                    </form>
+                    <ResendPasswordButton
+                      companyId={companyId}
+                      userId={member.user_id}
+                    />
                   </td>
                 ) : null}
               </tr>
