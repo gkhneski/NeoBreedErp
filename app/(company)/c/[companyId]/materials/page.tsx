@@ -12,9 +12,11 @@ import {
 } from "@/types/roles";
 
 import { ALLERGEN_LABELS, type AllergenCode } from "./allergens";
+import { MaterialsSearchInput } from "./search-input";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
+  searchParams: Promise<{ q?: string }>;
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -39,39 +41,47 @@ function asAllergenList(value: unknown): AllergenCode[] {
   return value.filter((v): v is AllergenCode => typeof v === "string" && v in ALLERGEN_LABELS);
 }
 
-export default async function MaterialsListPage({ params }: PageProps) {
+export default async function MaterialsListPage({ params, searchParams }: PageProps) {
   const { companyId: routeCompanyId } = await params;
+  const { q } = await searchParams;
   const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
 
-  const { data: materials } = await supabase
+  let query = supabase
     .from("materials")
     .select(
       "id, code, name, type, base_uom, density, allergen_flags, storage_conditions, suppliers:default_supplier_id(code, name)",
     )
     .eq("company_id", companyId)
     .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .returns<MaterialRow[]>();
+    .order("code", { ascending: true });
+
+  if (q?.trim()) {
+    query = query.or(`code.ilike.%${q.trim()}%,name.ilike.%${q.trim()}%`);
+  }
+
+  const { data: materials } = await query.returns<MaterialRow[]>();
 
   const newHref = companyModulePath(companyId, "materials", "new");
   const rows = materials ?? [];
 
   return (
     <div className="space-y-6">
-      <header className="flex items-end justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Malzemeler</h1>
-          <p className="text-sm text-muted-foreground">
-            Hammaddeler ve bitmiş ürünler. Lot/stok yönetimi sonraki adımda
-            gelecek.
-          </p>
+      <header className="space-y-3">
+        <div className="flex items-end justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight">Malzemeler</h1>
+            <p className="text-sm text-muted-foreground">
+              Hammaddeler ve bitmiş ürünler.
+            </p>
+          </div>
+          {canWriteCompanyData(role, MASTER_DATA_WRITE_ROLES) ? (
+            <Link href={newHref}>
+              <Button>Yeni Malzeme</Button>
+            </Link>
+          ) : null}
         </div>
-        {canWriteCompanyData(role, MASTER_DATA_WRITE_ROLES) ? (
-          <Link href={newHref}>
-            <Button>Yeni Malzeme</Button>
-          </Link>
-        ) : null}
+        <MaterialsSearchInput />
       </header>
 
       {rows.length > 0 ? (
@@ -138,6 +148,11 @@ export default async function MaterialsListPage({ params }: PageProps) {
             </tbody>
           </table>
         </div>
+      ) : q?.trim() ? (
+        <EmptyState
+          title="Sonuç bulunamadı"
+          description={`"${q.trim()}" ile eşleşen malzeme yok.`}
+        />
       ) : (
         <EmptyState
           title="Henüz malzeme yok"
