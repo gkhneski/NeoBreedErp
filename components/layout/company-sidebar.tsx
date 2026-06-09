@@ -14,7 +14,7 @@ const MODULES = [
   { key: "suppliers", label: "Tedarikçiler" },
   { key: "purchases", label: "Fatura / Irsaliye" },
   { key: "lots", label: "Lotlar" },
-  { key: "stock", label: "Stok Hareketleri" },
+  { key: "stock", label: "Stok" },
   { key: "recipes", label: "Reçeteler" },
   { key: "production", label: "Üretim" },
   { key: "quality", label: "Kalite Kontrol" },
