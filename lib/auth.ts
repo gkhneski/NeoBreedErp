@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { notFound, redirect } from "next/navigation";
 
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -12,36 +13,40 @@ import {
   type SessionContext,
 } from "@/types/roles";
 
-export async function getSessionContext(): Promise<SessionContext | null> {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+// cache(): layout ve page ayni request icinde ikisi de cagirir; auth + rol
+// sorgulari render basina bir kez calisir.
+export const getSessionContext = cache(
+  async (): Promise<SessionContext | null> => {
+    const supabase = await createServerSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
 
-  const [{ data: platformRow }, { data: memberships }] = await Promise.all([
-    supabase
-      .from("platform_admins")
-      .select("user_id")
-      .eq("user_id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("company_users")
-      .select("company_id, role")
-      .eq("user_id", user.id)
-      .is("deleted_at", null),
-  ]);
+    const [{ data: platformRow }, { data: memberships }] = await Promise.all([
+      supabase
+        .from("platform_admins")
+        .select("user_id")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("company_users")
+        .select("company_id, role")
+        .eq("user_id", user.id)
+        .is("deleted_at", null),
+    ]);
 
-  return {
-    userId: user.id,
-    email: user.email ?? null,
-    isPlatformAdmin: !!platformRow,
-    companyMemberships: (memberships ?? []).map((m) => ({
-      companyId: m.company_id,
-      role: m.role as CompanyRole,
-    })),
-  };
-}
+    return {
+      userId: user.id,
+      email: user.email ?? null,
+      isPlatformAdmin: !!platformRow,
+      companyMemberships: (memberships ?? []).map((m) => ({
+        companyId: m.company_id,
+        role: m.role as CompanyRole,
+      })),
+    };
+  },
+);
 
 export async function requirePlatformAdmin(): Promise<SessionContext> {
   const ctx = await getSessionContext();

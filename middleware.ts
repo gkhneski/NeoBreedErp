@@ -11,7 +11,7 @@ function isPublic(pathname: string): boolean {
 }
 
 export async function middleware(request: NextRequest) {
-  const { response, supabase, user } = await updateSession(request);
+  const { response, user } = await updateSession(request);
   const { pathname } = request.nextUrl;
 
   if (isPublic(pathname)) {
@@ -24,39 +24,12 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  if (!user || !supabase) {
+  // Rol/uyelik kontrolu burada degil: requirePlatformAdmin /
+  // requireCompanyUser (server) + RLS (DB) zaten zorunlu kiliyor.
+  // Middleware sadece oturum tazeler ve oturumsuz istegi login'e atar.
+  if (!user) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
-  }
-
-  if (isPlatformRoute) {
-    const { data: platformRow } = await supabase
-      .from("platform_admins")
-      .select("user_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (!platformRow) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set("reason", "forbidden");
-      return NextResponse.redirect(url);
-    }
-  }
-
-  if (isCompanyRoute) {
-    const { data: membership } = await supabase
-      .from("company_users")
-      .select("company_id")
-      .eq("user_id", user.id)
-      .is("deleted_at", null)
-      .limit(1)
-      .maybeSingle();
-    if (!membership) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set("reason", "no_company");
-      return NextResponse.redirect(url);
-    }
   }
 
   return response;
