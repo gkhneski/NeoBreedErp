@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -50,15 +50,6 @@ interface CompleteBatchFormProps {
 }
 
 const initialState: CompleteBatchState = {};
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending}>
-      {pending ? "Tamamlanıyor..." : "Partiyi Tamamla"}
-    </Button>
-  );
-}
 
 function formatNumber(n: number, max = 6): string {
   return Number(n).toLocaleString("tr-TR", {
@@ -278,7 +269,7 @@ export function CompleteBatchForm({
       ) : null}
 
       <div className="flex gap-2">
-        <SubmitButton />
+        <SubmitButton pendingLabel="Tamamlanıyor...">Partiyi Tamamla</SubmitButton>
         <Link href={cancelHref}>
           <Button type="button" variant="outline">
             İptal

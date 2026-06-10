@@ -1,9 +1,9 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { QualityResultVerdict } from "@/types/database";
@@ -36,15 +36,6 @@ const VERDICT_OPTIONS: Array<{ value: QualityResultVerdict; label: string }> = [
   { value: "fail", label: "Kaldı" },
   { value: "na", label: "Uygulanmaz" },
 ];
-
-function SaveButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" variant="outline" disabled={pending}>
-      {pending ? "Kaydediliyor..." : "Sonuçları Kaydet"}
-    </Button>
-  );
-}
 
 export function QualityResultEditor({
   companyId,
@@ -226,7 +217,7 @@ export function QualityResultEditor({
       ) : null}
 
       <div>
-        <SaveButton />
+        <SubmitButton variant="outline">Sonuçları Kaydet</SubmitButton>
       </div>
     </form>
   );

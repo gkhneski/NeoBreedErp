@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireCompanyRole } from "@/lib/auth";
+import { withFlash } from "@/lib/flash";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { STOCK_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
@@ -148,5 +149,5 @@ export async function recordStockMovement(
 
   revalidatePath(companyModulePath(companyId, "stock"));
   revalidatePath(companyModulePath(companyId, "lots"));
-  redirect(companyModulePath(companyId, "stock"));
+  redirect(withFlash(companyModulePath(companyId, "stock"), "created"));
 }

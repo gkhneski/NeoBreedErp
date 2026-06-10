@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireCompanyRole } from "@/lib/auth";
+import { withFlash } from "@/lib/flash";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { PRODUCTION_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
@@ -162,7 +163,9 @@ export async function createProductionOrder(
   }
 
   revalidatePath(companyModulePath(companyId, "production"));
-  redirect(companyModulePath(companyId, "production", data.id));
+  redirect(
+    withFlash(companyModulePath(companyId, "production", data.id), "created"),
+  );
 }
 
 const transitionSchema = z.object({
@@ -272,7 +275,12 @@ export async function startProductionOrder(
   revalidatePath(
     companyModulePath(companyId, "production", parsed.data.order_id),
   );
-  redirect(companyModulePath(companyId, "production", parsed.data.order_id));
+  redirect(
+    withFlash(
+      companyModulePath(companyId, "production", parsed.data.order_id),
+      "saved",
+    ),
+  );
 }
 
 const completeItemSchema = z.object({
@@ -424,7 +432,12 @@ export async function completeProductionBatch(
   revalidatePath(companyModulePath(companyId, "production", parsed.data.order_id));
   revalidatePath(companyModulePath(companyId, "lots"));
   revalidatePath(companyModulePath(companyId, "stock"));
-  redirect(companyModulePath(companyId, "production", parsed.data.order_id));
+  redirect(
+    withFlash(
+      companyModulePath(companyId, "production", parsed.data.order_id),
+      "saved",
+    ),
+  );
 }
 
 export async function cancelProductionOrder(

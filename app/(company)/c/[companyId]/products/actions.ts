@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireCompanyRole } from "@/lib/auth";
+import { withFlash } from "@/lib/flash";
 import { TENANT_FILES_BUCKET } from "@/lib/storage/attachments";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { MASTER_DATA_WRITE_ROLES, companyModulePath } from "@/types/roles";
@@ -215,7 +216,9 @@ export async function createProductWithRecipe(
   revalidatePath(companyModulePath(companyId, "products"));
   revalidatePath(companyModulePath(companyId, "materials"));
   revalidatePath(companyModulePath(companyId, "recipes"));
-  redirect(companyModulePath(companyId, "recipes", recipe.id));
+  redirect(
+    withFlash(companyModulePath(companyId, "recipes", recipe.id), "created"),
+  );
 }
 
 export type ProductThumbnailState = {

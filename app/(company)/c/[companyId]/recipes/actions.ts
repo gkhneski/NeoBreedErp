@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireCompanyRole } from "@/lib/auth";
+import { withFlash } from "@/lib/flash";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { MASTER_DATA_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
@@ -127,7 +128,9 @@ export async function createRecipe(
   }
 
   revalidatePath(companyModulePath(companyId, "recipes"));
-  redirect(companyModulePath(companyId, "recipes", data.id));
+  redirect(
+    withFlash(companyModulePath(companyId, "recipes", data.id), "created"),
+  );
 }
 
 export async function updateRecipe(
@@ -181,7 +184,12 @@ export async function updateRecipe(
 
   revalidatePath(companyModulePath(companyId, "recipes"));
   revalidatePath(companyModulePath(companyId, "recipes", parsed.data.recipe_id));
-  redirect(companyModulePath(companyId, "recipes", parsed.data.recipe_id));
+  redirect(
+    withFlash(
+      companyModulePath(companyId, "recipes", parsed.data.recipe_id),
+      "saved",
+    ),
+  );
 }
 
 const recipeItemAddSchema = z.object({
@@ -460,7 +468,9 @@ export async function createNewRecipeVersion(
   }
 
   revalidatePath(companyModulePath(companyId, "recipes"));
-  redirect(companyModulePath(companyId, "recipes", newRecipe.id));
+  redirect(
+    withFlash(companyModulePath(companyId, "recipes", newRecipe.id), "created"),
+  );
 }
 
 export async function deleteRecipe(
@@ -483,5 +493,5 @@ export async function deleteRecipe(
   if (error) throw new Error(error.message);
 
   revalidatePath(companyModulePath(companyId, "recipes"));
-  redirect(companyModulePath(companyId, "recipes"));
+  redirect(withFlash(companyModulePath(companyId, "recipes"), "deleted"));
 }

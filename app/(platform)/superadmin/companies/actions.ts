@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requirePlatformAdmin } from "@/lib/auth";
+import { withFlash } from "@/lib/flash";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 const companyCreateSchema = z.object({
@@ -104,7 +105,7 @@ export async function createCompany(
 
   revalidatePath("/superadmin");
   revalidatePath("/superadmin/companies");
-  redirect(`/superadmin/companies/${data.id}`);
+  redirect(withFlash(`/superadmin/companies/${data.id}`, "created"));
 }
 
 export async function setCompanyStatus(

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireCompanyRole } from "@/lib/auth";
+import { withFlash } from "@/lib/flash";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { MASTER_DATA_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
@@ -134,7 +135,7 @@ export async function createSupplier(
   }
 
   revalidatePath(companyModulePath(companyId, "suppliers"));
-  redirect(companyModulePath(companyId, "suppliers"));
+  redirect(withFlash(companyModulePath(companyId, "suppliers"), "created"));
 }
 
 export async function updateSupplier(
@@ -176,7 +177,7 @@ export async function updateSupplier(
   if (error) return { error: error.message };
 
   revalidatePath(companyModulePath(companyId, "suppliers"));
-  redirect(companyModulePath(companyId, "suppliers"));
+  redirect(withFlash(companyModulePath(companyId, "suppliers"), "updated"));
 }
 
 export async function deleteSupplier(
@@ -199,5 +200,5 @@ export async function deleteSupplier(
 
   revalidatePath(companyModulePath(companyId, "suppliers"));
   revalidatePath(companyModulePath(companyId, "materials"));
-  redirect(companyModulePath(companyId, "suppliers"));
+  redirect(withFlash(companyModulePath(companyId, "suppliers"), "deleted"));
 }

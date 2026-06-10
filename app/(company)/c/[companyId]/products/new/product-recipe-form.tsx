@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,15 +38,6 @@ interface RawMaterialOption {
         deleted_at: string | null;
       }>
     | null;
-}
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending}>
-      {pending ? "Oluşturuluyor..." : "Ürün ve Reçete Oluştur"}
-    </Button>
-  );
 }
 
 function FieldError({ message }: { message?: string }) {
@@ -266,7 +257,7 @@ export function ProductRecipeForm({
       ) : null}
 
       <div className="flex gap-2">
-        <SubmitButton />
+        <SubmitButton pendingLabel="Oluşturuluyor...">Ürün ve Reçete Oluştur</SubmitButton>
         <Link href={cancelHref}>
           <Button type="button" variant="outline">
             İptal

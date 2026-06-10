@@ -1,9 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
 
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -19,15 +18,6 @@ const UOM_OPTIONS = [
   { value: "L", label: "L" },
   { value: "unit", label: "adet" },
 ];
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} size="sm">
-      {pending ? "Ekleniyor..." : "Kalem Ekle"}
-    </Button>
-  );
-}
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
@@ -149,7 +139,7 @@ export function RecipeItemAddForm({
         </p>
       ) : null}
 
-      <SubmitButton />
+      <SubmitButton size="sm" pendingLabel="Ekleniyor...">Kalem Ekle</SubmitButton>
     </form>
   );
 }

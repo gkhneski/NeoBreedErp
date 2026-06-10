@@ -1,13 +1,12 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import { useFormStatus } from "react-dom";
 
 import {
   uploadAttachment,
   type UploadAttachmentState,
 } from "@/app/(company)/c/[companyId]/files/actions";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,15 +18,6 @@ type LotOption = {
   lot_number: string;
   quantity_on_hand: number;
 };
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" size="sm" disabled={pending}>
-      {pending ? "Yükleniyor..." : "Analiz Sertifikasi Yükle"}
-    </Button>
-  );
-}
 
 export function MaterialCertificateUploader({
   companyId,
@@ -116,7 +106,7 @@ export function MaterialCertificateUploader({
         </p>
       ) : null}
 
-      <SubmitButton />
+      <SubmitButton size="sm" pendingLabel="Yükleniyor...">Analiz Sertifikasi Yükle</SubmitButton>
     </form>
   );
 }

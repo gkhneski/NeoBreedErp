@@ -1,9 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
 
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -18,15 +17,6 @@ interface StartBatchFormProps {
   companyId: string;
   orderId: string;
   defaultBatchNumber: string;
-}
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending}>
-      {pending ? "Başlatılıyor..." : "Üretime Al"}
-    </Button>
-  );
 }
 
 export function StartBatchForm({
@@ -60,7 +50,7 @@ export function StartBatchForm({
         ) : null}
       </div>
 
-      <SubmitButton />
+      <SubmitButton pendingLabel="Başlatılıyor...">Üretime Al</SubmitButton>
 
       {state.error ? (
         <p className="basis-full rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">

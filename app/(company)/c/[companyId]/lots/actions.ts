@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireCompanyRole } from "@/lib/auth";
+import { withFlash } from "@/lib/flash";
 import {
   isSupportedCurrency,
   normalizeSupportedCurrency,
@@ -162,7 +163,7 @@ export async function createLot(
 
   revalidatePath(companyModulePath(companyId, "lots"));
   revalidatePath(companyModulePath(companyId, "stock"));
-  redirect(companyModulePath(companyId, "lots"));
+  redirect(withFlash(companyModulePath(companyId, "lots"), "created"));
 }
 
 const lotStatusSchema = z.object({

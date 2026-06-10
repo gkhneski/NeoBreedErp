@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { PlatformSidebar } from "@/components/layout/platform-sidebar";
+import { FlashToast } from "@/components/ui/flash-toast";
 import { requirePlatformAdmin } from "@/lib/auth";
 
 export default async function PlatformLayout({
@@ -45,6 +47,10 @@ export default async function PlatformLayout({
         </aside>
         <main className="flex-1 px-4 py-6 md:px-8">{children}</main>
       </div>
+
+      <Suspense fallback={null}>
+        <FlashToast />
+      </Suspense>
     </div>
   );
 }

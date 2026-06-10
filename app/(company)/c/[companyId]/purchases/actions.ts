@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireCompanyRole } from "@/lib/auth";
+import { withFlash } from "@/lib/flash";
 import {
   isSupportedCurrency,
   normalizeSupportedCurrency,
@@ -252,5 +253,5 @@ export async function recordPurchaseReceipt(
   revalidatePath(companyModulePath(companyId, "purchases"));
   revalidatePath(companyModulePath(companyId, "lots"));
   revalidatePath(companyModulePath(companyId, "stock"));
-  redirect(companyModulePath(companyId, "purchases"));
+  redirect(withFlash(companyModulePath(companyId, "purchases"), "created"));
 }

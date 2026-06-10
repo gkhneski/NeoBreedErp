@@ -2,9 +2,8 @@
 
 import Image from "next/image";
 import { useActionState, useEffect, useRef } from "react";
-import { useFormStatus } from "react-dom";
 
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -14,15 +13,6 @@ import {
 } from "../../actions";
 
 const INITIAL: ProductThumbnailState = {};
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" size="sm" disabled={pending}>
-      {pending ? "Yükleniyor..." : "Thumbnail Yükle"}
-    </Button>
-  );
-}
 
 export function ProductThumbnailForm({
   companyId,
@@ -88,7 +78,7 @@ export function ProductThumbnailForm({
         </p>
       ) : null}
 
-      <SubmitButton />
+      <SubmitButton size="sm" pendingLabel="Yükleniyor...">Thumbnail Yükle</SubmitButton>
     </form>
   );
 }

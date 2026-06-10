@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireCompanyRole } from "@/lib/auth";
+import { withFlash } from "@/lib/flash";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { QUALITY_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
@@ -215,7 +216,9 @@ export async function createQualityCheck(
   }
 
   revalidatePath(companyModulePath(companyId, "quality"));
-  redirect(companyModulePath(companyId, "quality", check.id));
+  redirect(
+    withFlash(companyModulePath(companyId, "quality", check.id), "created"),
+  );
 }
 
 const resultEntrySchema = z.object({

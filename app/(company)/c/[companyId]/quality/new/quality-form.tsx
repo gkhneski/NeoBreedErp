@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,15 +40,6 @@ const STARTER_BATCH_SPECS = [
 ];
 
 const initialState: CreateQualityCheckState = {};
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending}>
-      {pending ? "Oluşturuluyor..." : "QC Aç"}
-    </Button>
-  );
-}
 
 export function QualityCheckForm({
   companyId,
@@ -270,7 +261,7 @@ export function QualityCheckForm({
       ) : null}
 
       <div className="flex gap-2">
-        <SubmitButton />
+        <SubmitButton pendingLabel="Oluşturuluyor...">QC Aç</SubmitButton>
         <Link href={cancelHref}>
           <Button type="button" variant="outline">
             İptal

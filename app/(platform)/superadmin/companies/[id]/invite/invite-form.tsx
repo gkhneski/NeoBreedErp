@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { COMPANY_ROLE_LABELS, COMPANY_ROLE_VALUES } from "@/types/roles";
@@ -17,15 +17,6 @@ interface InviteFormProps {
   companyId: string;
   companyName: string;
   defaultEmail?: string | null;
-}
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending}>
-      {pending ? "Gönderiliyor..." : "Daveti Gönder"}
-    </Button>
-  );
 }
 
 function FieldError({ message }: { message?: string }) {
@@ -88,7 +79,7 @@ export function InviteForm({
       ) : null}
 
       <div className="flex gap-2">
-        <SubmitButton />
+        <SubmitButton pendingLabel="Gönderiliyor...">Daveti Gönder</SubmitButton>
         <Link href={`/superadmin/companies/${companyId}`}>
           <Button type="button" variant="outline">
             İptal

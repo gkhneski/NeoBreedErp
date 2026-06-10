@@ -1,9 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
 
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 import { signQualityCheck, type SignQualityCheckState } from "../actions";
 
@@ -13,31 +12,6 @@ interface SignFormProps {
 }
 
 const initialState: SignQualityCheckState = {};
-
-function SignButton({
-  verdict,
-  variant,
-}: {
-  verdict: "passed" | "failed";
-  variant: "default" | "destructive";
-}) {
-  const { pending } = useFormStatus();
-  const labels = {
-    passed: { idle: "Geçti olarak İmzala", busy: "İmzalanıyor..." },
-    failed: { idle: "Kaldı olarak İmzala", busy: "İmzalanıyor..." },
-  } as const;
-  return (
-    <Button
-      type="submit"
-      name="overall_verdict"
-      value={verdict}
-      variant={variant}
-      disabled={pending}
-    >
-      {pending ? labels[verdict].busy : labels[verdict].idle}
-    </Button>
-  );
-}
 
 export function SignForm({ companyId, checkId }: SignFormProps) {
   const [state, formAction] = useActionState(
@@ -58,8 +32,21 @@ export function SignForm({ companyId, checkId }: SignFormProps) {
           değiştirilemez.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <SignButton verdict="passed" variant="default" />
-          <SignButton verdict="failed" variant="destructive" />
+          <SubmitButton
+            name="overall_verdict"
+            value="passed"
+            pendingLabel="İmzalanıyor..."
+          >
+            Geçti olarak İmzala
+          </SubmitButton>
+          <SubmitButton
+            name="overall_verdict"
+            value="failed"
+            variant="destructive"
+            pendingLabel="İmzalanıyor..."
+          >
+            Kaldı olarak İmzala
+          </SubmitButton>
         </div>
         {state.error ? (
           <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">

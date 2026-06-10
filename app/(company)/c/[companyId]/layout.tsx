@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { CompanySidebar } from "@/components/layout/company-sidebar";
+import { FlashToast } from "@/components/ui/flash-toast";
 import { requireCompanyUser } from "@/lib/auth";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getCompanySummary } from "@/lib/company";
 import { COMPANY_ROLE_BADGE_LABELS, companyHomePath } from "@/types/roles";
 
 interface LayoutProps {
@@ -14,12 +16,7 @@ interface LayoutProps {
 export default async function CompanyAppLayout({ children, params }: LayoutProps) {
   const { companyId: routeCompanyId } = await params;
   const { ctx, companyId, role } = await requireCompanyUser(routeCompanyId);
-  const supabase = await createServerSupabaseClient();
-  const { data: company } = await supabase
-    .from("companies")
-    .select("name, status")
-    .eq("id", companyId)
-    .maybeSingle();
+  const company = await getCompanySummary(companyId);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -53,6 +50,10 @@ export default async function CompanyAppLayout({ children, params }: LayoutProps
         </aside>
         <main className="flex-1 px-4 py-6 md:px-8">{children}</main>
       </div>
+
+      <Suspense fallback={null}>
+        <FlashToast />
+      </Suspense>
     </div>
   );
 }

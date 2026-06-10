@@ -1,9 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import { useFormStatus } from "react-dom";
 
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { COMPANY_ROLE_LABELS, COMPANY_ROLE_VALUES } from "@/types/roles";
@@ -11,15 +10,6 @@ import { COMPANY_ROLE_LABELS, COMPANY_ROLE_VALUES } from "@/types/roles";
 import { inviteCompanyUser, type CompanyInviteState } from "./actions";
 
 const initialState: CompanyInviteState = {};
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending}>
-      {pending ? "Ekleniyor..." : "Kullanıcı Ekle"}
-    </Button>
-  );
-}
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
@@ -115,7 +105,7 @@ export function InviteUserForm({ companyId }: { companyId: string }) {
       ) : null}
 
       <div>
-        <SubmitButton />
+        <SubmitButton pendingLabel="Ekleniyor...">Kullanıcı Ekle</SubmitButton>
       </div>
     </form>
   );

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireCompanyRole } from "@/lib/auth";
+import { withFlash } from "@/lib/flash";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { MASTER_DATA_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
@@ -168,9 +169,9 @@ export async function createMaterial(
   const returnTo = emptyToNull(parsed.data.return_to);
   if (returnTo?.startsWith(`/c/${companyId}/`)) {
     revalidatePath(returnTo);
-    redirect(returnTo);
+    redirect(withFlash(returnTo, "created"));
   }
-  redirect(companyModulePath(companyId, "materials"));
+  redirect(withFlash(companyModulePath(companyId, "materials"), "created"));
 }
 
 export async function updateMaterial(
@@ -228,9 +229,14 @@ export async function updateMaterial(
   const returnTo = emptyToNull(parsed.data.return_to);
   if (returnTo?.startsWith(`/c/${companyId}/`)) {
     revalidatePath(returnTo);
-    redirect(returnTo);
+    redirect(withFlash(returnTo, "updated"));
   }
-  redirect(companyModulePath(companyId, "materials", parsed.data.material_id));
+  redirect(
+    withFlash(
+      companyModulePath(companyId, "materials", parsed.data.material_id),
+      "updated",
+    ),
+  );
 }
 
 export async function deleteMaterial(
@@ -256,8 +262,11 @@ export async function deleteMaterial(
   revalidatePath(companyModulePath(companyId, "products"));
   revalidatePath(companyModulePath(companyId, "packaging"));
   redirect(
-    returnTo?.startsWith(`/c/${companyId}/`)
-      ? returnTo
-      : companyModulePath(companyId, "materials"),
+    withFlash(
+      returnTo?.startsWith(`/c/${companyId}/`)
+        ? returnTo
+        : companyModulePath(companyId, "materials"),
+      "deleted",
+    ),
   );
 }

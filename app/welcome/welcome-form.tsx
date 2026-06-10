@@ -1,9 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
 
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -14,15 +13,6 @@ const initialState: WelcomeFormState = {};
 interface WelcomeFormProps {
   email: string;
   defaultFullName: string | null;
-}
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending}>
-      {pending ? "Kaydediliyor..." : "Hesabı Etkinleştir"}
-    </Button>
-  );
 }
 
 function FieldError({ message }: { message?: string }) {
@@ -88,7 +78,7 @@ export function WelcomeForm({ email, defaultFullName }: WelcomeFormProps) {
         </p>
       ) : null}
 
-      <SubmitButton />
+      <SubmitButton>Hesabı Etkinleştir</SubmitButton>
     </form>
   );
 }
