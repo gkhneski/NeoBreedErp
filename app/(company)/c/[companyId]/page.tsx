@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyUser } from "@/lib/auth";
+import { getCompanySummary } from "@/lib/company";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { companyModulePath } from "@/types/roles";
 
@@ -17,15 +18,23 @@ interface CompanyStats {
 async function loadCompanyStats(companyId: string): Promise<CompanyStats> {
   const supabase = await createServerSupabaseClient();
 
+  const thirtyDaysOut = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
   const [
     { count: totalMaterials },
     { count: totalProducts },
     { count: ongoingProduction },
+    { count: criticalStock },
+    { count: pendingQuality },
+    { count: openOrders },
   ] = await Promise.all([
     supabase
       .from("materials")
       .select("id", { count: "exact", head: true })
       .eq("company_id", companyId)
+      .eq("type", "raw")
       .is("deleted_at", null),
     supabase
       .from("materials")
@@ -39,15 +48,34 @@ async function loadCompanyStats(companyId: string): Promise<CompanyStats> {
       .eq("company_id", companyId)
       .in("status", ["planned", "in_progress"])
       .is("deleted_at", null),
+    supabase
+      .from("material_lots")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .gt("quantity_on_hand", 0)
+      .or(`status.eq.blocked,expiry_date.lte.${thirtyDaysOut}`)
+      .is("deleted_at", null),
+    supabase
+      .from("quality_checks")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("status", "draft")
+      .is("deleted_at", null),
+    supabase
+      .from("production_orders")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .in("status", ["draft", "planned", "in_progress"])
+      .is("deleted_at", null),
   ]);
 
   return {
     totalProducts: totalProducts ?? 0,
     totalMaterials: totalMaterials ?? 0,
-    criticalStock: 0,
+    criticalStock: criticalStock ?? 0,
     ongoingProduction: ongoingProduction ?? 0,
-    pendingQuality: 0,
-    openOrders: 0,
+    pendingQuality: pendingQuality ?? 0,
+    openOrders: openOrders ?? 0,
   };
 }
 
@@ -93,28 +121,29 @@ interface PageProps {
 export default async function CompanyDashboardPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
   const { companyId } = await requireCompanyUser(routeCompanyId);
-  const supabase = await createServerSupabaseClient();
-  const { data: company } = await supabase
-    .from("companies")
-    .select("name, status")
-    .eq("id", companyId)
-    .maybeSingle();
 
-  const stats = await loadCompanyStats(companyId);
+  const [company, stats] = await Promise.all([
+    getCompanySummary(companyId),
+    loadCompanyStats(companyId),
+  ]);
   const quickActions = buildQuickActions(companyId);
 
   const cards = [
     {
       label: "Toplam Ürün",
       value: stats.totalProducts,
-      href: companyModulePath(companyId, "materials"),
+      href: companyModulePath(companyId, "products"),
     },
     {
       label: "Toplam Hammadde",
       value: stats.totalMaterials,
       href: companyModulePath(companyId, "materials"),
     },
-    { label: "Kritik Stok", value: stats.criticalStock },
+    {
+      label: "Kritik Stok",
+      value: stats.criticalStock,
+      href: companyModulePath(companyId, "stock"),
+    },
     {
       label: "Devam Eden Üretim",
       value: stats.ongoingProduction,
@@ -125,7 +154,11 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
       value: stats.pendingQuality,
       href: companyModulePath(companyId, "quality"),
     },
-    { label: "Açık Siparişler", value: stats.openOrders },
+    {
+      label: "Açık Siparişler",
+      value: stats.openOrders,
+      href: companyModulePath(companyId, "orders"),
+    },
   ];
 
   const hasAnyData =

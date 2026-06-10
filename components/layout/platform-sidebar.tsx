@@ -11,6 +11,7 @@ const NAV = [
   { href: "/superadmin/companies/new", label: "Firma Ekle" },
   { href: "/superadmin/subscriptions", label: "Abonelikler" },
   { href: "/superadmin/users", label: "Firma Adminleri" },
+  { href: "/superadmin/audit", label: "Denetim Kaydı" },
 ];
 
 export function PlatformSidebar() {
