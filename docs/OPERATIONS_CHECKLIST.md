@@ -60,7 +60,19 @@ Platform sahibinin (Gökhan) elle yapacağı kontroller. Komutlar proje klasör�
 | Yeni preview deploy | `git push` yeterli (branch push'ı otomatik preview oluşturur) |
 | Preview'ı canlıya alma | `vercel promote <preview-url> --yes` |
 
-## G. Veritabanı şeması kontrolü
+## G. Özel SMTP kurulumu (ilk gerçek müşteri davetinden ÖNCE şart)
+
+Kullanıcı davet e-postaları şu an Supabase'in varsayılan SMTP'sinden gidiyor —
+saatte ~2-4 e-posta limiti var ve daha önce limite takıldık. Gerçek müşteri için:
+
+1. https://resend.com hesabı aç (ücretsiz katman: 3.000 e-posta/ay — başlangıç için yeter).
+2. Resend → Domains → kendi alan adını ekle, verilen DNS kayıtlarını (SPF/DKIM) domain sağlayıcına gir, "Verified" olmasını bekle. (Alan adın yoksa önce onu al — madde 5/özel domain ile aynı ön koşul.)
+3. Resend → SMTP sekmesi → host/port/kullanıcı/şifre değerlerini kopyala.
+4. Supabase Dashboard → Authentication → Emails → **SMTP Settings** → Enable custom SMTP → değerleri yapıştır. Sender: `noreply@senin-domainin` yap.
+5. Test: Superadmin'den kendine bir davet gönder; 1 dakika içinde gelmeli.
+6. Supabase → Authentication → Rate Limits → e-posta limitini makul bir değere yükselt (örn. 30/saat).
+
+## H. Veritabanı şeması kontrolü
 
 | İş | Komut | Beklenen |
 |---|---|---|
