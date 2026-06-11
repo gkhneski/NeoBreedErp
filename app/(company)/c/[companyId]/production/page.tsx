@@ -14,6 +14,7 @@ import type { ProductionOrderStatus } from "@/types/database";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
+  searchParams: Promise<{ customer?: string }>;
 }
 
 type OrderRow = {
@@ -27,7 +28,11 @@ type OrderRow = {
   updated_at: string;
   materials: { code: string; name: string } | null;
   recipes: { code: string; name: string; version: number } | null;
+  customers: { code: string; name: string } | null;
 };
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const STATUS_LABEL: Record<ProductionOrderStatus, string> = {
   draft: "Taslak",
@@ -62,22 +67,41 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString("tr-TR", { dateStyle: "short" });
 }
 
-export default async function ProductionOrdersListPage({ params }: PageProps) {
+export default async function ProductionOrdersListPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { companyId: routeCompanyId } = await params;
+  const { customer } = await searchParams;
   const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
 
-  const { data: orders } = await supabase
+  const customerFilter = customer && UUID_RE.test(customer) ? customer : null;
+
+  let query = supabase
     .from("production_orders")
     .select(
       "id, code, status, planned_quantity, planned_uom, planned_start_at, planned_end_at, updated_at, " +
         "materials:finished_material_id(code, name), " +
-        "recipes:recipe_id(code, name, version)",
+        "recipes:recipe_id(code, name, version), " +
+        "customers:customer_id(code, name)",
     )
     .eq("company_id", companyId)
     .is("deleted_at", null)
-    .order("updated_at", { ascending: false })
-    .returns<OrderRow[]>();
+    .order("updated_at", { ascending: false });
+  if (customerFilter) {
+    query = query.eq("customer_id", customerFilter);
+  }
+
+  const [{ data: orders }, { data: customerOptions }] = await Promise.all([
+    query.returns<OrderRow[]>(),
+    supabase
+      .from("customers")
+      .select("id, code, name")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("name"),
+  ]);
 
   const rows = orders ?? [];
   const newHref = companyModulePath(companyId, "production", "new");
@@ -100,6 +124,35 @@ export default async function ProductionOrdersListPage({ params }: PageProps) {
         ) : null}
       </header>
 
+      {(customerOptions ?? []).length > 0 ? (
+        <form method="get" className="flex items-end gap-2">
+          <div className="space-y-1">
+            <label
+              htmlFor="customer"
+              className="text-xs font-medium text-muted-foreground"
+            >
+              Müşteriye göre filtrele
+            </label>
+            <select
+              id="customer"
+              name="customer"
+              defaultValue={customerFilter ?? ""}
+              className="flex h-9 w-64 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">Tümü</option>
+              {(customerOptions ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code} — {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button type="submit" variant="outline" size="sm">
+            Uygula
+          </Button>
+        </form>
+      ) : null}
+
       {rows.length > 0 ? (
         <div className="overflow-hidden rounded-md border border-border">
           <table className="w-full text-sm">
@@ -107,6 +160,7 @@ export default async function ProductionOrdersListPage({ params }: PageProps) {
               <tr>
                 <th className="px-3 py-2 text-left font-medium">Kod</th>
                 <th className="px-3 py-2 text-left font-medium">Bitmiş Ürün</th>
+                <th className="px-3 py-2 text-left font-medium">Müşteri</th>
                 <th className="px-3 py-2 text-left font-medium">Reçete</th>
                 <th className="px-3 py-2 text-right font-medium">Hedef</th>
                 <th className="px-3 py-2 text-left font-medium">Başlangıç</th>
@@ -135,6 +189,16 @@ export default async function ProductionOrdersListPage({ params }: PageProps) {
                       </span>
                     ) : (
                       "—"
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {order.customers ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Badge variant="outline">Fason</Badge>
+                        <span className="text-xs">{order.customers.name}</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">

@@ -19,7 +19,7 @@ export default async function NewLotPage({ params }: PageProps) {
   );
   const supabase = await createServerSupabaseClient();
 
-  const [materialsRes, suppliersRes] = await Promise.all([
+  const [materialsRes, suppliersRes, customersRes] = await Promise.all([
     supabase
       .from("materials")
       .select("id, code, name, type, base_uom, default_supplier_id")
@@ -32,10 +32,17 @@ export default async function NewLotPage({ params }: PageProps) {
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .order("code", { ascending: true }),
+    supabase
+      .from("customers")
+      .select("id, code, name")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("code", { ascending: true }),
   ]);
 
   const materials = materialsRes.data ?? [];
   const suppliers = suppliersRes.data ?? [];
+  const customers = customersRes.data ?? [];
 
   if (materials.length === 0) {
     return (
@@ -68,6 +75,7 @@ export default async function NewLotPage({ params }: PageProps) {
         companyId={companyId}
         materials={materials}
         suppliers={suppliers}
+        customers={customers}
       />
     </div>
   );

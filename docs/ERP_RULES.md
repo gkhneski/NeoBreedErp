@@ -80,6 +80,14 @@ Material codes are **unique per company**, not globally.
 - Currency is the company's currency; no FX in MVP.
 - Cost snapshots are stored on the batch so historical costs are stable even if material prices change later.
 - No labor or overhead in MVP (explicit).
+- **Customer-owned lots (müşteri malı, Phase 7a):** lots with `owner_customer_id` carry no acquisition cost for the factory. They are consumed normally but their `line_cost` is 0, they are excluded from `cost_total` and from currency inference, and their snapshot rows carry `customer_owned = true`. A mixed batch's cost therefore reflects factory-owned materials only.
+
+### 7.1 Contract Manufacturing ("Fason", Phase 7a)
+
+- Customers are operational records inside the factory's tenant — no portal, no login, never a separate tenant.
+- A production order may carry `customer_id` ("produced on behalf of"). Empty means own production.
+- Customer-supplied raw material is received as a normal lot flagged with `owner_customer_id`; it must not carry a unit cost.
+- Output lots of fason batches are NOT marked customer-owned; delivery/ownership transfer is out of ERP scope (accounting is external).
 
 ---
 

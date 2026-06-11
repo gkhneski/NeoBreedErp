@@ -32,6 +32,7 @@ type LotDetail = {
   updated_at: string;
   materials: { id: string; code: string; name: string; base_uom: string } | null;
   suppliers: { id: string; code: string; name: string } | null;
+  customers: { id: string; code: string; name: string } | null;
 };
 
 const STATUS_LABEL: Record<LotStatus, string> = {
@@ -81,7 +82,8 @@ export default async function LotDetailPage({ params }: PageProps) {
     .select(
       "id, lot_number, received_at, expiry_date, unit_cost, currency, quantity_on_hand, status, notes, created_at, updated_at, " +
         "materials:material_id(id, code, name, base_uom), " +
-        "suppliers:supplier_id(id, code, name)",
+        "suppliers:supplier_id(id, code, name), " +
+        "customers:owner_customer_id(id, code, name)",
     )
     .eq("id", lotId)
     .eq("company_id", companyId)
@@ -128,6 +130,11 @@ export default async function LotDetailPage({ params }: PageProps) {
             <Badge variant={STATUS_VARIANT[lot.status]}>
               {STATUS_LABEL[lot.status]}
             </Badge>
+            {lot.customers ? (
+              <Badge variant="warning">
+                Müşteri Malı — {lot.customers.name}
+              </Badge>
+            ) : null}
             {lot.materials ? (
               <span>
                 <span className="font-mono">{lot.materials.code}</span> —{" "}
@@ -178,6 +185,19 @@ export default async function LotDetailPage({ params }: PageProps) {
               </Link>
             ) : (
               <span className="text-muted-foreground">—</span>
+            )}
+          </DefinitionRow>
+          <DefinitionRow label="Sahibi">
+            {lot.customers ? (
+              <Link
+                href={companyModulePath(companyId, "customers")}
+                className="hover:underline"
+              >
+                <span className="font-mono text-xs">{lot.customers.code}</span>{" "}
+                — {lot.customers.name} (müşteri malı)
+              </Link>
+            ) : (
+              <span className="text-muted-foreground">Kendi malımız</span>
             )}
           </DefinitionRow>
         </dl>

@@ -29,9 +29,16 @@ interface RecipeOption {
   material_name: string;
 }
 
+interface CustomerOption {
+  id: string;
+  code: string;
+  name: string;
+}
+
 interface ProductionOrderFormProps {
   companyId: string;
   recipes: RecipeOption[];
+  customers: CustomerOption[];
 }
 
 function FieldError({ message }: { message?: string }) {
@@ -42,6 +49,7 @@ function FieldError({ message }: { message?: string }) {
 export function ProductionOrderForm({
   companyId,
   recipes,
+  customers,
 }: ProductionOrderFormProps) {
   const [state, formAction] = useActionState(
     createProductionOrder.bind(null, companyId),
@@ -119,6 +127,28 @@ export function ProductionOrderForm({
             placeholder="örn. 100.000000"
           />
           <FieldError message={state.fieldErrors?.planned_quantity} />
+        </div>
+
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="customer_id">Müşteri (Fason)</Label>
+          <select
+            id="customer_id"
+            name="customer_id"
+            defaultValue=""
+            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="">— Kendi üretimimiz —</option>
+            {customers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.code} — {c.name}
+              </option>
+            ))}
+          </select>
+          <FieldError message={state.fieldErrors?.customer_id} />
+          <p className="text-xs text-muted-foreground">
+            Başka bir firma adına üretiliyorsa seçin; boş bırakılırsa kendi
+            üretiminizdir.
+          </p>
         </div>
 
         <div className="space-y-1.5">

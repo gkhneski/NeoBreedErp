@@ -470,3 +470,26 @@ Per-company metadata table for files attached to either a material lot or a QC c
 **Server validation:** upload surfaces accept PDF/JPG/PNG/WEBP; default app limit is 10 MB, DB max guard is 25 MB.
 
 **Files affected:** `supabase/migrations/20260524000000_phase5f_file_attachments.sql`, `lib/storage/attachments.ts`, `components/files/*`, and file actions under `app/(company)/c/[companyId]/files/actions.ts`.
+
+---
+
+## 16. Phase 7a — Customers & Customer-Owned Lots (signed off 2026-06-11)
+
+**Business intent:** contract manufacturing ("fason"). Customers are operational records only (no portal, no login, no tenant). Customer-owned raw material lots ("müşteri malı") carry no acquisition cost and are excluded from batch material cost.
+
+### `customers`
+
+Exact structural clone of `suppliers` (§10): `id, company_id, code, name, tax_number, email, phone, address, country, notes, created_at, updated_at, deleted_at, created_by, updated_by`. Code prefix convention `MUS-`. Partial unique `(company_id, code) where deleted_at is null`. `set_updated_at` trigger. Canonical member select/modify RLS.
+
+### Column additions
+
+- `production_orders.customer_id uuid null references customers(id) on delete restrict` — "produced on behalf of". Index `(company_id, customer_id) where deleted_at is null`. `production_orders_check_parents()` extended with a same-company customer check; trigger fires additionally on `update of customer_id`.
+- `material_lots.owner_customer_id uuid null references customers(id) on delete restrict` — customer-owned raw material. Index `(company_id, owner_customer_id) where deleted_at is null`. `material_lots_check_parents()` extended the same way.
+- `cost_snapshots.customer_owned boolean not null default false` — additive; append-only triggers untouched.
+
+### RPC changes (re-created, signatures widened)
+
+- `create_lot_with_receipt(..., p_owner_customer_id uuid default null)` — rejects `owner_customer_id` together with a non-null `unit_cost` (customer-owned lots are cost-free by definition).
+- `complete_production_batch(...)` — consumed customer-owned lots: `line_cost = 0`, excluded from `cost_total` and from currency inference; snapshot row written with `customer_owned = true`. Output lots are never customer-owned (delivery ownership is out of scope).
+
+**Files affected:** `supabase/migrations/20260612000000_phase7a_customers.sql`, `app/(company)/c/[companyId]/customers/*`, production + lot forms/actions.

@@ -5,6 +5,7 @@ import {
   BarChart3,
   BookOpenText,
   Box,
+  Building2,
   ChevronDown,
   ClipboardList,
   Factory,
@@ -52,9 +53,10 @@ const SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: "Tedarik",
+    title: "Tedarik & Müşteriler",
     items: [
       { key: "suppliers", label: "Tedarikçiler", icon: Truck },
+      { key: "customers", label: "Müşteriler", icon: Building2 },
       { key: "purchases", label: "Fatura / İrsaliye", icon: ReceiptText },
     ],
   },

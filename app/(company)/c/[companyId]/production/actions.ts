@@ -11,6 +11,11 @@ import { PRODUCTION_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
 const productionOrderCreateSchema = z.object({
   recipe_id: z.string().uuid({ message: "Reçete seçiniz." }),
+  customer_id: z
+    .string()
+    .uuid({ message: "Geçersiz müşteri." })
+    .optional()
+    .or(z.literal("")),
   planned_quantity: z
     .string()
     .trim()
@@ -76,6 +81,7 @@ export async function createProductionOrder(
 ): Promise<ProductionOrderFormState> {
   const parsed = productionOrderCreateSchema.safeParse({
     recipe_id: formData.get("recipe_id") ?? "",
+    customer_id: formData.get("customer_id") ?? "",
     planned_quantity: formData.get("planned_quantity") ?? "",
     planned_start_at: formData.get("planned_start_at") ?? "",
     planned_end_at: formData.get("planned_end_at") ?? "",
@@ -131,6 +137,23 @@ export async function createProductionOrder(
     };
   }
 
+  const customerId = emptyToNull(parsed.data.customer_id);
+  if (customerId) {
+    const { data: customer } = await supabase
+      .from("customers")
+      .select("id")
+      .eq("id", customerId)
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (!customer) {
+      return {
+        fieldErrors: { customer_id: "Müşteri bulunamadı." },
+        error: "Geçersiz müşteri.",
+      };
+    }
+  }
+
   const code = await nextProductionCode(supabase, companyId);
 
   const { data, error } = await supabase
@@ -140,6 +163,7 @@ export async function createProductionOrder(
       code,
       finished_material_id: recipe.finished_material_id,
       recipe_id: recipe.id,
+      customer_id: customerId,
       planned_quantity: parsed.data.planned_quantity,
       planned_uom: recipe.yield_uom,
       status: "draft",

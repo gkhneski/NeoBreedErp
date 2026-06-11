@@ -29,6 +29,7 @@ type LotRow = {
   status: "quarantine" | "released" | "blocked";
   materials: { code: string; name: string; base_uom: string } | null;
   suppliers: { code: string; name: string } | null;
+  customers: { code: string; name: string } | null;
 };
 
 const STATUS_LABEL: Record<LotRow["status"], string> = {
@@ -77,7 +78,8 @@ export default async function LotsListPage({ params }: PageProps) {
     .select(
       "id, lot_number, received_at, expiry_date, quantity_on_hand, unit_cost, currency, status, " +
         "materials:material_id(code, name, base_uom), " +
-        "suppliers:supplier_id(code, name)",
+        "suppliers:supplier_id(code, name), " +
+        "customers:owner_customer_id(code, name)",
     )
     .eq("company_id", companyId)
     .is("deleted_at", null)
@@ -138,12 +140,19 @@ export default async function LotsListPage({ params }: PageProps) {
                 return (
                   <tr key={lot.id} className="border-t border-border align-top">
                     <td className="px-3 py-2 font-mono text-xs">
-                      <Link
-                        href={`${companyModulePath(companyId, "lots")}/${lot.id}`}
-                        className="hover:underline"
-                      >
-                        {lot.lot_number}
-                      </Link>
+                      <div className="flex flex-col gap-1">
+                        <Link
+                          href={`${companyModulePath(companyId, "lots")}/${lot.id}`}
+                          className="hover:underline"
+                        >
+                          {lot.lot_number}
+                        </Link>
+                        {lot.customers ? (
+                          <Badge variant="warning">
+                            Müşteri Malı — {lot.customers.name}
+                          </Badge>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-3 py-2">
                       {lot.materials ? (

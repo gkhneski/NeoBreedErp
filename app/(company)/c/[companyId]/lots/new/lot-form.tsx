@@ -30,10 +30,17 @@ interface SupplierOption {
   name: string;
 }
 
+interface CustomerOption {
+  id: string;
+  code: string;
+  name: string;
+}
+
 interface LotFormProps {
   companyId: string;
   materials: MaterialOption[];
   suppliers: SupplierOption[];
+  customers: CustomerOption[];
 }
 
 function FieldError({ message }: { message?: string }) {
@@ -46,11 +53,18 @@ const TYPE_LABEL: Record<string, string> = {
   finished: "Bitmiş",
 };
 
-export function LotForm({ companyId, materials, suppliers }: LotFormProps) {
+export function LotForm({
+  companyId,
+  materials,
+  suppliers,
+  customers,
+}: LotFormProps) {
   const [state, formAction] = useActionState(createLot, initialState);
   const [materialId, setMaterialId] = useState<string>("");
+  const [ownerCustomerId, setOwnerCustomerId] = useState<string>("");
   const cancelHref = companyModulePath(companyId, "lots");
   const today = new Date().toISOString().slice(0, 10);
+  const customerOwned = ownerCustomerId !== "";
 
   const selected = useMemo(
     () => materials.find((m) => m.id === materialId),
@@ -153,6 +167,31 @@ export function LotForm({ companyId, materials, suppliers }: LotFormProps) {
           <FieldError message={state.fieldErrors?.quantity} />
         </div>
 
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="owner_customer_id">Müşteri Malı (Sahibi)</Label>
+          <select
+            id="owner_customer_id"
+            name="owner_customer_id"
+            value={ownerCustomerId}
+            onChange={(e) => setOwnerCustomerId(e.target.value)}
+            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="">— Kendi malımız —</option>
+            {customers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.code} — {c.name}
+              </option>
+            ))}
+          </select>
+          <FieldError message={state.fieldErrors?.owner_customer_id} />
+          {customerOwned ? (
+            <p className="text-xs text-muted-foreground">
+              Fason müşterisinin gönderdiği hammadde. Birim maliyet girilmez;
+              parti maliyetine katılmaz.
+            </p>
+          ) : null}
+        </div>
+
         <div className="space-y-1.5">
           <Label htmlFor="unit_cost">Birim Maliyet</Label>
           <Input
@@ -161,7 +200,9 @@ export function LotForm({ companyId, materials, suppliers }: LotFormProps) {
             type="number"
             step="0.0001"
             min="0"
-            placeholder="örn. 12.5000"
+            placeholder={customerOwned ? "Müşteri malı — girilmez" : "örn. 12.5000"}
+            disabled={customerOwned}
+            key={`cost-${customerOwned}`}
           />
           <FieldError message={state.fieldErrors?.unit_cost} />
         </div>
@@ -172,7 +213,9 @@ export function LotForm({ companyId, materials, suppliers }: LotFormProps) {
             id="currency"
             name="currency"
             defaultValue=""
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            disabled={customerOwned}
+            key={`cur-${customerOwned}`}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
           >
             <option value="">Seçiniz</option>
             {SUPPORTED_CURRENCIES.map((currency) => (

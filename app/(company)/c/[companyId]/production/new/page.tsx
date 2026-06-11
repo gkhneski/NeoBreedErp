@@ -31,17 +31,25 @@ export default async function NewProductionOrderPage({ params }: PageProps) {
   );
   const supabase = await createServerSupabaseClient();
 
-  const { data: recipes } = await supabase
-    .from("recipes")
-    .select(
-      "id, code, name, version, yield_quantity, yield_uom, finished_material_id, " +
-        "materials:finished_material_id(code, name)",
-    )
-    .eq("company_id", companyId)
-    .eq("status", "published")
-    .is("deleted_at", null)
-    .order("updated_at", { ascending: false })
-    .returns<RecipeOption[]>();
+  const [{ data: recipes }, { data: customers }] = await Promise.all([
+    supabase
+      .from("recipes")
+      .select(
+        "id, code, name, version, yield_quantity, yield_uom, finished_material_id, " +
+          "materials:finished_material_id(code, name)",
+      )
+      .eq("company_id", companyId)
+      .eq("status", "published")
+      .is("deleted_at", null)
+      .order("updated_at", { ascending: false })
+      .returns<RecipeOption[]>(),
+    supabase
+      .from("customers")
+      .select("id, code, name")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("name"),
+  ]);
 
   const recipeOptions = (recipes ?? []).map((r) => ({
     id: r.id,
@@ -77,7 +85,11 @@ export default async function NewProductionOrderPage({ params }: PageProps) {
       </header>
 
       {recipeOptions.length > 0 ? (
-        <ProductionOrderForm companyId={companyId} recipes={recipeOptions} />
+        <ProductionOrderForm
+          companyId={companyId}
+          recipes={recipeOptions}
+          customers={customers ?? []}
+        />
       ) : (
         <EmptyState
           title="Yayında reçete yok"

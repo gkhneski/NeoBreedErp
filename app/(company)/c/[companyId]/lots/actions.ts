@@ -81,12 +81,17 @@ const lotCreateSchema = z
         (v) => !v || isSupportedCurrency(v),
         "Para birimi TRY, USD veya EUR olmalı.",
       ),
+    owner_customer_id: optionalUuid,
     notes: z.string().trim().max(2000).optional().or(z.literal("")),
   })
   .refine(
     (d) => !d.expiry_date || !d.received_at || d.expiry_date >= d.received_at,
     { message: "Son kullanma alış tarihinden önce olamaz.", path: ["expiry_date"] },
-  );
+  )
+  .refine((d) => !d.owner_customer_id || d.unit_cost === null, {
+    message: "Müşteri malı lota birim maliyet girilemez.",
+    path: ["unit_cost"],
+  });
 
 export type LotFormState = {
   error?: string;
@@ -113,6 +118,7 @@ export async function createLot(
     quantity: formData.get("quantity") ?? "",
     unit_cost: formData.get("unit_cost") ?? "",
     currency: formData.get("currency") ?? "",
+    owner_customer_id: formData.get("owner_customer_id") ?? "",
     notes: formData.get("notes") ?? "",
   });
 
@@ -143,6 +149,7 @@ export async function createLot(
     p_quantity: parsed.data.quantity,
     p_notes: emptyToNull(parsed.data.notes),
     p_movement_notes: null,
+    p_owner_customer_id: parsed.data.owner_customer_id,
   });
 
   if (error) {

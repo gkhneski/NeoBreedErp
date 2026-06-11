@@ -338,6 +338,60 @@ export type Database = {
         };
         Relationships: [];
       };
+      customers: {
+        Row: {
+          id: string;
+          company_id: string;
+          code: string;
+          name: string;
+          tax_number: string | null;
+          email: string | null;
+          phone: string | null;
+          address: string | null;
+          country: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          code: string;
+          name: string;
+          tax_number?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          address?: string | null;
+          country?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          code?: string;
+          name?: string;
+          tax_number?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          address?: string | null;
+          country?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       recipes: {
         Row: {
           id: string;
@@ -452,6 +506,7 @@ export type Database = {
           company_id: string;
           material_id: string;
           supplier_id: string | null;
+          owner_customer_id: string | null;
           lot_number: string;
           received_at: string;
           expiry_date: string | null;
@@ -472,6 +527,7 @@ export type Database = {
           company_id: string;
           material_id: string;
           supplier_id?: string | null;
+          owner_customer_id?: string | null;
           lot_number: string;
           received_at?: string;
           expiry_date?: string | null;
@@ -492,6 +548,7 @@ export type Database = {
           company_id?: string;
           material_id?: string;
           supplier_id?: string | null;
+          owner_customer_id?: string | null;
           lot_number?: string;
           received_at?: string;
           expiry_date?: string | null;
@@ -550,6 +607,7 @@ export type Database = {
           code: string;
           finished_material_id: string;
           recipe_id: string;
+          customer_id: string | null;
           planned_quantity: number;
           planned_uom: string;
           status: ProductionOrderStatus;
@@ -572,6 +630,7 @@ export type Database = {
           code: string;
           finished_material_id: string;
           recipe_id: string;
+          customer_id?: string | null;
           planned_quantity: number;
           planned_uom: string;
           status?: ProductionOrderStatus;
@@ -594,6 +653,7 @@ export type Database = {
           code?: string;
           finished_material_id?: string;
           recipe_id?: string;
+          customer_id?: string | null;
           planned_quantity?: number;
           planned_uom?: string;
           status?: ProductionOrderStatus;
@@ -854,6 +914,7 @@ export type Database = {
           unit_cost: number | null;
           currency: string | null;
           line_cost: number | null;
+          customer_owned: boolean;
           created_at: string;
           created_by: string | null;
         };
@@ -867,6 +928,7 @@ export type Database = {
           unit_cost?: number | null;
           currency?: string | null;
           line_cost?: number | null;
+          customer_owned?: boolean;
           created_at?: string;
           created_by?: string | null;
         };
@@ -976,6 +1038,7 @@ export type Database = {
           p_quantity: number;
           p_notes: string | null;
           p_movement_notes: string | null;
+          p_owner_customer_id?: string | null;
         };
         Returns: string;
       };

@@ -21,7 +21,10 @@ Phases are sequential. **Do not start a phase until the previous one is signed o
 | 5d — Quality control | ✓ done (migration `20260522000000_phase5d_quality_control.sql` authored) |
 | 5e — Basic costing (per-batch material rollup) | ✓ done (migration `20260523000000_phase5e_cost_snapshots.sql` authored) |
 | 5f — Per-company file storage | ✓ done (migration `20260524000000_phase5f_file_attachments.sql` authored) |
-| 6 — Hardening | **in progress** (user sign-off 2026-06-11: "faz 6") |
+| 6 — Hardening | ✓ done (code side; restore drill + PITR remain as operator tasks, see OPERATIONS_CHECKLIST.md) |
+| **7a — Customers & fason production** | **in progress** (plan approved 2026-06-11) |
+| 7b — Locations & lot transfer | planned |
+| 7c — QR labels & depot scanning | planned |
 
 > Faz 5a kapsam notu: `materials` Faz 5a'da minimal iskelet (`code`, `name`, `type`, `base_uom`, `density`) olarak girdi. Faz 5b step 1 ile `default_supplier_id`, `allergen_flags jsonb`, `storage_conditions`, `regulatory_notes` eklendi; ayrıca `suppliers` tablosu girdi.
 >
@@ -156,6 +159,18 @@ Sub-phases — each is its own milestone:
 
 **Forbidden:**
 - New features. This phase is purely hardening.
+
+---
+
+## Phase 7 — Fason, Second Depot & Barcode (post-MVP, approved 2026-06-11)
+
+Business driver: the factory tenant produces; finished goods physically move to the sister company's depot (modeled as a **second location in the same tenant**, NOT a separate tenant) and are received there by QR scan. The factory also manufactures on behalf of external customers ("fason") — records only, no portal.
+
+- **7a.** `customers` table + `customer_id` on production orders + customer-owned lots (`owner_customer_id`, excluded from batch cost).
+- **7b.** `locations` table + `location_id` on lots + whole-lot `transfer` movements (zero-quantity ledger rows) + `transfer_lot` RPC. Only `released` lots can transfer.
+- **7c.** QR label print page per lot + phone-camera scan page with one-tap transfer to the shipping depot.
+
+**Forbidden in Phase 7:** invoicing/accounting, customer portals, partial lot splits, separate tenant for the sister company.
 
 ---
 
