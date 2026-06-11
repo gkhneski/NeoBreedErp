@@ -3,7 +3,9 @@
 import {
   ArrowLeftRight,
   BarChart3,
+  BookOpenText,
   Box,
+  ChevronDown,
   ClipboardList,
   Factory,
   FlaskConical,
@@ -14,13 +16,13 @@ import {
   ReceiptText,
   Settings,
   ShieldCheck,
-  BookOpenText,
   Truck,
   Users,
   Warehouse,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
 import { companyHomePath, companyModulePath } from "@/types/roles";
@@ -33,15 +35,11 @@ interface NavItem {
 }
 
 interface NavSection {
-  title: string | null;
+  title: string;
   items: NavItem[];
 }
 
 const SECTIONS: NavSection[] = [
-  {
-    title: null,
-    items: [{ key: "", label: "Panel", icon: LayoutDashboard, exact: true }],
-  },
   {
     title: "Ürün & Stok",
     items: [
@@ -79,6 +77,12 @@ const SECTIONS: NavSection[] = [
   },
 ];
 
+function isItemActive(pathname: string, href: string, exact?: boolean): boolean {
+  return exact
+    ? pathname === href
+    : pathname === href || pathname.startsWith(href + "/");
+}
+
 export function CompanySidebar({
   companyId,
   companyName,
@@ -88,6 +92,24 @@ export function CompanySidebar({
 }) {
   const pathname = usePathname();
   const home = companyHomePath(companyId);
+
+  const activeSection = SECTIONS.find((s) =>
+    s.items.some((item) =>
+      isItemActive(pathname, companyModulePath(companyId, item.key)),
+    ),
+  )?.title;
+
+  const [open, setOpen] = useState<Record<string, boolean>>(() => ({
+    ...(activeSection ? { [activeSection]: true } : {}),
+  }));
+
+  useEffect(() => {
+    if (activeSection) {
+      setOpen((prev) => ({ ...prev, [activeSection]: true }));
+    }
+  }, [activeSection]);
+
+  const homeActive = pathname === home;
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
@@ -103,40 +125,74 @@ export function CompanySidebar({
         </span>
       </Link>
 
-      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4 text-sm">
-        {SECTIONS.map((section) => (
-          <div key={section.title ?? "main"} className="space-y-0.5">
-            {section.title ? (
-              <p className="px-3 pb-1 text-[10px] font-medium uppercase tracking-widest text-sidebar-muted">
-                {section.title}
-              </p>
-            ) : null}
-            {section.items.map((item) => {
-              const href = item.key
-                ? companyModulePath(companyId, item.key)
-                : home;
-              const active = item.exact
-                ? pathname === href
-                : pathname === href || pathname.startsWith(href + "/");
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.key || "home"}
-                  href={href}
-                  className={cn(
-                    "relative flex items-center gap-2.5 rounded-md px-3 py-2 transition-colors",
-                    active
-                      ? "bg-sidebar-active text-sidebar-accent before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-sidebar-accent"
-                      : "hover:bg-sidebar-active/60 hover:text-white",
-                  )}
+      <nav className="no-scrollbar flex-1 overflow-y-auto px-3 py-4 text-sm">
+        <Link
+          href={home}
+          className={cn(
+            "relative flex items-center gap-2.5 rounded-md px-3 py-2 transition-colors",
+            homeActive
+              ? "bg-sidebar-active text-sidebar-accent before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-sidebar-accent"
+              : "hover:bg-sidebar-active/60 hover:text-white",
+          )}
+        >
+          <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>Panel</span>
+        </Link>
+
+        <div className="mt-3 space-y-1">
+          {SECTIONS.map((section) => {
+            const expanded = !!open[section.title];
+            return (
+              <div key={section.title}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOpen((prev) => ({
+                      ...prev,
+                      [section.title]: !expanded,
+                    }))
+                  }
+                  aria-expanded={expanded}
+                  className="flex w-full items-center justify-between rounded-md px-3 py-2 text-[11px] font-medium uppercase tracking-widest text-sidebar-muted transition-colors hover:bg-sidebar-active/60 hover:text-white"
                 >
-                  <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span className="truncate">{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        ))}
+                  <span>{section.title}</span>
+                  <ChevronDown
+                    className={cn(
+                      "h-3.5 w-3.5 transition-transform duration-200",
+                      expanded ? "rotate-180" : "",
+                    )}
+                    aria-hidden="true"
+                  />
+                </button>
+
+                {expanded ? (
+                  <div className="space-y-0.5 pb-1">
+                    {section.items.map((item) => {
+                      const href = companyModulePath(companyId, item.key);
+                      const active = isItemActive(pathname, href);
+                      const Icon = item.icon;
+                      return (
+                        <Link
+                          key={item.key}
+                          href={href}
+                          className={cn(
+                            "relative flex items-center gap-2.5 rounded-md px-3 py-2 transition-colors",
+                            active
+                              ? "bg-sidebar-active text-sidebar-accent before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-sidebar-accent"
+                              : "hover:bg-sidebar-active/60 hover:text-white",
+                          )}
+                        >
+                          <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                          <span className="truncate">{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
       </nav>
     </div>
   );

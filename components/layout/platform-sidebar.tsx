@@ -47,7 +47,7 @@ export function PlatformSidebar() {
         </span>
       </Link>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4 text-sm">
+      <nav className="no-scrollbar flex-1 space-y-0.5 overflow-y-auto px-3 py-4 text-sm">
         {NAV.map((item) => {
           const active = item.exact
             ? pathname === item.href
