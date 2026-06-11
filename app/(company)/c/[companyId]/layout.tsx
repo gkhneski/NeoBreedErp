@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Suspense } from "react";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -6,7 +5,7 @@ import { CompanySidebar } from "@/components/layout/company-sidebar";
 import { FlashToast } from "@/components/ui/flash-toast";
 import { requireCompanyUser } from "@/lib/auth";
 import { getCompanySummary } from "@/lib/company";
-import { COMPANY_ROLE_BADGE_LABELS, companyHomePath } from "@/types/roles";
+import { COMPANY_ROLE_BADGE_LABELS } from "@/types/roles";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -19,36 +18,36 @@ export default async function CompanyAppLayout({ children, params }: LayoutProps
   const company = await getCompanySummary(companyId);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="border-b border-border bg-card">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
-          <Link
-            href={companyHomePath(companyId)}
-            className="flex items-center gap-2 font-semibold tracking-tight"
-          >
-            NeoBreed-ERP
-          </Link>
-          <div className="flex items-center gap-3 text-xs">
-            <span className="text-muted-foreground">
-              Aktif firma:{" "}
-              <span className="font-medium text-foreground">
-                {company?.name ?? "—"}
-              </span>
-            </span>
-            <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-              {COMPANY_ROLE_BADGE_LABELS[role]}
-            </span>
-            <span className="text-muted-foreground">{ctx.email}</span>
-            <SignOutButton />
-          </div>
-        </div>
-      </header>
+    <div className="flex min-h-screen">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 md:block">
+        <CompanySidebar
+          companyId={companyId}
+          companyName={company?.name ?? "Firma"}
+        />
+      </aside>
 
-      <div className="mx-auto flex w-full max-w-7xl flex-1">
-        <aside className="hidden w-56 shrink-0 border-r border-border md:block">
-          <CompanySidebar companyId={companyId} />
-        </aside>
-        <main className="flex-1 px-4 py-6 md:px-8">{children}</main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-10 border-b border-border bg-card/95 backdrop-blur">
+          <div className="flex h-14 items-center justify-between gap-4 px-6">
+            <span className="truncate text-sm">
+              <span className="text-muted-foreground">Aktif firma: </span>
+              <span className="font-medium">{company?.name ?? "—"}</span>
+            </span>
+            <div className="flex items-center gap-3 text-xs">
+              <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                {COMPANY_ROLE_BADGE_LABELS[role]}
+              </span>
+              <span className="hidden text-muted-foreground sm:inline">
+                {ctx.email}
+              </span>
+              <SignOutButton />
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 px-6 py-6">
+          <div className="mx-auto w-full max-w-6xl">{children}</div>
+        </main>
       </div>
 
       <Suspense fallback={null}>
