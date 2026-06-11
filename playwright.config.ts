@@ -1,4 +1,15 @@
 import { defineConfig, devices } from "@playwright/test";
+import { readFileSync } from "node:fs";
+
+// .env.local'i yukle (Next dev server'in aksine Playwright bunu kendisi yapmaz)
+try {
+  for (const line of readFileSync(".env.local", "utf8").split("\n")) {
+    const m = line.match(/^([A-Za-z0-9_]+)=(.*)$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim();
+  }
+} catch {
+  // .env.local yoksa (CI) ortam degiskenleri disaridan gelir
+}
 
 export default defineConfig({
   testDir: "./tests/e2e",
