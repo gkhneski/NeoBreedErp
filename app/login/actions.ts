@@ -1,9 +1,11 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { getSessionContext, postLoginRedirectFor } from "@/lib/auth";
+import { isRateLimited } from "@/lib/rate-limit";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 const loginSchema = z.object({
@@ -25,6 +27,15 @@ export async function signIn(
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Geçersiz giriş." };
+  }
+
+  const headerStore = await headers();
+  const ip =
+    headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (isRateLimited(`login:${ip}:${parsed.data.email.toLowerCase()}`)) {
+    return {
+      error: "Çok fazla deneme yapıldı. Lütfen bir dakika sonra tekrar deneyin.",
+    };
   }
 
   const supabase = await createServerSupabaseClient();

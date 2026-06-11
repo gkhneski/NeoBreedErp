@@ -40,3 +40,7 @@ pnpm-debug.log*
 # supabase local artifacts
 supabase/.branches
 supabase/.temp
+
+# playwright
+/test-results/
+/playwright-report/

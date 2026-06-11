@@ -21,7 +21,7 @@ Phases are sequential. **Do not start a phase until the previous one is signed o
 | 5d — Quality control | ✓ done (migration `20260522000000_phase5d_quality_control.sql` authored) |
 | 5e — Basic costing (per-batch material rollup) | ✓ done (migration `20260523000000_phase5e_cost_snapshots.sql` authored) |
 | 5f — Per-company file storage | ✓ done (migration `20260524000000_phase5f_file_attachments.sql` authored) |
-| 6 — Hardening | not started |
+| 6 — Hardening | **in progress** (user sign-off 2026-06-11: "faz 6") |
 
 > Faz 5a kapsam notu: `materials` Faz 5a'da minimal iskelet (`code`, `name`, `type`, `base_uom`, `density`) olarak girdi. Faz 5b step 1 ile `default_supplier_id`, `allergen_flags jsonb`, `storage_conditions`, `regulatory_notes` eklendi; ayrıca `suppliers` tablosu girdi.
 >
