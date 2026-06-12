@@ -1,3 +1,13 @@
+import {
+  Boxes,
+  ClipboardList,
+  PackageCheck,
+  ScanLine,
+  Send,
+  Store,
+  Truck,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 
 import { EmptyState } from "@/components/ui/empty-state";
@@ -15,6 +25,8 @@ import {
 } from "@/lib/expiry";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { companyModulePath } from "@/types/roles";
+
+import { DepotHero } from "./depot-hero";
 
 interface CompanyStats {
   totalProducts: number;
@@ -206,7 +218,7 @@ async function loadExpiryCounts(
   };
 }
 
-function ExpiryTrackingSection({
+function ExpirySummary({
   companyId,
   thresholds,
   counts,
@@ -217,59 +229,71 @@ function ExpiryTrackingSection({
 }) {
   // Depo personeli "lots" modulunu gormez; SKT kartlari bitmis urun stoguna gider.
   const finishedStockPath = `${companyModulePath(companyId, "stock")}?tab=urun`;
-  const cards = [
+  const chips = [
     {
       key: "expired" as const,
       label: EXPIRY_LABEL.expired,
       value: counts.expired,
-      href: finishedStockPath,
+      ring: "ring-red-500/30",
+      grad: "from-red-500 to-rose-600",
     },
     {
       key: "critical" as const,
-      label: `${EXPIRY_LABEL.critical} (≤${thresholds.criticalDays} gün)`,
+      label: `${EXPIRY_LABEL.critical} ≤${thresholds.criticalDays}g`,
       value: counts.critical,
-      href: finishedStockPath,
+      ring: "ring-orange-500/30",
+      grad: "from-orange-400 to-amber-500",
     },
     {
       key: "warning" as const,
-      label: `${EXPIRY_LABEL.warning} (≤${thresholds.warningDays} gün)`,
+      label: `${EXPIRY_LABEL.warning} ≤${thresholds.warningDays}g`,
       value: counts.warning,
-      href: finishedStockPath,
+      ring: "ring-amber-400/30",
+      grad: "from-amber-300 to-yellow-400",
     },
   ];
 
   return (
-    <section className="space-y-3">
-      <h2 className="text-sm font-semibold">Son Kullanma Takibi</h2>
+    <section className="animate-fade-up space-y-3" style={{ animationDelay: "160ms" }}>
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold">Son Kullanma Takibi</h2>
+        <Link
+          href={finishedStockPath}
+          className="text-xs font-medium text-primary hover:underline"
+        >
+          Tümü →
+        </Link>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-3">
-        {cards.map((c) => (
+        {chips.map((c) => (
           <Link
             key={c.key}
-            href={c.href}
-            className="rounded-md border border-border bg-card p-4 transition-colors hover:bg-secondary/40"
+            href={finishedStockPath}
+            className={`flex items-center justify-between rounded-xl bg-card p-4 ring-1 ${c.ring} transition-transform hover:-translate-y-0.5`}
           >
-            <div className="flex items-center gap-2">
-              <span
-                className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                  c.value > 0 ? EXPIRY_BADGE_CLASS[c.key] : "bg-emerald-500"
-                }`}
-              />
+            <div>
               <p className="text-xs text-muted-foreground">{c.label}</p>
+              <p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight">
+                {c.value}
+              </p>
             </div>
-            <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
+            <span
+              className={`flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br ${c.grad} text-sm font-bold text-white tabular-nums shadow-md`}
+            >
               {c.value}
-            </p>
+            </span>
           </Link>
         ))}
       </div>
 
       {counts.soonest.length > 0 ? (
-        <div className="overflow-hidden rounded-md border border-border">
+        <div className="overflow-hidden rounded-xl border border-border">
           <p className="border-b border-border bg-secondary/50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             En Yakın SKT
           </p>
           <ul className="divide-y divide-border text-sm">
-            {counts.soonest.map((lot) => {
+            {counts.soonest.slice(0, 4).map((lot) => {
               const urgency = expiryUrgency(lot.expiry_date, thresholds);
               const dte = daysUntil(lot.expiry_date);
               return (
@@ -359,99 +383,143 @@ async function ClerkDashboard({
     loadExpiryCounts(companyId, thresholds),
   ]);
 
-  const cards = [
+  const cards: Array<{
+    label: string;
+    value: number;
+    href: string;
+    grad: string;
+    glow: string;
+    Icon: LucideIcon;
+  }> = [
     {
       label: "Hazırlanacak Sipariş",
       value: toPrepare ?? 0,
       href: companyModulePath(companyId, "shipments") + "?durum=preparing",
+      grad: "from-amber-400 to-orange-500",
+      glow: "rgba(249,115,22,0.45)",
+      Icon: ClipboardList,
     },
     {
       label: "Bugün Gönderilen",
       value: shippedToday ?? 0,
       href: companyModulePath(companyId, "shipments") + "?durum=shipped",
+      grad: "from-emerald-400 to-teal-500",
+      glow: "rgba(16,185,129,0.45)",
+      Icon: Truck,
     },
     {
       label: "Sevk Edilebilir Lot",
       value: releasedLots ?? 0,
       href: `${companyModulePath(companyId, "stock")}?tab=urun`,
+      grad: "from-cyan-400 to-sky-500",
+      glow: "rgba(14,165,233,0.45)",
+      Icon: PackageCheck,
     },
     {
       label: "Bekleyen Fiyat Onayı",
       value: pendingPriceApprovals ?? 0,
       href: companyModulePath(companyId, "marketplace"),
+      grad: "from-violet-500 to-fuchsia-500",
+      glow: "rgba(217,70,239,0.45)",
+      Icon: Store,
     },
   ];
 
-  const actions = [
+  const actions: Array<{
+    label: string;
+    href: string;
+    description: string;
+    Icon: LucideIcon;
+  }> = [
     {
       label: "Barkod Tara",
       href: companyModulePath(companyId, "warehouse", "scan"),
       description: "Gelen koliyi okutup depoya alın.",
+      Icon: ScanLine,
     },
     {
       label: "Yeni Sipariş",
       href: companyModulePath(companyId, "shipments", "new"),
       description: "Ecza deposu veya pazaryeri siparişi açın.",
+      Icon: Send,
     },
     {
       label: "Siparişler",
       href: companyModulePath(companyId, "shipments"),
       description: "Hazırlanacak ve gönderilen siparişler.",
+      Icon: ClipboardList,
     },
     {
       label: "Bitmiş Ürün Stoğu",
       href: `${companyModulePath(companyId, "stock")}?tab=urun`,
       description: "Eldeki bitmiş ürünleri lot ve SKT ile görün.",
+      Icon: Boxes,
     },
   ];
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {companyName} · Depo Paneli
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Gelen kolileri okutun, siparişleri hazırlayıp gönderin.
-        </p>
-      </header>
+      <DepotHero companyName={companyName} />
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map((c) => (
-          <Link
-            key={c.label}
-            href={c.href}
-            className="rounded-md border border-border bg-card p-4 transition-colors hover:bg-secondary/40"
-          >
-            <p className="text-xs text-muted-foreground">{c.label}</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
-              {c.value}
-            </p>
-          </Link>
-        ))}
+        {cards.map((c, i) => {
+          const Icon = c.Icon;
+          return (
+            <Link
+              key={c.label}
+              href={c.href}
+              className={`animate-fade-up group relative overflow-hidden rounded-2xl bg-gradient-to-br ${c.grad} p-4 text-white shadow-lg transition-transform duration-200 hover:-translate-y-1`}
+              style={{
+                animationDelay: `${i * 70}ms`,
+                boxShadow: `0 10px 30px -12px ${c.glow}`,
+              }}
+            >
+              <div className="flex items-start justify-between">
+                <p className="text-xs font-medium text-white/85">{c.label}</p>
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20">
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                </span>
+              </div>
+              <p className="mt-3 text-4xl font-semibold tabular-nums tracking-tight">
+                {c.value}
+              </p>
+            </Link>
+          );
+        })}
       </section>
 
-      <ExpiryTrackingSection
+      <ExpirySummary
         companyId={companyId}
         thresholds={thresholds}
         counts={expiryCounts}
       />
 
-      <section className="space-y-3">
+      <section
+        className="animate-fade-up space-y-3"
+        style={{ animationDelay: "240ms" }}
+      >
         <h2 className="text-sm font-semibold">Hızlı İşlemler</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {actions.map((a) => (
-            <Link
-              key={a.label}
-              href={a.href}
-              className="rounded-md border border-border bg-card p-4 transition-colors hover:bg-secondary/40"
-            >
-              <p className="text-sm font-medium">{a.label}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {a.description}
-              </p>
-            </Link>
-          ))}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {actions.map((a) => {
+            const Icon = a.Icon;
+            return (
+              <Link
+                key={a.label}
+                href={a.href}
+                className="group flex items-start gap-3 rounded-2xl border border-border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <span>
+                  <p className="text-sm font-medium">{a.label}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {a.description}
+                  </p>
+                </span>
+              </Link>
+            );
+          })}
         </div>
       </section>
     </div>
