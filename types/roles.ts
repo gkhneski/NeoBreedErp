@@ -85,11 +85,12 @@ export const MARKETPLACE_APPROVE_ROLES = [
   "company_user",
 ] as const satisfies readonly CompanyRole[];
 
-// operator = depo personeli: yalnizca depo odakli moduller (Faz 7d).
+// operator = depo personeli: yalnizca depo odakli moduller.
+// Lotlar/hammadde fabrika konusu; depo yalnizca bitmis urun stogunu, raf
+// dagilimini, SKT/son kullanma takibini ve sevkiyati gorur.
 // Diger roller tum modulleri gorur; yazma yetkileri *_WRITE_ROLES ile ayrica sinirlanir.
 const OPERATOR_MODULES = new Set([
   "",
-  "lots",
   "stock",
   "warehouse",
   "shipments",

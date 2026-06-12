@@ -4,6 +4,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyUser } from "@/lib/auth";
+import { getExpiryThresholds } from "@/lib/company-settings";
+import {
+  EXPIRY_BADGE_CLASS,
+  EXPIRY_LABEL,
+  daysUntil,
+  expiryUrgency,
+  type ExpiryThresholds,
+  type ExpiryUrgency,
+} from "@/lib/expiry";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { STOCK_WRITE_ROLES, canWriteCompanyData, companyModulePath } from "@/types/roles";
@@ -261,6 +270,132 @@ function MovementsTable({
   );
 }
 
+type FinishedLotRow = {
+  id: string;
+  lot_number: string;
+  expiry_date: string | null;
+  quantity_on_hand: number;
+  status: "quarantine" | "released" | "blocked";
+  materials: { code: string; name: string; base_uom: string } | null;
+  locations: { code: string; name: string; is_default: boolean } | null;
+};
+
+const LOT_STATUS_LABEL: Record<FinishedLotRow["status"], string> = {
+  quarantine: "Karantina",
+  released: "Serbest",
+  blocked: "Bloklu",
+};
+
+const LOT_STATUS_VARIANT: Record<
+  FinishedLotRow["status"],
+  "default" | "warning" | "destructive"
+> = {
+  quarantine: "warning",
+  released: "default",
+  blocked: "destructive",
+};
+
+// Depo gorunumu: bitmis urunler lot bazinda — adet, raf, SKT, durum.
+function FinishedLotTable({
+  rows,
+  thresholds,
+}: {
+  rows: FinishedLotRow[];
+  thresholds: ExpiryThresholds;
+}) {
+  if (rows.length === 0) {
+    return (
+      <EmptyState
+        title="Bitmiş ürün stoğu yok"
+        description="Üretim tamamlanıp depoya alındığında bitmiş ürün lotları burada listelenir."
+      />
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-md border border-border">
+      <table className="w-full text-sm">
+        <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
+          <tr>
+            <th className="px-3 py-2 text-left font-medium">Lot No</th>
+            <th className="px-3 py-2 text-left font-medium">Ürün</th>
+            <th className="px-3 py-2 text-left font-medium">Raf / Konum</th>
+            <th className="px-3 py-2 text-right font-medium">Eldeki</th>
+            <th className="px-3 py-2 text-left font-medium">SKT</th>
+            <th className="px-3 py-2 text-left font-medium">Durum</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((lot) => {
+            const urgency: ExpiryUrgency | null = expiryUrgency(
+              lot.expiry_date,
+              thresholds,
+            );
+            const dte = daysUntil(lot.expiry_date);
+            return (
+              <tr key={lot.id} className="border-t border-border align-top">
+                <td className="px-3 py-2 font-mono text-xs">
+                  {lot.lot_number}
+                </td>
+                <td className="px-3 py-2">
+                  {lot.materials ? (
+                    <span>
+                      <span className="font-mono text-xs">
+                        {lot.materials.code}
+                      </span>
+                      <span className="ml-1">— {lot.materials.name}</span>
+                    </span>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td className="px-3 py-2 text-xs">
+                  {lot.locations ? (
+                    lot.locations.is_default ? (
+                      <span className="text-muted-foreground">
+                        {lot.locations.name}
+                      </span>
+                    ) : (
+                      <Badge variant="outline">{lot.locations.code}</Badge>
+                    )
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-right font-mono text-xs">
+                  {formatQty(Number(lot.quantity_on_hand))}{" "}
+                  <span className="text-muted-foreground">
+                    {lot.materials?.base_uom ?? ""}
+                  </span>
+                </td>
+                <td className="px-3 py-2 text-xs text-muted-foreground">
+                  <div className="flex flex-col gap-1">
+                    <span>{lot.expiry_date ?? "—"}</span>
+                    {urgency && urgency !== "ok" ? (
+                      <span
+                        className={`w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold ${EXPIRY_BADGE_CLASS[urgency]}`}
+                      >
+                        {urgency === "expired"
+                          ? EXPIRY_LABEL.expired
+                          : `${EXPIRY_LABEL[urgency]} · ${dte}g`}
+                      </span>
+                    ) : null}
+                  </div>
+                </td>
+                <td className="px-3 py-2">
+                  <Badge variant={LOT_STATUS_VARIANT[lot.status]}>
+                    {LOT_STATUS_LABEL[lot.status]}
+                  </Badge>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default async function StockPage({ params, searchParams }: PageProps) {
   const { companyId: routeCompanyId } = await params;
   const { tab: tabParam } = await searchParams;
@@ -285,8 +420,25 @@ export default async function StockPage({ params, searchParams }: PageProps) {
 
   let stockRows: StockRow[] = [];
   let movementRows: MovementRow[] = [];
+  let finishedLotRows: FinishedLotRow[] = [];
+  const thresholds = isOperator ? await getExpiryThresholds(companyId) : null;
 
-  if (tab === "hammadde") {
+  if (isOperator && tab === "urun") {
+    const { data } = await supabase
+      .from("material_lots")
+      .select(
+        "id, lot_number, expiry_date, quantity_on_hand, status, " +
+          "materials:material_id!inner(code, name, base_uom, type), " +
+          "locations:location_id(code, name, is_default)",
+      )
+      .eq("company_id", companyId)
+      .eq("materials.type", "finished")
+      .is("deleted_at", null)
+      .gt("quantity_on_hand", 0)
+      .order("expiry_date", { ascending: true, nullsFirst: false })
+      .returns<FinishedLotRow[]>();
+    finishedLotRows = data ?? [];
+  } else if (tab === "hammadde") {
     const { data } = await supabase
       .from("materials")
       .select(stockBase)
@@ -372,6 +524,8 @@ export default async function StockPage({ params, searchParams }: PageProps) {
           companyId={companyId}
           canWrite={canWrite}
         />
+      ) : isOperator && tab === "urun" && thresholds ? (
+        <FinishedLotTable rows={finishedLotRows} thresholds={thresholds} />
       ) : (
         <StockTable
           rows={stockRows}
