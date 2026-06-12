@@ -230,6 +230,12 @@ export default async function LotDetailPage({ params }: PageProps) {
         </dl>
       </section>
 
+      <div>
+        <Link href={companyModulePath(companyId, "lots", lot.id, "label")}>
+          <Button variant="outline">Etiket Yazdır (QR)</Button>
+        </Link>
+      </div>
+
       {canTransfer ? (
         <section className="rounded-md border border-border p-4">
           <h2 className="mb-1 text-sm font-medium">Depo Transferi</h2>

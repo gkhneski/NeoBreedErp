@@ -22,9 +22,9 @@ Phases are sequential. **Do not start a phase until the previous one is signed o
 | 5e — Basic costing (per-batch material rollup) | ✓ done (migration `20260523000000_phase5e_cost_snapshots.sql` authored) |
 | 5f — Per-company file storage | ✓ done (migration `20260524000000_phase5f_file_attachments.sql` authored) |
 | 6 — Hardening | ✓ done (code side; restore drill + PITR remain as operator tasks, see OPERATIONS_CHECKLIST.md) |
-| **7a — Customers & fason production** | **in progress** (plan approved 2026-06-11) |
-| 7b — Locations & lot transfer | planned |
-| 7c — QR labels & depot scanning | planned |
+| 7a — Customers & fason production | ✓ done (migration `20260612000000` applied, in production) |
+| 7b — Locations & lot transfer | ✓ done (migration `20260613000000` applied) |
+| 7c — QR labels & depot scanning | ✓ done (2026-06-12) |
 
 > Faz 5a kapsam notu: `materials` Faz 5a'da minimal iskelet (`code`, `name`, `type`, `base_uom`, `density`) olarak girdi. Faz 5b step 1 ile `default_supplier_id`, `allergen_flags jsonb`, `storage_conditions`, `regulatory_notes` eklendi; ayrıca `suppliers` tablosu girdi.
 >

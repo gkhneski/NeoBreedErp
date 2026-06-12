@@ -95,9 +95,12 @@ export default async function WarehousePage({ params }: PageProps) {
           </p>
         </div>
         {canWriteCompanyData(role, STOCK_WRITE_ROLES) ? (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Link href={companyModulePath(companyId, "warehouse", "scan")}>
+              <Button>Barkod Tara</Button>
+            </Link>
             <Link href={companyModulePath(companyId, "lots", "new")}>
-              <Button>Mal Kabul</Button>
+              <Button variant="outline">Mal Kabul</Button>
             </Link>
             <Link href={companyModulePath(companyId, "stock", "new")}>
               <Button variant="outline">Stok Hareketi</Button>

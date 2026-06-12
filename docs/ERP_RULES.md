@@ -104,6 +104,7 @@ Material codes are **unique per company**, not globally.
 
 - Lot numbers, batch numbers, and production order numbers are per-company sequences. Format is configurable per company (prefix + zero-padded counter) but defaults are sensible (e.g., `LOT-000001`).
 - Codes are never reused. Soft-deleted entities keep their codes reserved.
+- **QR labels (Phase 7c):** lot labels encode the absolute lot detail URL (`/c/{companyId}/lots/{lotId}`). Scanning with any phone camera opens the lot page after login; the in-app scan page additionally offers one-tap transfer. Scans of another tenant's label are rejected.
 
 ---
 
