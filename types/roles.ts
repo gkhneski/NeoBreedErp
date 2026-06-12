@@ -76,6 +76,15 @@ export const SHIPMENT_WRITE_ROLES = [
   "company_user",
 ] as const satisfies readonly CompanyRole[];
 
+// Pazaryeri fiyat onay kuyrugu: depocu tek dokunusla onaylar/reddeder.
+// Kural/fiyat yonetimi MASTER_DATA_WRITE_ROLES, kimlik bilgileri company_admin.
+export const MARKETPLACE_APPROVE_ROLES = [
+  "company_admin",
+  "production_manager",
+  "operator",
+  "company_user",
+] as const satisfies readonly CompanyRole[];
+
 // operator = depo personeli: yalnizca depo odakli moduller (Faz 7d).
 // Diger roller tum modulleri gorur; yazma yetkileri *_WRITE_ROLES ile ayrica sinirlanir.
 const OPERATOR_MODULES = new Set([
@@ -84,6 +93,7 @@ const OPERATOR_MODULES = new Set([
   "stock",
   "warehouse",
   "shipments",
+  "marketplace",
 ]);
 
 export function canAccessModule(

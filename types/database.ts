@@ -36,6 +36,16 @@ export type FileAttachmentKind =
   | "invoice"
   | "lab_report"
   | "other";
+export type MarketplaceChannel = "trendyol" | "hepsiburada";
+export type MarketplacePriceState = "normal" | "discounted" | "unknown";
+export type MarketplaceSyncStatus = "never" | "pending" | "ok" | "failed";
+export type MarketplacePriceEventKind = "discount" | "restore" | "manual";
+export type MarketplacePriceEventStatus =
+  | "pending"
+  | "pushed"
+  | "confirmed"
+  | "failed"
+  | "dismissed";
 
 type Json =
   | string
@@ -533,6 +543,180 @@ export type Database = {
           deleted_at?: string | null;
           created_by?: string | null;
           updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      marketplace_connections: {
+        Row: {
+          id: string;
+          company_id: string;
+          channel: MarketplaceChannel;
+          seller_id: string;
+          api_key: string;
+          api_secret: string;
+          enabled: boolean;
+          last_verified_at: string | null;
+          created_at: string;
+          updated_at: string;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          channel: MarketplaceChannel;
+          seller_id: string;
+          api_key: string;
+          api_secret: string;
+          enabled?: boolean;
+          last_verified_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          channel?: MarketplaceChannel;
+          seller_id?: string;
+          api_key?: string;
+          api_secret?: string;
+          enabled?: boolean;
+          last_verified_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      marketplace_listings: {
+        Row: {
+          id: string;
+          company_id: string;
+          channel: MarketplaceChannel;
+          material_id: string;
+          barcode: string;
+          stock_code: string | null;
+          title: string | null;
+          normal_sale_price: number;
+          normal_list_price: number | null;
+          discount_price: number | null;
+          discount_threshold_days: number | null;
+          sync_stock: boolean;
+          current_price_state: MarketplacePriceState;
+          last_synced_at: string | null;
+          last_batch_request_id: string | null;
+          sync_status: MarketplaceSyncStatus;
+          sync_error: string | null;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          channel: MarketplaceChannel;
+          material_id: string;
+          barcode: string;
+          stock_code?: string | null;
+          title?: string | null;
+          normal_sale_price: number;
+          normal_list_price?: number | null;
+          discount_price?: number | null;
+          discount_threshold_days?: number | null;
+          sync_stock?: boolean;
+          current_price_state?: MarketplacePriceState;
+          last_synced_at?: string | null;
+          last_batch_request_id?: string | null;
+          sync_status?: MarketplaceSyncStatus;
+          sync_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          channel?: MarketplaceChannel;
+          material_id?: string;
+          barcode?: string;
+          stock_code?: string | null;
+          title?: string | null;
+          normal_sale_price?: number;
+          normal_list_price?: number | null;
+          discount_price?: number | null;
+          discount_threshold_days?: number | null;
+          sync_stock?: boolean;
+          current_price_state?: MarketplacePriceState;
+          last_synced_at?: string | null;
+          last_batch_request_id?: string | null;
+          sync_status?: MarketplaceSyncStatus;
+          sync_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      marketplace_price_events: {
+        Row: {
+          id: string;
+          company_id: string;
+          listing_id: string;
+          kind: MarketplacePriceEventKind;
+          old_price: number | null;
+          new_price: number;
+          status: MarketplacePriceEventStatus;
+          batch_request_id: string | null;
+          error: string | null;
+          trigger_expiry_date: string | null;
+          trigger_days_left: number | null;
+          created_at: string;
+          created_by: string | null;
+          acted_at: string | null;
+          acted_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          listing_id: string;
+          kind: MarketplacePriceEventKind;
+          old_price?: number | null;
+          new_price: number;
+          status?: MarketplacePriceEventStatus;
+          batch_request_id?: string | null;
+          error?: string | null;
+          trigger_expiry_date?: string | null;
+          trigger_days_left?: number | null;
+          created_at?: string;
+          created_by?: string | null;
+          acted_at?: string | null;
+          acted_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          listing_id?: string;
+          kind?: MarketplacePriceEventKind;
+          old_price?: number | null;
+          new_price?: number;
+          status?: MarketplacePriceEventStatus;
+          batch_request_id?: string | null;
+          error?: string | null;
+          trigger_expiry_date?: string | null;
+          trigger_days_left?: number | null;
+          created_at?: string;
+          created_by?: string | null;
+          acted_at?: string | null;
+          acted_by?: string | null;
         };
         Relationships: [];
       };

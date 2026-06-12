@@ -585,3 +585,31 @@ Urgency bands derived in app code (`lib/expiry.ts`): `expired` (< today), `criti
 Stock onboarding (`lots/onboarding`) is guarded by `STOCK_WRITE_ROLES` (operator allowed). Expiry settings UI is `MASTER_DATA_WRITE_ROLES`.
 
 **Files affected:** `supabase/migrations/20260615000000_phase7e_shelves_putaway_settings.sql`, `app/(company)/c/[companyId]/settings/locations/*`, `settings/expiry/*`, `warehouse/locations/*`, `warehouse/scan/*`, `lots/onboarding/*`, `lots/*`, `production/[orderId]/complete/*`, `lib/expiry.ts`, `lib/company-settings.ts`, `lib/locations.ts`, dashboard.
+
+---
+
+## 20. Phase 8a — Marketplace Connections, Listings & Price Events (signed off 2026-06-12)
+
+**Business intent:** products are already listed on Trendyol (Hepsiburada later). The ERP maps those listings to finished materials by barcode, pushes price+stock updates, and runs an approval-based expiry-discount automation: when sellable stock contains lots with SKT within a threshold, a discount proposal (at an owner-set price) lands in a queue; the warehouse clerk approves with one tap; when near-expiry stock is gone, a restore-to-normal proposal follows. No product creation/publish, no Hepsiburada adapter, no order pull in this phase.
+
+### `marketplace_connections` (API secrets — deny-all RLS)
+
+`id, company_id (cascade), channel check in ('trendyol','hepsiburada'), seller_id, api_key, api_secret, enabled boolean default true, last_verified_at, created/updated audit`. Unique `(company_id, channel)`. **RLS enabled with ZERO policies**: anon/authenticated are fully denied; rows are read/written exclusively through `createServiceRoleClient()` inside server actions that first pass `requireCompanyRole(companyId, ['company_admin'])` (same guard-then-service-client pattern as company user management). Secrets are never sent to the client; the UI shows a masked last-4 marker only.
+
+### `marketplace_listings` (mapping + pricing rule — member RLS)
+
+`id, company_id, channel, material_id (restrict; trigger: same company, type='finished', not deleted), barcode, stock_code, title (cached from marketplace), normal_sale_price numeric(12,2) > 0, normal_list_price (null or >= sale), discount_price (null = no expiry rule; > 0 and < normal_sale_price), discount_threshold_days (null → company `expiry_critical_days`; > 0), sync_stock boolean default true, current_price_state check in ('normal','discounted','unknown') default 'unknown', last_synced_at, last_batch_request_id, sync_status check in ('never','pending','ok','failed') default 'never', sync_error,` soft delete + audit. Partial uniques `(company_id, channel, material_id)` and `(company_id, channel, barcode)` where not deleted. `current_price_state` changes only when a marketplace batch is **confirmed**, never on push.
+
+### `marketplace_price_events` (proposal queue + audit — member RLS)
+
+`id, company_id, listing_id (cascade), kind check in ('discount','restore','manual'), old_price, new_price numeric(12,2) > 0, status check in ('pending','pushed','confirmed','failed','dismissed') default 'pending', batch_request_id, error, trigger_expiry_date date, trigger_days_left integer, created_at, created_by (null = system/cron), acted_at, acted_by`. **Partial unique: at most one `pending` event per `listing_id`** — detection inserts dedupe by catching `23505`. Append-style: rows transition status but are never deleted; this is the audit trail of every marketplace price change.
+
+### No RPCs
+
+The approve→push flow crosses an external HTTP call no DB transaction can span; consistency is held by the event status state machine plus the one-pending partial unique. Plain guarded server-action writes.
+
+### Sellable stock & trigger semantics (app-level, `lib/marketplaces/`)
+
+Sellable quantity = SUM(`quantity_on_hand`) of the material's lots with `status='released'`, not deleted, `owner_customer_id IS NULL`, qty > 0 (quarantine/blocked/fason never sold). Discount trigger = any such lot with `expiry_date <= today + threshold`. Detection runs via daily Vercel Cron (`/api/cron/marketplace-discounts`, `CRON_SECRET` Bearer) and on-demand from the marketplace page.
+
+**Files affected:** `supabase/migrations/20260616000000_phase8a_marketplaces.sql`, `lib/marketplaces/*`, `app/(company)/c/[companyId]/marketplace/*`, `settings/marketplaces/*`, `app/api/cron/marketplace-discounts/*`, `types/roles.ts` (MARKETPLACE_APPROVE_ROLES, operator module access), sidebar + dashboard, `vercel.json` (crons).

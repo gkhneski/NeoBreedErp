@@ -324,6 +324,11 @@ export default async function SettingsPage({ params }: PageProps) {
             <Button variant="outline">SKT Eşikleri</Button>
           </Link>
           {canManageCompanyUsers(role) ? (
+            <Link href={companyModulePath(companyId, "settings", "marketplaces")}>
+              <Button variant="outline">Pazaryeri Bağlantıları</Button>
+            </Link>
+          ) : null}
+          {canManageCompanyUsers(role) ? (
             <Link href={companyModulePath(companyId, "users")}>
               <Button>Kullanıcıları Yönet</Button>
             </Link>

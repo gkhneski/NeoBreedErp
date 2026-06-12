@@ -23,6 +23,7 @@ interface CompanyStats {
   ongoingProduction: number;
   pendingQuality: number;
   openOrders: number;
+  pendingPriceApprovals: number;
 }
 
 async function loadCompanyStats(
@@ -40,6 +41,7 @@ async function loadCompanyStats(
     { count: criticalStock },
     { count: pendingQuality },
     { count: openOrders },
+    { count: pendingPriceApprovals },
   ] = await Promise.all([
     supabase
       .from("materials")
@@ -78,6 +80,11 @@ async function loadCompanyStats(
       .eq("company_id", companyId)
       .in("status", ["open", "preparing"])
       .is("deleted_at", null),
+    supabase
+      .from("marketplace_price_events")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("status", "pending"),
   ]);
 
   return {
@@ -87,6 +94,7 @@ async function loadCompanyStats(
     ongoingProduction: ongoingProduction ?? 0,
     pendingQuality: pendingQuality ?? 0,
     openOrders: openOrders ?? 0,
+    pendingPriceApprovals: pendingPriceApprovals ?? 0,
   };
 }
 
@@ -310,6 +318,7 @@ async function ClerkDashboard({
     { count: toPrepare },
     { count: shippedToday },
     { count: releasedLots },
+    { count: pendingPriceApprovals },
     expiryCounts,
   ] = await Promise.all([
     supabase
@@ -331,6 +340,11 @@ async function ClerkDashboard({
       .eq("status", "released")
       .gt("quantity_on_hand", 0)
       .is("deleted_at", null),
+    supabase
+      .from("marketplace_price_events")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("status", "pending"),
     loadExpiryCounts(companyId, thresholds),
   ]);
 
@@ -349,6 +363,11 @@ async function ClerkDashboard({
       label: "Sevk Edilebilir Lot",
       value: releasedLots ?? 0,
       href: companyModulePath(companyId, "lots"),
+    },
+    {
+      label: "Bekleyen Fiyat Onayı",
+      value: pendingPriceApprovals ?? 0,
+      href: companyModulePath(companyId, "marketplace"),
     },
   ];
 
@@ -391,7 +410,7 @@ async function ClerkDashboard({
         </p>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c) => (
           <Link
             key={c.label}
@@ -484,6 +503,11 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
       label: "Açık Siparişler",
       value: stats.openOrders,
       href: companyModulePath(companyId, "shipments"),
+    },
+    {
+      label: "Bekleyen Fiyat Onayı",
+      value: stats.pendingPriceApprovals,
+      href: companyModulePath(companyId, "marketplace"),
     },
   ];
 

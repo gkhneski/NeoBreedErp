@@ -18,6 +18,7 @@ import {
   Send,
   Settings,
   ShieldCheck,
+  Store,
   Truck,
   Users,
   Warehouse,
@@ -77,7 +78,10 @@ const SECTIONS: NavSection[] = [
   },
   {
     title: "Sevkiyat",
-    items: [{ key: "shipments", label: "Siparişler", icon: Send }],
+    items: [
+      { key: "shipments", label: "Siparişler", icon: Send },
+      { key: "marketplace", label: "Pazaryeri", icon: Store },
+    ],
   },
   {
     title: "Yönetim",
