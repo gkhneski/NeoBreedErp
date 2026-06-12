@@ -48,6 +48,9 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"];
 
+// operator = depo personeli: hammadde/ambalaj fabrika konusu, depo yalnizca bitmis urun gorur
+const OPERATOR_TABS = new Set<TabKey>(["urun", "hareketler"]);
+
 function formatQty(n: number): string {
   return Number(n).toLocaleString("tr-TR", {
     minimumFractionDigits: 0,
@@ -263,14 +266,20 @@ export default async function StockPage({ params, searchParams }: PageProps) {
   const { tab: tabParam } = await searchParams;
   const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const canWrite = canWriteCompanyData(role, STOCK_WRITE_ROLES);
+  const isOperator = role === "operator";
+  const visibleTabs = isOperator
+    ? TABS.filter((t) => OPERATOR_TABS.has(t.key))
+    : TABS;
   const supabase = await createServerSupabaseClient();
 
-  const tab: TabKey =
+  const requested: TabKey =
     tabParam === "urun" ||
     tabParam === "ambalaj" ||
     tabParam === "hareketler"
       ? tabParam
       : "hammadde";
+  const tab: TabKey =
+    isOperator && !OPERATOR_TABS.has(requested) ? "urun" : requested;
 
   const stockBase = `id, code, name, base_uom, material_lots(quantity_on_hand, status, deleted_at)`;
 
@@ -311,14 +320,18 @@ export default async function StockPage({ params, searchParams }: PageProps) {
       .returns<StockRow[]>();
     stockRows = data ?? [];
   } else {
-    const { data } = await supabase
+    let query = supabase
       .from("stock_movements")
       .select(
         "id, kind, quantity, unit_cost, reason, occurred_at, notes, " +
-          "materials:material_id(code, name, base_uom), " +
+          `materials:material_id${isOperator ? "!inner" : ""}(code, name, base_uom), ` +
           "material_lots:lot_id(lot_number)",
       )
-      .eq("company_id", companyId)
+      .eq("company_id", companyId);
+    if (isOperator) {
+      query = query.eq("materials.type", "finished");
+    }
+    const { data } = await query
       .order("occurred_at", { ascending: false })
       .limit(200)
       .returns<MovementRow[]>();
@@ -337,7 +350,7 @@ export default async function StockPage({ params, searchParams }: PageProps) {
       </header>
 
       <div className="flex gap-1 border-b border-border">
-        {TABS.map((t) => (
+        {visibleTabs.map((t) => (
           <Link
             key={t.key}
             href={`${stockPath}?tab=${t.key}`}
@@ -360,7 +373,11 @@ export default async function StockPage({ params, searchParams }: PageProps) {
           canWrite={canWrite}
         />
       ) : (
-        <StockTable rows={stockRows} companyId={companyId} canWrite={canWrite} />
+        <StockTable
+          rows={stockRows}
+          companyId={companyId}
+          canWrite={canWrite && !isOperator}
+        />
       )}
     </div>
   );
