@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { getSessionContext, postLoginRedirectFor } from "@/lib/auth";
-import { isRateLimited } from "@/lib/rate-limit";
+import { isRateLimited, registerFailure } from "@/lib/rate-limit";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 const loginSchema = z.object({
@@ -32,7 +32,8 @@ export async function signIn(
   const headerStore = await headers();
   const ip =
     headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  if (isRateLimited(`login:${ip}:${parsed.data.email.toLowerCase()}`)) {
+  const rateKey = `login:${ip}:${parsed.data.email.toLowerCase()}`;
+  if (isRateLimited(rateKey)) {
     return {
       error: "Çok fazla deneme yapıldı. Lütfen bir dakika sonra tekrar deneyin.",
     };
@@ -44,6 +45,7 @@ export async function signIn(
     password: parsed.data.password,
   });
   if (error) {
+    registerFailure(rateKey);
     return { error: "E-posta veya şifre hatalı." };
   }
 

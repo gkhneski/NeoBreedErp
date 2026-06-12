@@ -3,7 +3,8 @@ export type FlashKind =
   | "updated"
   | "deleted"
   | "saved"
-  | "transferred";
+  | "transferred"
+  | "shipped";
 
 export function withFlash(path: string, kind: FlashKind): string {
   return `${path}${path.includes("?") ? "&" : "?"}flash=${kind}`;

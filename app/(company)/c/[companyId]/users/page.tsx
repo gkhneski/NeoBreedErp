@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { requireCompanyUser } from "@/lib/auth";
+import { requireModuleAccess } from "@/lib/auth";
 import {
   createServerSupabaseClient,
   createServiceRoleClient,
@@ -61,7 +61,7 @@ function displayNameFor(
 
 export default async function UsersPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId, role } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireModuleAccess(routeCompanyId, "users");
   const supabase = canManageCompanyUsers(role)
     ? createServiceRoleClient()
     : await createServerSupabaseClient();

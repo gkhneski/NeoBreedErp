@@ -91,6 +91,16 @@ Material codes are **unique per company**, not globally.
 
 ---
 
+## 7.2 Outbound Shipments (Phase 7d)
+
+- A shipment ("sipariş/sevkiyat") leaves the depot toward a pharma wholesaler (`channel='ecza'`, linked to a `customers` row) or a marketplace order (`trendyol`/`hepsiburada`/`diger`, manual entry with external order no). No invoicing — accounting is external.
+- Items are **lot-based**: the clerk picks concrete released lots; partial quantities from a lot are allowed.
+- Shipping writes one `issue` stock movement per item; shipped shipments and their items are immutable. Cancelling is only possible before shipping and leaves no ledger trace.
+- Status flow: `open → preparing (first item) → shipped | cancelled`. The owner's dashboard counts open/preparing shipments for live tracking.
+- The `operator` role is the warehouse clerk: scoped to dashboard, lots, stock, warehouse (incl. scan) and shipments modules only.
+
+---
+
 ## 8. Files (Supabase Storage)
 
 - Per-company prefix: `<company_id>/`.

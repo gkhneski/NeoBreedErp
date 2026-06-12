@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { requireCompanyUser } from "@/lib/auth";
+import { requireModuleAccess } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { companyModulePath } from "@/types/roles";
 import type { ProductionBatchStatus } from "@/types/database";
@@ -79,7 +79,7 @@ export default async function CostsReportPage({
 }: PageProps) {
   const { companyId: routeCompanyId } = await params;
   const { from, to } = await searchParams;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId } = await requireModuleAccess(routeCompanyId, "reports");
   const supabase = await createServerSupabaseClient();
 
   const range = parseRange(from, to);

@@ -5,7 +5,7 @@ import { AttachmentList } from "@/components/files/attachment-list";
 import { AttachmentUploader } from "@/components/files/attachment-uploader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { requireCompanyUser } from "@/lib/auth";
+import { requireModuleAccess } from "@/lib/auth";
 import {
   ATTACHMENT_KIND_LABEL,
   getSurfaceConfig,
@@ -118,7 +118,7 @@ function formatDateTime(iso: string | null): string {
 
 export default async function QualityCheckDetailPage({ params }: PageProps) {
   const { companyId: routeCompanyId, checkId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId } = await requireModuleAccess(routeCompanyId, "quality");
   const supabase = await createServerSupabaseClient();
 
   const { data: check } = await supabase

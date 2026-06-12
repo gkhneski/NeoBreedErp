@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { requireCompanyUser } from "@/lib/auth";
+import { requireModuleAccess } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   MASTER_DATA_WRITE_ROLES,
@@ -18,7 +18,7 @@ interface PageProps {
 
 export default async function SuppliersListPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId, role } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireModuleAccess(routeCompanyId, "suppliers");
   const supabase = await createServerSupabaseClient();
 
   const { data: suppliers } = await supabase

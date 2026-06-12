@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { requireCompanyUser } from "@/lib/auth";
+import { requireModuleAccess } from "@/lib/auth";
 import {
   DEFAULT_CURRENCY,
   SUPPORTED_CURRENCIES,
@@ -146,7 +146,7 @@ function formatDate(iso: string | null | undefined): string {
 
 export default async function SettingsPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId, role } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireModuleAccess(routeCompanyId, "settings");
   const supabase = await createServerSupabaseClient();
   const membershipClient = canManageCompanyUsers(role)
     ? createServiceRoleClient()

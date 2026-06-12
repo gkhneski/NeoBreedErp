@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { requireCompanyUser } from "@/lib/auth";
+import { requireModuleAccess } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { companyModulePath } from "@/types/roles";
 
@@ -32,7 +32,7 @@ const MODE_LABEL: Record<string, string> = {
 
 export default async function RecipeDetailPage({ params }: PageProps) {
   const { companyId: routeCompanyId, recipeId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId } = await requireModuleAccess(routeCompanyId, "recipes");
   const supabase = await createServerSupabaseClient();
 
   const { data: recipe } = await supabase

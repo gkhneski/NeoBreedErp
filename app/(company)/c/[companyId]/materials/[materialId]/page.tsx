@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { AttachmentList } from "@/components/files/attachment-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { requireCompanyUser } from "@/lib/auth";
+import { requireModuleAccess } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   MASTER_DATA_WRITE_ROLES,
@@ -72,7 +72,7 @@ function DefinitionRow({
 
 export default async function MaterialDetailPage({ params }: PageProps) {
   const { companyId: routeCompanyId, materialId } = await params;
-  const { companyId, role } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireModuleAccess(routeCompanyId, "materials");
   const supabase = await createServerSupabaseClient();
 
   const { data: material } = await supabase

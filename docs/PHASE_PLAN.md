@@ -25,6 +25,7 @@ Phases are sequential. **Do not start a phase until the previous one is signed o
 | 7a — Customers & fason production | ✓ done (migration `20260612000000` applied, in production) |
 | 7b — Locations & lot transfer | ✓ done (migration `20260613000000` applied) |
 | 7c — QR labels & depot scanning | ✓ done (2026-06-12) |
+| 7d — Outbound shipments & warehouse clerk view | ✓ done (migrations `20260614*` applied; marketplace API integration deferred) |
 
 > Faz 5a kapsam notu: `materials` Faz 5a'da minimal iskelet (`code`, `name`, `type`, `base_uom`, `density`) olarak girdi. Faz 5b step 1 ile `default_supplier_id`, `allergen_flags jsonb`, `storage_conditions`, `regulatory_notes` eklendi; ayrıca `suppliers` tablosu girdi.
 >

@@ -521,3 +521,27 @@ security invoker. Locks the lot `for update`; requires: lot in company & not del
 `create_lot_with_receipt` and `complete_production_batch` are re-created to stamp new lots with the company default location.
 
 **Files affected:** `supabase/migrations/20260613000000_phase7b_locations.sql`, `app/(company)/c/[companyId]/settings/locations/*`, lot detail/list, warehouse page.
+
+---
+
+## 18. Phase 7d — Outbound Shipments & Warehouse Clerk View (signed off 2026-06-12)
+
+**Business intent:** the shipping depot clerk (rol: `operator`) receives boxes from the factory (existing scan flow), prepares outbound orders for pharma wholesalers ("ecza depoları" = `customers` rows) and marketplaces (Trendyol/Hepsiburada — manual entry, API integration is a later phase), and ships them. Owner tracks order states live from the dashboard. No invoicing.
+
+### `shipments`
+
+`id, company_id, code (SVK-000001, partial unique per company), channel text check in ('ecza','trendyol','hepsiburada','diger'), customer_id uuid null references customers on delete restrict (ecza channel), external_order_no text null (marketplace order no), recipient text null, status text check in ('open','preparing','shipped','cancelled') default 'open', carrier text null, tracking_no text null, notes, shipped_at timestamptz null,` audit cols + deleted_at. Canonical member RLS, `set_updated_at`, same-company customer trigger. Indexes: `(company_id)`, `(company_id, status) where deleted_at is null`, `(company_id, created_at desc)`.
+
+### `shipment_items`
+
+`id, company_id, shipment_id references shipments on delete cascade, lot_id references material_lots on delete restrict, material_id references materials on delete restrict (derived from lot), quantity numeric(18,6) > 0, created_at, created_by`. Items are lot-based for traceability and hard-deletable while the shipment is not shipped. Trigger: lot/material/shipment same company, lot must match material, shipment status must be 'open' or 'preparing'. Canonical member RLS.
+
+### Status flow & ledger
+
+`open` → (first item added) `preparing` → `shipped` | `cancelled`. **RPC `ship_shipment(p_company_id, p_shipment_id)`** (security invoker): locks shipment + lots; requires ≥1 item, every lot `released` with `quantity_on_hand >= quantity`; inserts one `issue` stock movement per item (`notes = 'shipment <code>'`); sets `status='shipped', shipped_at=now()`. Shipped shipments and their items are immutable (trigger). Cancel allowed only before shipping (no ledger impact).
+
+### Module access (no schema)
+
+`operator` role is scoped in the app to: dashboard (clerk variant), lots, stock, warehouse(+scan), shipments. All other modules return 404 for operators (`canAccessModule` in `types/roles.ts` + page guards). DB-level RLS remains membership-based; module scoping is a UX/authorization layer on top, consistent with SECURITY_RULES §2 (server-side checks).
+
+**Files affected:** `supabase/migrations/20260614000000_phase7d_shipments.sql`, `app/(company)/c/[companyId]/shipments/*`, `types/roles.ts`, sidebar + dashboard.

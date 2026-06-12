@@ -15,6 +15,7 @@ import {
   type LucideIcon,
   Package,
   ReceiptText,
+  Send,
   Settings,
   ShieldCheck,
   Truck,
@@ -26,7 +27,12 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
-import { companyHomePath, companyModulePath } from "@/types/roles";
+import {
+  canAccessModule,
+  companyHomePath,
+  companyModulePath,
+  type CompanyRole,
+} from "@/types/roles";
 
 interface NavItem {
   key: string;
@@ -66,8 +72,12 @@ const SECTIONS: NavSection[] = [
       { key: "recipes", label: "Reçeteler", icon: BookOpenText },
       { key: "production", label: "Üretim", icon: Factory },
       { key: "quality", label: "Kalite Kontrol", icon: ShieldCheck },
-      { key: "orders", label: "Siparişler", icon: ClipboardList },
+      { key: "orders", label: "Üretim İş Listesi", icon: ClipboardList },
     ],
+  },
+  {
+    title: "Sevkiyat",
+    items: [{ key: "shipments", label: "Siparişler", icon: Send }],
   },
   {
     title: "Yönetim",
@@ -88,14 +98,21 @@ function isItemActive(pathname: string, href: string, exact?: boolean): boolean 
 export function CompanySidebar({
   companyId,
   companyName,
+  role,
 }: {
   companyId: string;
   companyName: string;
+  role: CompanyRole;
 }) {
   const pathname = usePathname();
   const home = companyHomePath(companyId);
 
-  const activeSection = SECTIONS.find((s) =>
+  const sections = SECTIONS.map((s) => ({
+    ...s,
+    items: s.items.filter((item) => canAccessModule(role, item.key)),
+  })).filter((s) => s.items.length > 0);
+
+  const activeSection = sections.find((s) =>
     s.items.some((item) =>
       isItemActive(pathname, companyModulePath(companyId, item.key)),
     ),
@@ -142,7 +159,7 @@ export function CompanySidebar({
         </Link>
 
         <div className="mt-3 space-y-1">
-          {SECTIONS.map((section) => {
+          {sections.map((section) => {
             const expanded = !!open[section.title];
             return (
               <div key={section.title}>

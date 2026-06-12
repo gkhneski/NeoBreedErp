@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { requireCompanyUser } from "@/lib/auth";
+import { requireModuleAccess } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   MASTER_DATA_WRITE_ROLES,
@@ -44,7 +44,7 @@ function asAllergenList(value: unknown): AllergenCode[] {
 export default async function MaterialsListPage({ params, searchParams }: PageProps) {
   const { companyId: routeCompanyId } = await params;
   const { q } = await searchParams;
-  const { companyId, role } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireModuleAccess(routeCompanyId, "materials");
   const supabase = await createServerSupabaseClient();
 
   let query = supabase

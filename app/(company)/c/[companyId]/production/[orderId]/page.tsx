@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { requireCompanyUser } from "@/lib/auth";
+import { requireModuleAccess } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { companyModulePath } from "@/types/roles";
 import type {
@@ -138,7 +138,7 @@ function formatDateTime(iso: string | null): string {
 
 export default async function ProductionOrderDetailPage({ params }: PageProps) {
   const { companyId: routeCompanyId, orderId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId } = await requireModuleAccess(routeCompanyId, "production");
   const supabase = await createServerSupabaseClient();
 
   const { data: order } = await supabase

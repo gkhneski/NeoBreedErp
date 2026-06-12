@@ -10,6 +10,7 @@ const FLASH_MESSAGES: Record<string, string> = {
   deleted: "Kayıt silindi.",
   saved: "Kaydedildi.",
   transferred: "Transfer tamamlandı.",
+  shipped: "Sipariş gönderildi.",
 };
 
 const DISMISS_AFTER_MS = 3500;

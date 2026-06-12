@@ -27,6 +27,8 @@ export type QualityCheckSubjectKind = "material_lot" | "production_batch";
 export type QualityCheckStatus = "draft" | "passed" | "failed" | "cancelled";
 export type QualityResultVerdict = "pending" | "pass" | "fail" | "na";
 export type FileAttachmentSubjectKind = "material_lot" | "quality_check";
+export type ShipmentChannel = "ecza" | "trendyol" | "hepsiburada" | "diger";
+export type ShipmentStatus = "open" | "preparing" | "shipped" | "cancelled";
 export type FileAttachmentKind =
   | "coa"
   | "msds"
@@ -389,6 +391,99 @@ export type Database = {
           deleted_at?: string | null;
           created_by?: string | null;
           updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      shipments: {
+        Row: {
+          id: string;
+          company_id: string;
+          code: string;
+          channel: ShipmentChannel;
+          customer_id: string | null;
+          external_order_no: string | null;
+          recipient: string | null;
+          status: ShipmentStatus;
+          carrier: string | null;
+          tracking_no: string | null;
+          notes: string | null;
+          shipped_at: string | null;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          code: string;
+          channel: ShipmentChannel;
+          customer_id?: string | null;
+          external_order_no?: string | null;
+          recipient?: string | null;
+          status?: ShipmentStatus;
+          carrier?: string | null;
+          tracking_no?: string | null;
+          notes?: string | null;
+          shipped_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          code?: string;
+          channel?: ShipmentChannel;
+          customer_id?: string | null;
+          external_order_no?: string | null;
+          recipient?: string | null;
+          status?: ShipmentStatus;
+          carrier?: string | null;
+          tracking_no?: string | null;
+          notes?: string | null;
+          shipped_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      shipment_items: {
+        Row: {
+          id: string;
+          company_id: string;
+          shipment_id: string;
+          lot_id: string;
+          material_id: string;
+          quantity: number;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          shipment_id: string;
+          lot_id: string;
+          material_id: string;
+          quantity: number;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          shipment_id?: string;
+          lot_id?: string;
+          material_id?: string;
+          quantity?: number;
+          created_at?: string;
+          created_by?: string | null;
         };
         Relationships: [];
       };
@@ -1091,6 +1186,10 @@ export type Database = {
           location_id?: string | null;
         };
         Returns: string;
+      };
+      ship_shipment: {
+        Args: { p_company_id: string; p_shipment_id: string };
+        Returns: undefined;
       };
       ensure_default_location: {
         Args: { p_company_id: string };

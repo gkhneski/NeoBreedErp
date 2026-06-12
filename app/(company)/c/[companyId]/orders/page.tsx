@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { requireCompanyUser } from "@/lib/auth";
+import { requireModuleAccess } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { ProductionOrderStatus } from "@/types/database";
 import { companyModulePath } from "@/types/roles";
@@ -33,7 +33,7 @@ const STATUS_LABEL: Record<ProductionOrderStatus, string> = {
 
 export default async function OrdersPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId } = await requireModuleAccess(routeCompanyId, "orders");
   const supabase = await createServerSupabaseClient();
 
   const { data: orders } = await supabase

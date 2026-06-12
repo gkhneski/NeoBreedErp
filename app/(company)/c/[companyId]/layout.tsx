@@ -24,6 +24,7 @@ export default async function CompanyAppLayout({ children, params }: LayoutProps
         <CompanySidebar
           companyId={companyId}
           companyName={company?.name ?? "Firma"}
+          role={role}
         />
       </aside>
 
@@ -35,6 +36,7 @@ export default async function CompanyAppLayout({ children, params }: LayoutProps
                 <CompanySidebar
                   companyId={companyId}
                   companyName={company?.name ?? "Firma"}
+                  role={role}
                 />
               </MobileNav>
               <span className="truncate text-sm">

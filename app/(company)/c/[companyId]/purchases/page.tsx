@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { requireCompanyUser } from "@/lib/auth";
+import { requireModuleAccess } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   STOCK_WRITE_ROLES,
@@ -38,7 +38,7 @@ function formatDate(iso: string): string {
 
 export default async function PurchaseReceiptsPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId, role } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireModuleAccess(routeCompanyId, "purchases");
   const supabase = await createServerSupabaseClient();
 
   const { data: receipts } = await supabase

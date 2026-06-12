@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { AttachmentList } from "@/components/files/attachment-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { requireCompanyUser } from "@/lib/auth";
+import { requireModuleAccess } from "@/lib/auth";
 import {
   SIGNED_URL_TTL_SECONDS,
   TENANT_FILES_BUCKET,
@@ -95,7 +95,7 @@ function formatNumber(n: number): string {
 
 export default async function ProductDetailPage({ params }: PageProps) {
   const { companyId: routeCompanyId, productId } = await params;
-  const { companyId, role } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireModuleAccess(routeCompanyId, "products");
   const supabase = await createServerSupabaseClient();
 
   const { data: product } = await supabase

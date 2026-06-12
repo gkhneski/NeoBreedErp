@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { requireCompanyUser } from "@/lib/auth";
+import { requireModuleAccess } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   PRODUCTION_WRITE_ROLES,
@@ -73,7 +73,7 @@ export default async function ProductionOrdersListPage({
 }: PageProps) {
   const { companyId: routeCompanyId } = await params;
   const { customer } = await searchParams;
-  const { companyId, role } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireModuleAccess(routeCompanyId, "production");
   const supabase = await createServerSupabaseClient();
 
   const customerFilter = customer && UUID_RE.test(customer) ? customer : null;

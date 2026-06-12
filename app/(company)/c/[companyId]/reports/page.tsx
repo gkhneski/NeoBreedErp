@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { requireCompanyUser } from "@/lib/auth";
+import { requireModuleAccess } from "@/lib/auth";
 import {
   SUPPORTED_CURRENCIES,
   type SupportedCurrency,
@@ -67,7 +67,7 @@ function CostCard({
 
 export default async function ReportsPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId } = await requireModuleAccess(routeCompanyId, "reports");
   const supabase = await createServerSupabaseClient();
 
   const [

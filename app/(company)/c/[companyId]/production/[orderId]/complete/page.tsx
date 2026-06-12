@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { EmptyState } from "@/components/ui/empty-state";
-import { requireCompanyRole } from "@/lib/auth";
+import { requireCompanyRole, requireModuleAccess } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { PRODUCTION_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
@@ -60,6 +60,7 @@ type LotRow = {
 
 export default async function CompleteBatchPage({ params }: PageProps) {
   const { companyId: routeCompanyId, orderId } = await params;
+  await requireModuleAccess(routeCompanyId, "production");
   const { companyId } = await requireCompanyRole(
     routeCompanyId,
     PRODUCTION_WRITE_ROLES,

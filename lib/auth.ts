@@ -8,6 +8,7 @@ import {
   ROUTE_LOGIN,
   ROUTE_PLATFORM,
   companyHomePath,
+  canAccessModule,
   canWriteCompanyData,
   type CompanyRole,
   type SessionContext,
@@ -73,6 +74,19 @@ export async function requireCompanyUser(companyId: string): Promise<{
   if (!membership) notFound();
 
   return { ctx, companyId: membership.companyId, role: membership.role };
+}
+
+export async function requireModuleAccess(
+  companyId: string,
+  moduleKey: string,
+): Promise<{
+  ctx: SessionContext;
+  companyId: string;
+  role: CompanyRole;
+}> {
+  const membership = await requireCompanyUser(companyId);
+  if (!canAccessModule(membership.role, moduleKey)) notFound();
+  return membership;
 }
 
 export async function requireCompanyRole(

@@ -69,6 +69,31 @@ export const FILE_WRITE_ROLES = [
   "company_user",
 ] as const satisfies readonly CompanyRole[];
 
+export const SHIPMENT_WRITE_ROLES = [
+  "company_admin",
+  "production_manager",
+  "operator",
+  "company_user",
+] as const satisfies readonly CompanyRole[];
+
+// operator = depo personeli: yalnizca depo odakli moduller (Faz 7d).
+// Diger roller tum modulleri gorur; yazma yetkileri *_WRITE_ROLES ile ayrica sinirlanir.
+const OPERATOR_MODULES = new Set([
+  "",
+  "lots",
+  "stock",
+  "warehouse",
+  "shipments",
+]);
+
+export function canAccessModule(
+  role: CompanyRole,
+  moduleKey: string,
+): boolean {
+  if (role === "operator") return OPERATOR_MODULES.has(moduleKey);
+  return true;
+}
+
 export function canManageCompanyUsers(role: CompanyRole): boolean {
   return role === "company_admin";
 }
