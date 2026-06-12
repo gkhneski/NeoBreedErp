@@ -173,6 +173,106 @@ export async function createLot(
   redirect(withFlash(companyModulePath(companyId, "lots"), "created"));
 }
 
+const onboardLotSchema = z.object({
+  company_id: z.string().uuid(),
+  material_id: z.string().uuid({ message: "Ürün seçiniz." }),
+  lot_number: z
+    .string()
+    .trim()
+    .min(1, "Lot numarası boş olamaz.")
+    .max(64, "Lot numarası en fazla 64 karakter olabilir.")
+    .regex(
+      /^[A-Za-z0-9._\-/]+$/,
+      "Lot numarası yalnızca harf, rakam, nokta, tire, alt çizgi ve eğik çizgi içerebilir.",
+    ),
+  expiry_date: dateOptional,
+  quantity: z
+    .string()
+    .trim()
+    .min(1, "Miktar gerekli.")
+    .transform((v) => Number(v))
+    .refine((v) => Number.isFinite(v) && v > 0, {
+      message: "Miktar pozitif bir sayı olmalı.",
+    }),
+  location_id: z.string().uuid({ message: "Konum seçiniz." }),
+});
+
+export type OnboardLotState = {
+  error?: string;
+  fieldErrors?: Partial<Record<keyof z.input<typeof onboardLotSchema>, string>>;
+  created?: { id: string; lot_number: string };
+};
+
+export async function onboardLot(
+  _prev: OnboardLotState,
+  formData: FormData,
+): Promise<OnboardLotState> {
+  const parsed = onboardLotSchema.safeParse({
+    company_id: formData.get("company_id") ?? "",
+    material_id: formData.get("material_id") ?? "",
+    lot_number: formData.get("lot_number") ?? "",
+    expiry_date: formData.get("expiry_date") ?? "",
+    quantity: formData.get("quantity") ?? "",
+    location_id: formData.get("location_id") ?? "",
+  });
+
+  if (!parsed.success) {
+    const fieldErrors: OnboardLotState["fieldErrors"] = {};
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0] as keyof z.input<typeof onboardLotSchema>;
+      if (!fieldErrors[key]) fieldErrors[key] = issue.message;
+    }
+    return { fieldErrors, error: "Form alanlarını kontrol edin." };
+  }
+
+  const { companyId } = await requireCompanyRole(
+    parsed.data.company_id,
+    STOCK_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { data: lotId, error } = await supabase.rpc("create_lot_with_receipt", {
+    p_company_id: companyId,
+    p_material_id: parsed.data.material_id,
+    p_supplier_id: null,
+    p_lot_number: parsed.data.lot_number,
+    p_received_at: null,
+    p_expiry_date: parsed.data.expiry_date,
+    p_unit_cost: null,
+    p_currency: null,
+    p_quantity: parsed.data.quantity,
+    p_notes: null,
+    p_movement_notes: "initial stock onboarding",
+    p_owner_customer_id: null,
+    p_status: "released",
+    p_location_id: parsed.data.location_id,
+  });
+
+  if (error) {
+    if (error.code === "23505") {
+      return {
+        error: "Bu ürün için aynı lot numarası zaten kayıtlı.",
+        fieldErrors: { lot_number: "Lot numarası benzersiz olmalı." },
+      };
+    }
+    if (error.code === "23503") {
+      return { error: "Seçilen ürün veya konum bulunamadı." };
+    }
+    return { error: error.message };
+  }
+
+  revalidatePath(companyModulePath(companyId, "lots"));
+  revalidatePath(companyModulePath(companyId, "stock"));
+  revalidatePath(companyModulePath(companyId));
+
+  return {
+    created: {
+      id: String(lotId),
+      lot_number: parsed.data.lot_number,
+    },
+  };
+}
+
 export type TransferLotState = {
   error?: string;
 };
@@ -210,14 +310,13 @@ export async function transferLot(
   });
 
   if (error) {
-    if (error.message.includes("only released lots")) {
+    if (error.message.includes("blocked lots")) {
       return {
-        error:
-          "Yalnızca 'Serbest' durumundaki lotlar transfer edilebilir. Önce QC ile serbest bırakın.",
+        error: "Bloklu lotlar transfer edilemez.",
       };
     }
     if (error.message.includes("already at the target")) {
-      return { error: "Lot zaten bu depoda." };
+      return { error: "Lot zaten bu konumda." };
     }
     if (error.message.includes("no stock on hand")) {
       return { error: "Lotta transfer edilecek stok yok." };

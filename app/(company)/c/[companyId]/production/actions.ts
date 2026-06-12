@@ -348,6 +348,17 @@ const completeSchema = z.object({
     .refine((v) => v === null || /^\d{4}-\d{2}-\d{2}$/.test(v), {
       message: "Tarih yyyy-aa-gg olmalı.",
     }),
+  location_id: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : null))
+    .refine(
+      (v) =>
+        v === null ||
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v),
+      { message: "Geçersiz konum." },
+    ),
   items: z.array(completeItemSchema).min(1, "En az bir kalem gerekli."),
 });
 
@@ -371,6 +382,7 @@ export async function completeProductionBatch(
   const actual_quantity = String(formData.get("actual_quantity") ?? "");
   const output_lot_number = String(formData.get("output_lot_number") ?? "");
   const output_expiry_date = String(formData.get("output_expiry_date") ?? "");
+  const location_id = String(formData.get("location_id") ?? "");
 
   const itemIds = formData.getAll("recipe_item_id").map((v) => String(v));
   const lotIds = formData.getAll("lot_id").map((v) => String(v));
@@ -388,6 +400,7 @@ export async function completeProductionBatch(
     actual_quantity,
     output_lot_number,
     output_expiry_date,
+    location_id,
     items,
   });
 
@@ -427,6 +440,7 @@ export async function completeProductionBatch(
     p_output_lot_number: parsed.data.output_lot_number,
     p_output_expiry_date: parsed.data.output_expiry_date,
     p_consumed: consumed,
+    p_location_id: parsed.data.location_id,
   });
 
   if (error) {

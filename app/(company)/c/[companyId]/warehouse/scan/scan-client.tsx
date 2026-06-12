@@ -2,22 +2,20 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { groupLocations, type LocationOption } from "@/lib/locations";
+import { companyModulePath } from "@/types/roles";
 
 import {
-  resolveLotForScan,
+  resolveScan,
   scanTransferLot,
+  type ScannedLocation,
   type ScannedLot,
 } from "../actions";
-
-interface LocationOption {
-  id: string;
-  code: string;
-  name: string;
-  is_default: boolean;
-}
 
 type BarcodeDetectorLike = {
   detect: (source: CanvasImageSource) => Promise<Array<{ rawValue: string }>>;
@@ -27,6 +25,15 @@ const STATUS_LABEL: Record<ScannedLot["status"], string> = {
   quarantine: "Karantina",
   released: "Serbest",
   blocked: "Bloklu",
+};
+
+const STATUS_VARIANT: Record<
+  ScannedLot["status"],
+  "default" | "warning" | "destructive"
+> = {
+  quarantine: "warning",
+  released: "default",
+  blocked: "destructive",
 };
 
 export function ScanClient({
@@ -45,6 +52,8 @@ export function ScanClient({
     "idle" | "starting" | "active" | "unavailable"
   >("idle");
   const [lot, setLot] = useState<ScannedLot | null>(null);
+  const [scannedLocation, setScannedLocation] =
+    useState<ScannedLocation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -63,12 +72,16 @@ export function ScanClient({
 
       setError(null);
       setSuccess(null);
-      const result = await resolveLotForScan(companyId, raw);
-      if (result.ok) {
-        setLot(result.lot);
-      } else {
-        setLot(null);
+      const result = await resolveScan(companyId, raw);
+      if (!result.ok) {
         setError(result.error);
+        return;
+      }
+      if (result.kind === "lot") {
+        setLot(result.lot);
+        setScannedLocation(null);
+      } else {
+        setScannedLocation(result.location);
       }
     },
     [companyId],
@@ -149,7 +162,7 @@ export function ScanClient({
     } catch {
       setCameraState("unavailable");
       setError(
-        "Kameraya erişilemedi. İzin verin ya da aşağıdan lot numarasını elle girin.",
+        "Kameraya erişilemedi. İzin verin ya da aşağıdan lot numarasını veya raf kodunu elle girin.",
       );
     }
   }, [handleCode]);
@@ -171,6 +184,7 @@ export function ScanClient({
     if (result.ok) {
       setSuccess(`${lot.lot_number} → ${toName} transferi tamamlandı.`);
       setLot(null);
+      setScannedLocation(null);
       lastCodeRef.current = { value: "", at: 0 };
     } else {
       setError(result.error);
@@ -180,6 +194,15 @@ export function ScanClient({
   const targets = lot
     ? locations.filter((l) => l.id !== lot.location_id)
     : [];
+  const targetGroups = groupLocations(targets);
+  const orphanShelves = targets.filter(
+    (t) =>
+      t.kind === "shelf" && !targetGroups.some((g) => g.depot.id === t.parent_id),
+  );
+  const putAwayReady =
+    lot !== null &&
+    scannedLocation !== null &&
+    scannedLocation.id !== lot.location_id;
 
   return (
     <div className="space-y-4">
@@ -209,8 +232,8 @@ export function ScanClient({
           <Input
             value={manual}
             onChange={(e) => setManual(e.target.value)}
-            placeholder="veya lot numarasını elle girin"
-            aria-label="Lot numarası"
+            placeholder="veya lot no / raf kodunu elle girin"
+            aria-label="Lot numarası veya raf kodu"
           />
           <Button type="submit" variant="outline">
             Bul
@@ -236,15 +259,7 @@ export function ScanClient({
             <span className="font-mono text-lg font-semibold">
               {lot.lot_number}
             </span>
-            <Badge
-              variant={
-                lot.status === "released"
-                  ? "default"
-                  : lot.status === "blocked"
-                    ? "destructive"
-                    : "warning"
-              }
-            >
+            <Badge variant={STATUS_VARIANT[lot.status]}>
               {STATUS_LABEL[lot.status]}
             </Badge>
             {lot.customer_owned_by ? (
@@ -262,30 +277,143 @@ export function ScanClient({
             <span className="font-mono">
               {lot.quantity_on_hand.toLocaleString("tr-TR")} {lot.base_uom}
             </span>{" "}
-            · Bulunduğu depo: {lot.location_name ?? "Ana Depo"}
+            · SKT: {lot.expiry_date ?? "—"} · Bulunduğu konum:{" "}
+            {lot.location_name ?? "Ana Depo"}
           </p>
 
-          {lot.status !== "released" ? (
+          {lot.status === "blocked" ? (
             <p className="text-xs text-muted-foreground">
-              Bu lot &quot;Serbest&quot; olmadığı için transfer edilemez.
+              Bu lot &quot;Bloklu&quot; olduğu için transfer edilemez.
             </p>
+          ) : scannedLocation && scannedLocation.id === lot.location_id ? (
+            <p className="text-xs text-muted-foreground">
+              Lot zaten {scannedLocation.name} konumunda. Başka bir raf okutun.
+            </p>
+          ) : putAwayReady && scannedLocation ? (
+            <div className="space-y-2 rounded-md border border-border bg-secondary/30 p-3">
+              <p className="text-sm">
+                Okutulan raf:{" "}
+                <span className="font-mono font-semibold">
+                  {scannedLocation.code}
+                </span>{" "}
+                — {scannedLocation.name}
+              </p>
+              <Button
+                disabled={busy}
+                onClick={() =>
+                  void handleTransfer(scannedLocation.id, scannedLocation.name)
+                }
+              >
+                {busy
+                  ? "Taşınıyor..."
+                  : `${lot.lot_number} → ${scannedLocation.name} konumuna taşı`}
+              </Button>
+            </div>
           ) : targets.length === 0 ? (
             <p className="text-xs text-muted-foreground">
-              Transfer için başka depo yok.
+              Transfer için başka konum yok.
             </p>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {targets.map((t) => (
-                <Button
-                  key={t.id}
-                  disabled={busy}
-                  onClick={() => void handleTransfer(t.id, t.name)}
-                >
-                  {busy ? "Transfer ediliyor..." : `${t.name} deposuna al`}
-                </Button>
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Raf etiketini okutun veya hedefi seçin:
+              </p>
+              {targetGroups.map((group) => (
+                <div key={group.depot.id} className="flex flex-wrap gap-2">
+                  <Button
+                    disabled={busy}
+                    onClick={() =>
+                      void handleTransfer(group.depot.id, group.depot.name)
+                    }
+                  >
+                    {group.depot.name}
+                  </Button>
+                  {group.shelves.map((shelf) => (
+                    <Button
+                      key={shelf.id}
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => void handleTransfer(shelf.id, shelf.name)}
+                    >
+                      {shelf.code} — {shelf.name}
+                    </Button>
+                  ))}
+                </div>
               ))}
+              {orphanShelves.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {orphanShelves.map((shelf) => (
+                    <Button
+                      key={shelf.id}
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => void handleTransfer(shelf.id, shelf.name)}
+                    >
+                      {shelf.code} — {shelf.name}
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           )}
+        </div>
+      ) : null}
+
+      {scannedLocation && !lot ? (
+        <div className="space-y-3 rounded-md border border-border p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-lg font-semibold">
+              {scannedLocation.code}
+            </span>
+            <span className="text-sm">{scannedLocation.name}</span>
+            <Badge variant="outline">
+              {scannedLocation.kind === "shelf" ? "Raf" : "Depo"}
+            </Badge>
+            {scannedLocation.parent_name ? (
+              <span className="text-xs text-muted-foreground">
+                ({scannedLocation.parent_name} içinde)
+              </span>
+            ) : null}
+          </div>
+
+          {scannedLocation.lots.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Bu konumda stoklu lot yok.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border text-sm">
+              {scannedLocation.lots.map((l) => (
+                <li key={l.id} className="flex items-center justify-between gap-2 py-2">
+                  <span className="font-mono text-xs">{l.lot_number}</span>
+                  <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                    {l.material_name}
+                  </span>
+                  <span className="font-mono text-xs">
+                    {l.quantity_on_hand.toLocaleString("tr-TR")} {l.base_uom}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    SKT: {l.expiry_date ?? "—"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <Link
+            href={companyModulePath(
+              companyId,
+              "warehouse",
+              "locations",
+              scannedLocation.id,
+            )}
+            className="text-xs text-muted-foreground hover:underline"
+          >
+            Konum detayına git →
+          </Link>
+          <p className="text-xs text-muted-foreground">
+            Bir lot etiketi okutup ardından bu rafı okutarak lotu buraya
+            taşıyabilirsiniz.
+          </p>
         </div>
       ) : null}
     </div>

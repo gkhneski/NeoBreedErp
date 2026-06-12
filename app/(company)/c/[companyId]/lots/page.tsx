@@ -4,6 +4,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyUser } from "@/lib/auth";
+import { getExpiryThresholds } from "@/lib/company-settings";
+import {
+  EXPIRY_BADGE_CLASS,
+  EXPIRY_LABEL,
+  daysUntil,
+  expiryUrgency,
+  isoDatePlusDays,
+  todayIso,
+  type ExpiryUrgency,
+} from "@/lib/expiry";
+import {
+  groupLocations,
+  shelfIdsOfDepot,
+  type LocationOption,
+} from "@/lib/locations";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   QUALITY_WRITE_ROLES,
@@ -16,6 +31,7 @@ import { updateLotStatus } from "./actions";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
+  searchParams: Promise<{ skt?: string; depo?: string }>;
 }
 
 type LotRow = {
@@ -54,12 +70,11 @@ const STATUS_NEXT: Record<LotRow["status"], LotRow["status"][]> = {
   blocked: ["quarantine", "released"],
 };
 
-function daysUntil(dateIso: string | null): number | null {
-  if (!dateIso) return null;
-  const target = new Date(dateIso + "T00:00:00").getTime();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.round((target - today.getTime()) / 86_400_000);
+const SKT_FILTERS = ["expired", "critical", "warning"] as const;
+type SktFilter = (typeof SKT_FILTERS)[number];
+
+function isSktFilter(v: string | undefined): v is SktFilter {
+  return !!v && (SKT_FILTERS as readonly string[]).includes(v);
 }
 
 function formatNumber(n: number): string {
@@ -69,12 +84,27 @@ function formatNumber(n: number): string {
   });
 }
 
-export default async function LotsListPage({ params }: PageProps) {
+export default async function LotsListPage({ params, searchParams }: PageProps) {
   const { companyId: routeCompanyId } = await params;
+  const { skt: sktParam, depo: depoParam } = await searchParams;
   const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
 
-  const { data: lots } = await supabase
+  const thresholds = await getExpiryThresholds(companyId);
+  const sktFilter = isSktFilter(sktParam) ? sktParam : null;
+
+  const { data: locationRows } = await supabase
+    .from("locations")
+    .select("id, code, name, kind, parent_id, is_default")
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .order("is_default", { ascending: false })
+    .order("code")
+    .returns<LocationOption[]>();
+  const allLocations = locationRows ?? [];
+  const depoFilter = allLocations.find((l) => l.id === depoParam) ?? null;
+
+  let query = supabase
     .from("material_lots")
     .select(
       "id, lot_number, received_at, expiry_date, quantity_on_hand, unit_cost, currency, status, " +
@@ -84,12 +114,56 @@ export default async function LotsListPage({ params }: PageProps) {
         "locations:location_id(code, name, is_default)",
     )
     .eq("company_id", companyId)
-    .is("deleted_at", null)
-    .order("received_at", { ascending: false })
+    .is("deleted_at", null);
+
+  const today = todayIso();
+  if (sktFilter === "expired") {
+    query = query.lt("expiry_date", today).gt("quantity_on_hand", 0);
+  } else if (sktFilter === "critical") {
+    query = query
+      .gte("expiry_date", today)
+      .lte("expiry_date", isoDatePlusDays(thresholds.criticalDays))
+      .gt("quantity_on_hand", 0);
+  } else if (sktFilter === "warning") {
+    query = query
+      .gt("expiry_date", isoDatePlusDays(thresholds.criticalDays))
+      .lte("expiry_date", isoDatePlusDays(thresholds.warningDays))
+      .gt("quantity_on_hand", 0);
+  }
+
+  if (depoFilter) {
+    const locationIds =
+      depoFilter.kind === "depot"
+        ? [depoFilter.id, ...shelfIdsOfDepot(allLocations, depoFilter.id)]
+        : [depoFilter.id];
+    query = query.in("location_id", locationIds);
+  }
+
+  const { data: lots } = await query
+    .order(sktFilter ? "expiry_date" : "received_at", {
+      ascending: sktFilter ? true : false,
+    })
     .returns<LotRow[]>();
 
-  const newHref = companyModulePath(companyId, "lots", "new");
+  const listPath = companyModulePath(companyId, "lots");
+  const filterHref = (skt: SktFilter | null, depo: string | null): string => {
+    const qs = new URLSearchParams();
+    if (skt) qs.set("skt", skt);
+    if (depo) qs.set("depo", depo);
+    const s = qs.toString();
+    return s ? `${listPath}?${s}` : listPath;
+  };
+
+  const canWriteStock = canWriteCompanyData(role, STOCK_WRITE_ROLES);
   const rows = lots ?? [];
+  const locationGroups = groupLocations(allLocations);
+
+  const sktPills: Array<{ key: SktFilter | null; label: string }> = [
+    { key: null, label: "Tümü" },
+    { key: "expired", label: EXPIRY_LABEL.expired },
+    { key: "critical", label: `${EXPIRY_LABEL.critical} (≤${thresholds.criticalDays}g)` },
+    { key: "warning", label: `${EXPIRY_LABEL.warning} (≤${thresholds.warningDays}g)` },
+  ];
 
   return (
     <div className="space-y-6">
@@ -97,17 +171,75 @@ export default async function LotsListPage({ params }: PageProps) {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Lotlar</h1>
           <p className="text-sm text-muted-foreground">
-            Hammadde lotları: alış tarihi, son kullanma, eldeki miktar ve durum.
+            Lotlar: alış tarihi, son kullanma, eldeki miktar, konum ve durum.
             QC sonrası bir lotu &quot;Serbest&quot;e alarak üretime
             kullanılabilir hale getirin.
           </p>
         </div>
-        {canWriteCompanyData(role, STOCK_WRITE_ROLES) ? (
-          <Link href={newHref}>
-            <Button>Yeni Lot (Mal Kabul)</Button>
-          </Link>
+        {canWriteStock ? (
+          <div className="flex gap-2">
+            <Link href={companyModulePath(companyId, "lots", "onboarding")}>
+              <Button variant="outline">Mevcut Stok Girişi</Button>
+            </Link>
+            <Link href={companyModulePath(companyId, "lots", "new")}>
+              <Button>Yeni Lot (Mal Kabul)</Button>
+            </Link>
+          </div>
         ) : null}
       </header>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {sktPills.map((pill) => {
+          const active = sktFilter === pill.key;
+          return (
+            <Link
+              key={pill.label}
+              href={filterHref(pill.key, depoFilter?.id ?? null)}
+              className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                active
+                  ? "border-primary bg-primary/10 font-medium text-primary"
+                  : "border-border text-muted-foreground hover:bg-secondary"
+              }`}
+            >
+              {pill.label}
+            </Link>
+          );
+        })}
+
+        <span className="mx-1 text-xs text-muted-foreground">·</span>
+
+        <Link
+          href={filterHref(sktFilter, null)}
+          className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+            !depoFilter
+              ? "border-primary bg-primary/10 font-medium text-primary"
+              : "border-border text-muted-foreground hover:bg-secondary"
+          }`}
+        >
+          Tüm Konumlar
+        </Link>
+        {locationGroups.map((group) => {
+          const active = depoFilter?.id === group.depot.id;
+          return (
+            <Link
+              key={group.depot.id}
+              href={filterHref(sktFilter, group.depot.id)}
+              className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                active
+                  ? "border-primary bg-primary/10 font-medium text-primary"
+                  : "border-border text-muted-foreground hover:bg-secondary"
+              }`}
+            >
+              {group.depot.name}
+            </Link>
+          );
+        })}
+        {depoFilter && depoFilter.kind === "shelf" ? (
+          <span className="rounded-full border border-primary bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+            Raf: {depoFilter.code}
+          </span>
+        ) : null}
+      </div>
 
       {rows.length > 0 ? (
         <div className="overflow-hidden rounded-md border border-border">
@@ -117,7 +249,7 @@ export default async function LotsListPage({ params }: PageProps) {
                 <th className="px-3 py-2 text-left font-medium">Lot No</th>
                 <th className="px-3 py-2 text-left font-medium">Malzeme</th>
                 <th className="px-3 py-2 text-left font-medium">Tedarikçi</th>
-                <th className="px-3 py-2 text-left font-medium">Depo</th>
+                <th className="px-3 py-2 text-left font-medium">Konum</th>
                 <th className="px-3 py-2 text-left font-medium">Alış</th>
                 <th className="px-3 py-2 text-left font-medium">SKT</th>
                 <th className="px-3 py-2 text-right font-medium">Eldeki</th>
@@ -128,24 +260,17 @@ export default async function LotsListPage({ params }: PageProps) {
             </thead>
             <tbody>
               {rows.map((lot) => {
+                const urgency: ExpiryUrgency | null = expiryUrgency(
+                  lot.expiry_date,
+                  thresholds,
+                );
                 const dte = daysUntil(lot.expiry_date);
-                const expiryBadge =
-                  dte === null
-                    ? null
-                    : dte < 0
-                      ? { variant: "destructive" as const, label: "Süresi geçti" }
-                      : dte <= 30
-                        ? {
-                            variant: "warning" as const,
-                            label: `${dte} gün kaldı`,
-                          }
-                        : null;
                 return (
                   <tr key={lot.id} className="border-t border-border align-top">
                     <td className="px-3 py-2 font-mono text-xs">
                       <div className="flex flex-col gap-1">
                         <Link
-                          href={`${companyModulePath(companyId, "lots")}/${lot.id}`}
+                          href={`${listPath}/${lot.id}`}
                           className="hover:underline"
                         >
                           {lot.lot_number}
@@ -188,7 +313,7 @@ export default async function LotsListPage({ params }: PageProps) {
                             {lot.locations.name}
                           </span>
                         ) : (
-                          <Badge variant="outline">{lot.locations.name}</Badge>
+                          <Badge variant="outline">{lot.locations.code}</Badge>
                         )
                       ) : (
                         <span className="text-muted-foreground">—</span>
@@ -200,10 +325,14 @@ export default async function LotsListPage({ params }: PageProps) {
                     <td className="px-3 py-2 text-xs text-muted-foreground">
                       <div className="flex flex-col gap-1">
                         <span>{lot.expiry_date ?? "—"}</span>
-                        {expiryBadge ? (
-                          <Badge variant={expiryBadge.variant}>
-                            {expiryBadge.label}
-                          </Badge>
+                        {urgency && urgency !== "ok" ? (
+                          <span
+                            className={`w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold ${EXPIRY_BADGE_CLASS[urgency]}`}
+                          >
+                            {urgency === "expired"
+                              ? EXPIRY_LABEL.expired
+                              : `${EXPIRY_LABEL[urgency]} · ${dte}g`}
+                          </span>
                         ) : null}
                       </div>
                     </td>
@@ -260,6 +389,11 @@ export default async function LotsListPage({ params }: PageProps) {
             </tbody>
           </table>
         </div>
+      ) : sktFilter || depoFilter ? (
+        <EmptyState
+          title="Filtreye uyan lot yok"
+          description="Seçili son kullanma aralığında veya konumda stoklu lot bulunmuyor."
+        />
       ) : (
         <EmptyState
           title="Henüz lot yok"

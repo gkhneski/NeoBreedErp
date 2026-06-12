@@ -15,6 +15,7 @@ export type ScannedLot = {
   lot_number: string;
   status: "quarantine" | "released" | "blocked";
   quantity_on_hand: number;
+  expiry_date: string | null;
   material_code: string;
   material_name: string;
   base_uom: string;
@@ -23,80 +24,196 @@ export type ScannedLot = {
   customer_owned_by: string | null;
 };
 
-export type ResolveLotResult =
-  | { ok: true; lot: ScannedLot }
+export type ScannedLocationLot = {
+  id: string;
+  lot_number: string;
+  status: "quarantine" | "released" | "blocked";
+  quantity_on_hand: number;
+  expiry_date: string | null;
+  material_name: string;
+  base_uom: string;
+};
+
+export type ScannedLocation = {
+  id: string;
+  code: string;
+  name: string;
+  kind: "depot" | "shelf";
+  parent_name: string | null;
+  lots: ScannedLocationLot[];
+};
+
+export type ScanResolution =
+  | { ok: true; kind: "lot"; lot: ScannedLot }
+  | { ok: true; kind: "location"; location: ScannedLocation }
   | { ok: false; error: string };
 
-export async function resolveLotForScan(
-  routeCompanyId: string,
-  query: string,
-): Promise<ResolveLotResult> {
-  const { companyId } = await requireCompanyUser(routeCompanyId);
-  const supabase = await createServerSupabaseClient();
+type SupabaseServerClient = Awaited<
+  ReturnType<typeof createServerSupabaseClient>
+>;
 
-  const trimmed = query.trim();
-  if (!trimmed) return { ok: false, error: "Lot bilgisi boş." };
-
-  let lotId: string | null = null;
-  let lotNumber: string | null = null;
-
-  if (trimmed.startsWith("http")) {
-    const match = trimmed.match(/\/c\/([0-9a-f-]{36})\/lots\/([0-9a-f-]{36})/i);
-    if (!match) {
-      return { ok: false, error: "QR kodu bir lot etiketi değil." };
-    }
-    if (match[1].toLowerCase() !== companyId.toLowerCase()) {
-      return { ok: false, error: "Bu etiket başka bir firmaya ait." };
-    }
-    lotId = match[2];
-  } else if (uuidRegex.test(trimmed)) {
-    lotId = trimmed;
-  } else {
-    lotNumber = trimmed;
-  }
-
+async function resolveLot(
+  supabase: SupabaseServerClient,
+  companyId: string,
+  by: { lotId?: string; lotNumber?: string },
+): Promise<ScannedLot | null> {
   let q = supabase
     .from("material_lots")
     .select(
-      "id, lot_number, status, quantity_on_hand, location_id, " +
+      "id, lot_number, status, quantity_on_hand, expiry_date, location_id, " +
         "materials:material_id(code, name, base_uom), " +
         "customers:owner_customer_id(name), " +
         "locations:location_id(name)",
     )
     .eq("company_id", companyId)
     .is("deleted_at", null);
-  q = lotId ? q.eq("id", lotId) : q.eq("lot_number", lotNumber!);
+  q = by.lotId ? q.eq("id", by.lotId) : q.eq("lot_number", by.lotNumber!);
 
   const { data: lot } = await q.limit(1).maybeSingle<{
     id: string;
     lot_number: string;
     status: "quarantine" | "released" | "blocked";
     quantity_on_hand: number;
+    expiry_date: string | null;
     location_id: string | null;
     materials: { code: string; name: string; base_uom: string } | null;
     customers: { name: string } | null;
     locations: { name: string } | null;
   }>();
 
-  if (!lot) {
-    return { ok: false, error: "Lot bulunamadı." };
-  }
+  if (!lot) return null;
 
   return {
-    ok: true,
-    lot: {
-      id: lot.id,
-      lot_number: lot.lot_number,
-      status: lot.status,
-      quantity_on_hand: Number(lot.quantity_on_hand),
-      material_code: lot.materials?.code ?? "",
-      material_name: lot.materials?.name ?? "",
-      base_uom: lot.materials?.base_uom ?? "",
-      location_id: lot.location_id,
-      location_name: lot.locations?.name ?? null,
-      customer_owned_by: lot.customers?.name ?? null,
-    },
+    id: lot.id,
+    lot_number: lot.lot_number,
+    status: lot.status,
+    quantity_on_hand: Number(lot.quantity_on_hand),
+    expiry_date: lot.expiry_date,
+    material_code: lot.materials?.code ?? "",
+    material_name: lot.materials?.name ?? "",
+    base_uom: lot.materials?.base_uom ?? "",
+    location_id: lot.location_id,
+    location_name: lot.locations?.name ?? null,
+    customer_owned_by: lot.customers?.name ?? null,
   };
+}
+
+async function resolveLocation(
+  supabase: SupabaseServerClient,
+  companyId: string,
+  by: { locationId?: string; code?: string },
+): Promise<ScannedLocation | null> {
+  let q = supabase
+    .from("locations")
+    .select("id, code, name, kind, parent:parent_id(name)")
+    .eq("company_id", companyId)
+    .is("deleted_at", null);
+  q = by.locationId ? q.eq("id", by.locationId) : q.eq("code", by.code!);
+
+  const { data: location } = await q.limit(1).maybeSingle<{
+    id: string;
+    code: string;
+    name: string;
+    kind: "depot" | "shelf";
+    parent: { name: string } | null;
+  }>();
+
+  if (!location) return null;
+
+  const { data: lots } = await supabase
+    .from("material_lots")
+    .select(
+      "id, lot_number, status, quantity_on_hand, expiry_date, " +
+        "materials:material_id(name, base_uom)",
+    )
+    .eq("company_id", companyId)
+    .eq("location_id", location.id)
+    .gt("quantity_on_hand", 0)
+    .is("deleted_at", null)
+    .order("expiry_date", { ascending: true, nullsFirst: false })
+    .returns<
+      Array<{
+        id: string;
+        lot_number: string;
+        status: "quarantine" | "released" | "blocked";
+        quantity_on_hand: number;
+        expiry_date: string | null;
+        materials: { name: string; base_uom: string } | null;
+      }>
+    >();
+
+  return {
+    id: location.id,
+    code: location.code,
+    name: location.name,
+    kind: location.kind,
+    parent_name: location.parent?.name ?? null,
+    lots: (lots ?? []).map((l) => ({
+      id: l.id,
+      lot_number: l.lot_number,
+      status: l.status,
+      quantity_on_hand: Number(l.quantity_on_hand),
+      expiry_date: l.expiry_date,
+      material_name: l.materials?.name ?? "",
+      base_uom: l.materials?.base_uom ?? "",
+    })),
+  };
+}
+
+export async function resolveScan(
+  routeCompanyId: string,
+  query: string,
+): Promise<ScanResolution> {
+  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const supabase = await createServerSupabaseClient();
+
+  const trimmed = query.trim();
+  if (!trimmed) return { ok: false, error: "Okutulan kod boş." };
+
+  if (trimmed.startsWith("http")) {
+    const locationMatch = trimmed.match(
+      /\/c\/([0-9a-f-]{36})\/warehouse\/locations\/([0-9a-f-]{36})/i,
+    );
+    if (locationMatch) {
+      if (locationMatch[1].toLowerCase() !== companyId.toLowerCase()) {
+        return { ok: false, error: "Bu etiket başka bir firmaya ait." };
+      }
+      const location = await resolveLocation(supabase, companyId, {
+        locationId: locationMatch[2],
+      });
+      if (!location) return { ok: false, error: "Konum bulunamadı." };
+      return { ok: true, kind: "location", location };
+    }
+
+    const lotMatch = trimmed.match(
+      /\/c\/([0-9a-f-]{36})\/lots\/([0-9a-f-]{36})/i,
+    );
+    if (!lotMatch) {
+      return { ok: false, error: "QR kodu bir lot veya konum etiketi değil." };
+    }
+    if (lotMatch[1].toLowerCase() !== companyId.toLowerCase()) {
+      return { ok: false, error: "Bu etiket başka bir firmaya ait." };
+    }
+    const lot = await resolveLot(supabase, companyId, { lotId: lotMatch[2] });
+    if (!lot) return { ok: false, error: "Lot bulunamadı." };
+    return { ok: true, kind: "lot", lot };
+  }
+
+  if (uuidRegex.test(trimmed)) {
+    const lot = await resolveLot(supabase, companyId, { lotId: trimmed });
+    if (!lot) return { ok: false, error: "Lot bulunamadı." };
+    return { ok: true, kind: "lot", lot };
+  }
+
+  const lot = await resolveLot(supabase, companyId, { lotNumber: trimmed });
+  if (lot) return { ok: true, kind: "lot", lot };
+
+  const location = await resolveLocation(supabase, companyId, {
+    code: trimmed.toUpperCase(),
+  });
+  if (location) return { ok: true, kind: "location", location };
+
+  return { ok: false, error: "Lot veya konum bulunamadı." };
 }
 
 const scanTransferSchema = z.object({
@@ -135,15 +252,11 @@ export async function scanTransferLot(
   });
 
   if (error) {
-    if (error.message.includes("only released lots")) {
-      return {
-        ok: false,
-        error:
-          "Yalnızca 'Serbest' lotlar transfer edilebilir. Önce QC ile serbest bırakın.",
-      };
+    if (error.message.includes("blocked lots")) {
+      return { ok: false, error: "Bloklu lotlar transfer edilemez." };
     }
     if (error.message.includes("already at the target")) {
-      return { ok: false, error: "Bu lot zaten hedef depoda." };
+      return { ok: false, error: "Bu lot zaten hedef konumda." };
     }
     if (error.message.includes("no stock on hand")) {
       return { ok: false, error: "Lotta transfer edilecek stok yok." };

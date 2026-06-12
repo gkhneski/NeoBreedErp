@@ -3,6 +3,16 @@ import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyUser } from "@/lib/auth";
 import { getCompanySummary } from "@/lib/company";
+import { getExpiryThresholds } from "@/lib/company-settings";
+import {
+  EXPIRY_BADGE_CLASS,
+  EXPIRY_LABEL,
+  daysUntil,
+  expiryUrgency,
+  isoDatePlusDays,
+  todayIso,
+  type ExpiryThresholds,
+} from "@/lib/expiry";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { companyModulePath } from "@/types/roles";
 
@@ -15,12 +25,13 @@ interface CompanyStats {
   openOrders: number;
 }
 
-async function loadCompanyStats(companyId: string): Promise<CompanyStats> {
+async function loadCompanyStats(
+  companyId: string,
+  criticalDays: number,
+): Promise<CompanyStats> {
   const supabase = await createServerSupabaseClient();
 
-  const thirtyDaysOut = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  const criticalOut = isoDatePlusDays(criticalDays);
 
   const [
     { count: totalMaterials },
@@ -53,7 +64,7 @@ async function loadCompanyStats(companyId: string): Promise<CompanyStats> {
       .select("id", { count: "exact", head: true })
       .eq("company_id", companyId)
       .gt("quantity_on_hand", 0)
-      .or(`status.eq.blocked,expiry_date.lte.${thirtyDaysOut}`)
+      .or(`status.eq.blocked,expiry_date.lte.${criticalOut}`)
       .is("deleted_at", null),
     supabase
       .from("quality_checks")
@@ -122,6 +133,166 @@ interface PageProps {
   params: Promise<{ companyId: string }>;
 }
 
+type ExpiringLotRow = {
+  id: string;
+  lot_number: string;
+  expiry_date: string | null;
+  quantity_on_hand: number;
+  materials: { name: string; base_uom: string } | null;
+  locations: { code: string; name: string } | null;
+};
+
+async function loadExpiryCounts(
+  companyId: string,
+  thresholds: ExpiryThresholds,
+) {
+  const supabase = await createServerSupabaseClient();
+  const today = todayIso();
+  const criticalOut = isoDatePlusDays(thresholds.criticalDays);
+  const warningOut = isoDatePlusDays(thresholds.warningDays);
+
+  const stockedLots = () =>
+    supabase
+      .from("material_lots")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .gt("quantity_on_hand", 0)
+      .is("deleted_at", null);
+
+  const [
+    { count: expired },
+    { count: critical },
+    { count: warning },
+    { data: soonest },
+  ] = await Promise.all([
+    stockedLots().lt("expiry_date", today),
+    stockedLots().gte("expiry_date", today).lte("expiry_date", criticalOut),
+    stockedLots().gt("expiry_date", criticalOut).lte("expiry_date", warningOut),
+    supabase
+      .from("material_lots")
+      .select(
+        "id, lot_number, expiry_date, quantity_on_hand, " +
+          "materials:material_id(name, base_uom), " +
+          "locations:location_id(code, name)",
+      )
+      .eq("company_id", companyId)
+      .gt("quantity_on_hand", 0)
+      .not("expiry_date", "is", null)
+      .is("deleted_at", null)
+      .order("expiry_date", { ascending: true })
+      .limit(5)
+      .returns<ExpiringLotRow[]>(),
+  ]);
+
+  return {
+    expired: expired ?? 0,
+    critical: critical ?? 0,
+    warning: warning ?? 0,
+    soonest: soonest ?? [],
+  };
+}
+
+function ExpiryTrackingSection({
+  companyId,
+  thresholds,
+  counts,
+}: {
+  companyId: string;
+  thresholds: ExpiryThresholds;
+  counts: Awaited<ReturnType<typeof loadExpiryCounts>>;
+}) {
+  const lotsPath = companyModulePath(companyId, "lots");
+  const cards = [
+    {
+      key: "expired" as const,
+      label: EXPIRY_LABEL.expired,
+      value: counts.expired,
+      href: `${lotsPath}?skt=expired`,
+    },
+    {
+      key: "critical" as const,
+      label: `${EXPIRY_LABEL.critical} (≤${thresholds.criticalDays} gün)`,
+      value: counts.critical,
+      href: `${lotsPath}?skt=critical`,
+    },
+    {
+      key: "warning" as const,
+      label: `${EXPIRY_LABEL.warning} (≤${thresholds.warningDays} gün)`,
+      value: counts.warning,
+      href: `${lotsPath}?skt=warning`,
+    },
+  ];
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-semibold">Son Kullanma Takibi</h2>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {cards.map((c) => (
+          <Link
+            key={c.key}
+            href={c.href}
+            className="rounded-md border border-border bg-card p-4 transition-colors hover:bg-secondary/40"
+          >
+            <div className="flex items-center gap-2">
+              <span
+                className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                  c.value > 0 ? EXPIRY_BADGE_CLASS[c.key] : "bg-emerald-500"
+                }`}
+              />
+              <p className="text-xs text-muted-foreground">{c.label}</p>
+            </div>
+            <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
+              {c.value}
+            </p>
+          </Link>
+        ))}
+      </div>
+
+      {counts.soonest.length > 0 ? (
+        <div className="overflow-hidden rounded-md border border-border">
+          <p className="border-b border-border bg-secondary/50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            En Yakın SKT
+          </p>
+          <ul className="divide-y divide-border text-sm">
+            {counts.soonest.map((lot) => {
+              const urgency = expiryUrgency(lot.expiry_date, thresholds);
+              const dte = daysUntil(lot.expiry_date);
+              return (
+                <li key={lot.id}>
+                  <Link
+                    href={`${lotsPath}/${lot.id}`}
+                    className="flex flex-wrap items-center gap-2 px-3 py-2 transition-colors hover:bg-secondary/40"
+                  >
+                    <span className="font-mono text-xs">{lot.lot_number}</span>
+                    <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                      {lot.materials?.name ?? "—"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {lot.locations?.code ?? "ANA"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {lot.expiry_date}
+                    </span>
+                    {urgency && urgency !== "ok" ? (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${EXPIRY_BADGE_CLASS[urgency]}`}
+                      >
+                        {urgency === "expired"
+                          ? EXPIRY_LABEL.expired
+                          : `${dte}g`}
+                      </span>
+                    ) : null}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 async function ClerkDashboard({
   companyId,
   companyName,
@@ -133,10 +304,13 @@ async function ClerkDashboard({
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
+  const thresholds = await getExpiryThresholds(companyId);
+
   const [
     { count: toPrepare },
     { count: shippedToday },
     { count: releasedLots },
+    expiryCounts,
   ] = await Promise.all([
     supabase
       .from("shipments")
@@ -157,6 +331,7 @@ async function ClerkDashboard({
       .eq("status", "released")
       .gt("quantity_on_hand", 0)
       .is("deleted_at", null),
+    loadExpiryCounts(companyId, thresholds),
   ]);
 
   const cards = [
@@ -198,6 +373,11 @@ async function ClerkDashboard({
       href: companyModulePath(companyId, "lots", "new"),
       description: "Yeni lot girişi yapın.",
     },
+    {
+      label: "Mevcut Stok Girişi",
+      href: companyModulePath(companyId, "lots", "onboarding"),
+      description: "Depodaki eski ürünleri SKT ve adetle kaydedin.",
+    },
   ];
 
   return (
@@ -225,6 +405,12 @@ async function ClerkDashboard({
           </Link>
         ))}
       </section>
+
+      <ExpiryTrackingSection
+        companyId={companyId}
+        thresholds={thresholds}
+        counts={expiryCounts}
+      />
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold">Hızlı İşlemler</h2>
@@ -261,9 +447,10 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
     );
   }
 
+  const thresholds = await getExpiryThresholds(companyId);
   const [company, stats] = await Promise.all([
     getCompanySummary(companyId),
-    loadCompanyStats(companyId),
+    loadCompanyStats(companyId, thresholds.criticalDays),
   ]);
   const quickActions = buildQuickActions(companyId);
 
@@ -279,9 +466,9 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
       href: companyModulePath(companyId, "materials"),
     },
     {
-      label: "Kritik Stok",
+      label: `Kritik Stok (SKT ≤${thresholds.criticalDays} gün / bloklu)`,
       value: stats.criticalStock,
-      href: companyModulePath(companyId, "stock"),
+      href: `${companyModulePath(companyId, "lots")}?skt=critical`,
     },
     {
       label: "Devam Eden Üretim",

@@ -318,7 +318,10 @@ export default async function SettingsPage({ params }: PageProps) {
         </div>
         <div className="flex gap-2">
           <Link href={companyModulePath(companyId, "settings", "locations")}>
-            <Button variant="outline">Depolar</Button>
+            <Button variant="outline">Depolar ve Raflar</Button>
+          </Link>
+          <Link href={companyModulePath(companyId, "settings", "expiry")}>
+            <Button variant="outline">SKT Eşikleri</Button>
           </Link>
           {canManageCompanyUsers(role) ? (
             <Link href={companyModulePath(companyId, "users")}>

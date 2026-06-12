@@ -6,6 +6,7 @@ import { AttachmentUploader } from "@/components/files/attachment-uploader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requireCompanyUser } from "@/lib/auth";
+import type { LocationOption } from "@/lib/locations";
 import {
   ATTACHMENT_KIND_LABEL,
   getSurfaceConfig,
@@ -103,10 +104,11 @@ export default async function LotDetailPage({ params }: PageProps) {
 
   const { data: allLocations } = await supabase
     .from("locations")
-    .select("id, code, name")
+    .select("id, code, name, kind, parent_id, is_default")
     .eq("company_id", companyId)
     .is("deleted_at", null)
-    .order("code");
+    .order("code")
+    .returns<LocationOption[]>();
   const canTransfer = canWriteCompanyData(role, STOCK_WRITE_ROLES);
 
   const { data: attachments } = await supabase
@@ -238,18 +240,17 @@ export default async function LotDetailPage({ params }: PageProps) {
 
       {canTransfer ? (
         <section className="rounded-md border border-border p-4">
-          <h2 className="mb-1 text-sm font-medium">Depo Transferi</h2>
+          <h2 className="mb-1 text-sm font-medium">Konum Transferi</h2>
           <p className="mb-3 text-xs text-muted-foreground">
-            Lot tam olarak hedef depoya taşınır; hareket defterine transfer
-            kaydı düşülür. Yalnızca &quot;Serbest&quot; lotlar transfer
-            edilebilir.
+            Lot tam olarak hedef depoya veya rafa taşınır; hareket defterine
+            transfer kaydı düşülür. Bloklu lotlar transfer edilemez.
           </p>
           <TransferForm
             companyId={companyId}
             lotId={lot.id}
             currentLocationId={lot.location_id}
             locations={allLocations ?? []}
-            lotReleased={lot.status === "released"}
+            lotBlocked={lot.status === "blocked"}
           />
         </section>
       ) : null}

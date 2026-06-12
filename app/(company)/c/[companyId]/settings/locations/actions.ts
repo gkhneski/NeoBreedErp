@@ -9,18 +9,30 @@ import { withFlash } from "@/lib/flash";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { MASTER_DATA_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
-const locationSchema = z.object({
-  company_id: z.string().uuid(),
-  location_id: z.string().uuid().optional().or(z.literal("")),
-  code: z
-    .string()
-    .trim()
-    .min(2, "Kod en az 2 karakter olmalı.")
-    .max(16, "Kod en fazla 16 karakter olabilir.")
-    .regex(/^[A-Za-z0-9_-]+$/, "Kod yalnızca harf, rakam, tire ve alt çizgi içerebilir."),
-  name: z.string().trim().min(2, "Ad en az 2 karakter olmalı.").max(120),
-  notes: z.string().trim().max(2000).optional().or(z.literal("")),
-});
+const locationSchema = z
+  .object({
+    company_id: z.string().uuid(),
+    location_id: z.string().uuid().optional().or(z.literal("")),
+    code: z
+      .string()
+      .trim()
+      .min(2, "Kod en az 2 karakter olmalı.")
+      .max(16, "Kod en fazla 16 karakter olabilir.")
+      .regex(/^[A-Za-z0-9_-]+$/, "Kod yalnızca harf, rakam, tire ve alt çizgi içerebilir."),
+    name: z.string().trim().min(2, "Ad en az 2 karakter olmalı.").max(120),
+    kind: z.enum(["depot", "shelf"]),
+    parent_id: z.string().uuid().optional().or(z.literal("")),
+    notes: z.string().trim().max(2000).optional().or(z.literal("")),
+  })
+  .superRefine((data, ctx) => {
+    if (data.kind === "shelf" && !data.parent_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["parent_id"],
+        message: "Raf için bağlı olduğu depo seçilmeli.",
+      });
+    }
+  });
 
 export type LocationFormState = {
   error?: string;
@@ -37,6 +49,8 @@ function parseForm(formData: FormData) {
     location_id: formData.get("location_id") ?? "",
     code: formData.get("code") ?? "",
     name: formData.get("name") ?? "",
+    kind: formData.get("kind") ?? "depot",
+    parent_id: formData.get("parent_id") ?? "",
     notes: formData.get("notes") ?? "",
   });
 }
@@ -74,6 +88,8 @@ export async function createLocation(
     company_id: companyId,
     code: parsed.data.code.toUpperCase(),
     name: parsed.data.name,
+    kind: parsed.data.kind,
+    parent_id: parsed.data.kind === "shelf" ? parsed.data.parent_id : null,
     notes: parsed.data.notes?.trim() || null,
     created_by: ctx.userId,
     updated_by: ctx.userId,
@@ -116,6 +132,8 @@ export async function updateLocation(
     .update({
       code: parsed.data.code.toUpperCase(),
       name: parsed.data.name,
+      kind: parsed.data.kind,
+      parent_id: parsed.data.kind === "shelf" ? parsed.data.parent_id : null,
       notes: parsed.data.notes?.trim() || null,
       updated_by: ctx.userId,
     })
@@ -164,7 +182,18 @@ export async function deleteLocation(
     .is("deleted_at", null);
 
   if ((count ?? 0) > 0) {
-    throw new Error("Bu depoda lot bulunduğu için silinemez.");
+    throw new Error("Bu konumda lot bulunduğu için silinemez.");
+  }
+
+  const { count: shelfCount } = await supabase
+    .from("locations")
+    .select("id", { count: "exact", head: true })
+    .eq("company_id", companyId)
+    .eq("parent_id", locationId)
+    .is("deleted_at", null);
+
+  if ((shelfCount ?? 0) > 0) {
+    throw new Error("Bu depoya bağlı aktif raflar varken silinemez.");
   }
 
   const { error } = await supabase

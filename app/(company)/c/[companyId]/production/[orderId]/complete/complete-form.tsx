@@ -8,6 +8,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { groupLocations, type LocationOption } from "@/lib/locations";
 import { companyModulePath } from "@/types/roles";
 
 import {
@@ -47,6 +48,8 @@ interface CompleteBatchFormProps {
   plannedUom: string;
   outputBaseUom: string;
   items: FormItem[];
+  locations: LocationOption[];
+  defaultLocationId: string | null;
 }
 
 const initialState: CompleteBatchState = {};
@@ -68,7 +71,10 @@ export function CompleteBatchForm({
   plannedUom,
   outputBaseUom,
   items,
+  locations,
+  defaultLocationId,
 }: CompleteBatchFormProps) {
+  const locationGroups = groupLocations(locations);
   const [state, formAction] = useActionState(
     completeProductionBatch.bind(null, companyId),
     initialState,
@@ -139,6 +145,34 @@ export function CompleteBatchForm({
               </p>
             ) : null}
           </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="location_id">Çıkış Konumu (Depo / Raf)</Label>
+          <select
+            id="location_id"
+            name="location_id"
+            defaultValue={defaultLocationId ?? ""}
+            className="flex h-9 w-full max-w-sm rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {locationGroups.map((group) => (
+              <optgroup
+                key={group.depot.id}
+                label={`${group.depot.code} — ${group.depot.name}`}
+              >
+                <option value={group.depot.id}>
+                  {group.depot.code} — {group.depot.name}
+                </option>
+                {group.shelves.map((shelf) => (
+                  <option key={shelf.id} value={shelf.id}>
+                    {shelf.code} — {shelf.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Çıkış lotu seçilen depoya veya rafa yerleştirilir.
+          </p>
         </div>
         <p className="text-xs text-muted-foreground">
           Çıkış lotu &quot;karantina&quot; durumunda açılır. QC sonrası

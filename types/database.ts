@@ -10,6 +10,7 @@ export type MaterialType = "raw" | "finished";
 export type RecipeStatus = "draft" | "published" | "archived";
 export type RecipeMode = "quantity" | "percentage";
 export type LotStatus = "quarantine" | "released" | "blocked";
+export type LocationKind = "depot" | "shelf";
 export type StockMovementKind = "receipt" | "issue" | "adjustment" | "transfer";
 export type ProductionOrderStatus =
   | "draft"
@@ -493,6 +494,8 @@ export type Database = {
           company_id: string;
           code: string;
           name: string;
+          kind: LocationKind;
+          parent_id: string | null;
           is_default: boolean;
           notes: string | null;
           created_at: string;
@@ -506,6 +509,8 @@ export type Database = {
           company_id: string;
           code: string;
           name: string;
+          kind?: LocationKind;
+          parent_id?: string | null;
           is_default?: boolean;
           notes?: string | null;
           created_at?: string;
@@ -519,12 +524,41 @@ export type Database = {
           company_id?: string;
           code?: string;
           name?: string;
+          kind?: LocationKind;
+          parent_id?: string | null;
           is_default?: boolean;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
           created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      company_settings: {
+        Row: {
+          company_id: string;
+          expiry_critical_days: number;
+          expiry_warning_days: number;
+          created_at: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          company_id: string;
+          expiry_critical_days?: number;
+          expiry_warning_days?: number;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          company_id?: string;
+          expiry_critical_days?: number;
+          expiry_warning_days?: number;
+          created_at?: string;
+          updated_at?: string;
           updated_by?: string | null;
         };
         Relationships: [];
@@ -1183,7 +1217,8 @@ export type Database = {
           p_notes: string | null;
           p_movement_notes: string | null;
           p_owner_customer_id?: string | null;
-          location_id?: string | null;
+          p_status?: "quarantine" | "released";
+          p_location_id?: string | null;
         };
         Returns: string;
       };
@@ -1220,6 +1255,7 @@ export type Database = {
           p_output_lot_number: string;
           p_output_expiry_date: string | null;
           p_consumed: Json;
+          p_location_id?: string | null;
         };
         Returns: string;
       };

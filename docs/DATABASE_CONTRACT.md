@@ -545,3 +545,43 @@ security invoker. Locks the lot `for update`; requires: lot in company & not del
 `operator` role is scoped in the app to: dashboard (clerk variant), lots, stock, warehouse(+scan), shipments. All other modules return 404 for operators (`canAccessModule` in `types/roles.ts` + page guards). DB-level RLS remains membership-based; module scoping is a UX/authorization layer on top, consistent with SECURITY_RULES §2 (server-side checks).
 
 **Files affected:** `supabase/migrations/20260614000000_phase7d_shipments.sql`, `app/(company)/c/[companyId]/shipments/*`, `types/roles.ts`, sidebar + dashboard.
+
+---
+
+## 19. Phase 7e — Shelves, Put-Away, Stock Onboarding & Expiry Settings (signed off 2026-06-12)
+
+**Business intent:** the warehouse gets a shelf (raf) system under depots. Production output is put away to a chosen shelf at completion. Existing (legacy) stock is onboarded fast via a dedicated flow and enters as `released`. Expiry urgency thresholds are tenant-configurable and drive color-coded dashboard info.
+
+### `locations` hierarchy (column additions)
+
+- `kind text not null default 'depot' check (kind in ('depot','shelf'))`
+- `parent_id uuid null references locations(id) on delete restrict`
+
+Invariants:
+
+- `locations_shelf_has_parent` check: `(kind = 'shelf') = (parent_id is not null)` — exactly two levels; depots have no parent, shelves always do.
+- `locations_default_is_depot` check: `not is_default or kind = 'depot'`.
+- Trigger `locations_check_parent()` (before insert/update of `parent_id, kind, company_id`): parent must exist, belong to the same company, have `kind='depot'`, and not be soft-deleted. (FK cannot express these.)
+- Existing company-wide partial unique `(company_id, code)` is kept: shelf codes are unique per company, not per depot.
+- Index `locations_parent_idx on (parent_id) where deleted_at is null`.
+- Depot deletion additionally requires no active shelves (app-level guard alongside the existing lot-count guard).
+
+Lots may sit directly on a depot (backward compatible) or on a shelf. `ensure_default_location` is unchanged (defaults are depots).
+
+### `company_settings` (new table)
+
+`company_id uuid primary key references companies(id) on delete cascade, expiry_critical_days integer not null default 90, expiry_warning_days integer not null default 180, created_at, updated_at, updated_by`. Checks: both `> 0`, `expiry_critical_days < expiry_warning_days`. Canonical member RLS, `set_updated_at` trigger. Singleton row per company, upserted from the settings UI; **no soft delete**. App falls back to the defaults when no row exists.
+
+Urgency bands derived in app code (`lib/expiry.ts`): `expired` (< today), `critical` (≤ critical days), `warning` (≤ warning days), `ok`.
+
+### RPC changes
+
+- **`transfer_lot`** (same signature, `create or replace`): status rule relaxed — only `blocked` lots are rejected; `quarantine` and `released` lots are transferable (physical put-away must not wait for QC).
+- **`create_lot_with_receipt` v2** (old 12-param signature **dropped**, recreated with two trailing defaulted params): `p_status text default 'quarantine'` (allowed: `quarantine|released`; `released` is for legacy stock onboarding) and `p_location_id uuid default null` (must be a same-company, non-deleted location; null falls back to `ensure_default_location`). Existing callers pass named args without the new params and are unaffected.
+- **`complete_production_batch` v2** (old 6-param signature **dropped**, recreated with trailing `p_location_id uuid default null`): output lot lands at the chosen location (depot or shelf) instead of always the default depot; null keeps the old behavior.
+
+### Module access (no schema)
+
+Stock onboarding (`lots/onboarding`) is guarded by `STOCK_WRITE_ROLES` (operator allowed). Expiry settings UI is `MASTER_DATA_WRITE_ROLES`.
+
+**Files affected:** `supabase/migrations/20260615000000_phase7e_shelves_putaway_settings.sql`, `app/(company)/c/[companyId]/settings/locations/*`, `settings/expiry/*`, `warehouse/locations/*`, `warehouse/scan/*`, `lots/onboarding/*`, `lots/*`, `production/[orderId]/complete/*`, `lib/expiry.ts`, `lib/company-settings.ts`, `lib/locations.ts`, dashboard.

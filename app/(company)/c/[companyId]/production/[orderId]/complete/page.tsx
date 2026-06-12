@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyRole, requireModuleAccess } from "@/lib/auth";
+import type { LocationOption } from "@/lib/locations";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { PRODUCTION_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
@@ -112,6 +113,18 @@ export default async function CompleteBatchPage({ params }: PageProps) {
     redirect(companyModulePath(companyId, "production", order.id));
   }
 
+  const { data: locationRows } = await supabase
+    .from("locations")
+    .select("id, code, name, kind, parent_id, is_default")
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .order("is_default", { ascending: false })
+    .order("code")
+    .returns<LocationOption[]>();
+  const locations = locationRows ?? [];
+  const defaultLocationId =
+    locations.find((l) => l.is_default)?.id ?? locations[0]?.id ?? null;
+
   const recipeItems = items ?? [];
   const materialIds = Array.from(new Set(recipeItems.map((i) => i.material_id)));
 
@@ -197,6 +210,8 @@ export default async function CompleteBatchPage({ params }: PageProps) {
           plannedUom={order.planned_uom}
           outputBaseUom={order.materials?.base_uom ?? order.planned_uom}
           items={formItems}
+          locations={locations}
+          defaultLocationId={defaultLocationId}
         />
       ) : (
         <EmptyState

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requireCompanyRole } from "@/lib/auth";
+import type { LocationOption } from "@/lib/locations";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { STOCK_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
@@ -20,11 +21,12 @@ export default async function WarehouseScanPage({ params }: PageProps) {
 
   const { data: locations } = await supabase
     .from("locations")
-    .select("id, code, name, is_default")
+    .select("id, code, name, kind, parent_id, is_default")
     .eq("company_id", companyId)
     .is("deleted_at", null)
     .order("is_default", { ascending: false })
-    .order("code");
+    .order("code")
+    .returns<LocationOption[]>();
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -39,9 +41,10 @@ export default async function WarehouseScanPage({ params }: PageProps) {
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">Barkod Tara</h1>
         <p className="text-sm text-muted-foreground">
-          Lot etiketindeki QR kodu telefon kamerasıyla okutun; lot bilgisi gelir
-          ve tek dokunuşla hedef depoya alınır. Kamera yoksa lot numarasını elle
-          girin.
+          Lot etiketindeki QR kodu okutun; lot bilgisi gelir ve tek dokunuşla
+          hedef konuma alınır. Lotu okutup ardından raf etiketini okutarak da
+          yerleştirme yapabilirsiniz. Raf etiketi okutursanız raftaki ürünler
+          listelenir. Kamera yoksa lot numarasını veya raf kodunu elle girin.
         </p>
       </header>
 
