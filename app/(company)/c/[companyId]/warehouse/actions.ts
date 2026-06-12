@@ -56,17 +56,19 @@ async function resolveLot(
   supabase: SupabaseServerClient,
   companyId: string,
   by: { lotId?: string; lotNumber?: string },
+  onlyFinished = false,
 ): Promise<ScannedLot | null> {
   let q = supabase
     .from("material_lots")
     .select(
       "id, lot_number, status, quantity_on_hand, expiry_date, location_id, " +
-        "materials:material_id(code, name, base_uom), " +
+        `materials:material_id${onlyFinished ? "!inner" : ""}(code, name, base_uom, type), ` +
         "customers:owner_customer_id(name), " +
         "locations:location_id(name)",
     )
     .eq("company_id", companyId)
     .is("deleted_at", null);
+  if (onlyFinished) q = q.eq("materials.type", "finished");
   q = by.lotId ? q.eq("id", by.lotId) : q.eq("lot_number", by.lotNumber!);
 
   const { data: lot } = await q.limit(1).maybeSingle<{
@@ -102,6 +104,7 @@ async function resolveLocation(
   supabase: SupabaseServerClient,
   companyId: string,
   by: { locationId?: string; code?: string },
+  onlyFinished = false,
 ): Promise<ScannedLocation | null> {
   let q = supabase
     .from("locations")
@@ -120,16 +123,18 @@ async function resolveLocation(
 
   if (!location) return null;
 
-  const { data: lots } = await supabase
+  let lotsQuery = supabase
     .from("material_lots")
     .select(
       "id, lot_number, status, quantity_on_hand, expiry_date, " +
-        "materials:material_id(name, base_uom)",
+        `materials:material_id${onlyFinished ? "!inner" : ""}(name, base_uom, type)`,
     )
     .eq("company_id", companyId)
     .eq("location_id", location.id)
     .gt("quantity_on_hand", 0)
-    .is("deleted_at", null)
+    .is("deleted_at", null);
+  if (onlyFinished) lotsQuery = lotsQuery.eq("materials.type", "finished");
+  const { data: lots } = await lotsQuery
     .order("expiry_date", { ascending: true, nullsFirst: false })
     .returns<
       Array<{
@@ -164,8 +169,10 @@ export async function resolveScan(
   routeCompanyId: string,
   query: string,
 ): Promise<ScanResolution> {
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
+  // Depo personeli yalnizca bitmis urun lot/konumlarini okutabilir.
+  const onlyFinished = role === "operator";
 
   const trimmed = query.trim();
   if (!trimmed) return { ok: false, error: "Okutulan kod boş." };
@@ -178,9 +185,12 @@ export async function resolveScan(
       if (locationMatch[1].toLowerCase() !== companyId.toLowerCase()) {
         return { ok: false, error: "Bu etiket başka bir firmaya ait." };
       }
-      const location = await resolveLocation(supabase, companyId, {
-        locationId: locationMatch[2],
-      });
+      const location = await resolveLocation(
+        supabase,
+        companyId,
+        { locationId: locationMatch[2] },
+        onlyFinished,
+      );
       if (!location) return { ok: false, error: "Konum bulunamadı." };
       return { ok: true, kind: "location", location };
     }
@@ -194,23 +204,41 @@ export async function resolveScan(
     if (lotMatch[1].toLowerCase() !== companyId.toLowerCase()) {
       return { ok: false, error: "Bu etiket başka bir firmaya ait." };
     }
-    const lot = await resolveLot(supabase, companyId, { lotId: lotMatch[2] });
+    const lot = await resolveLot(
+      supabase,
+      companyId,
+      { lotId: lotMatch[2] },
+      onlyFinished,
+    );
     if (!lot) return { ok: false, error: "Lot bulunamadı." };
     return { ok: true, kind: "lot", lot };
   }
 
   if (uuidRegex.test(trimmed)) {
-    const lot = await resolveLot(supabase, companyId, { lotId: trimmed });
+    const lot = await resolveLot(
+      supabase,
+      companyId,
+      { lotId: trimmed },
+      onlyFinished,
+    );
     if (!lot) return { ok: false, error: "Lot bulunamadı." };
     return { ok: true, kind: "lot", lot };
   }
 
-  const lot = await resolveLot(supabase, companyId, { lotNumber: trimmed });
+  const lot = await resolveLot(
+    supabase,
+    companyId,
+    { lotNumber: trimmed },
+    onlyFinished,
+  );
   if (lot) return { ok: true, kind: "lot", lot };
 
-  const location = await resolveLocation(supabase, companyId, {
-    code: trimmed.toUpperCase(),
-  });
+  const location = await resolveLocation(
+    supabase,
+    companyId,
+    { code: trimmed.toUpperCase() },
+    onlyFinished,
+  );
   if (location) return { ok: true, kind: "location", location };
 
   return { ok: false, error: "Lot veya konum bulunamadı." };
@@ -238,11 +266,25 @@ export async function scanTransferLot(
     return { ok: false, error: "Geçersiz transfer isteği." };
   }
 
-  const { companyId } = await requireCompanyRole(
+  const { companyId, role } = await requireCompanyRole(
     parsed.data.company_id,
     STOCK_WRITE_ROLES,
   );
   const supabase = await createServerSupabaseClient();
+
+  if (role === "operator") {
+    const { data: lot } = await supabase
+      .from("material_lots")
+      .select("id, materials:material_id!inner(type)")
+      .eq("id", parsed.data.lot_id)
+      .eq("company_id", companyId)
+      .eq("materials.type", "finished")
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (!lot) {
+      return { ok: false, error: "Bu lot depo personeli tarafından işlenemez." };
+    }
+  }
 
   const { error } = await supabase.rpc("transfer_lot", {
     p_company_id: companyId,

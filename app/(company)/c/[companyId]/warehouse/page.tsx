@@ -115,13 +115,15 @@ export default async function WarehousePage({ params }: PageProps) {
               <Button>Barkod Tara</Button>
             </Link>
             {!isOperator ? (
-              <Link href={companyModulePath(companyId, "lots", "new")}>
-                <Button variant="outline">Mal Kabul</Button>
-              </Link>
+              <>
+                <Link href={companyModulePath(companyId, "lots", "new")}>
+                  <Button variant="outline">Mal Kabul</Button>
+                </Link>
+                <Link href={companyModulePath(companyId, "stock", "new")}>
+                  <Button variant="outline">Stok Hareketi</Button>
+                </Link>
+              </>
             ) : null}
-            <Link href={companyModulePath(companyId, "stock", "new")}>
-              <Button variant="outline">Stok Hareketi</Button>
-            </Link>
           </div>
         ) : null}
       </header>

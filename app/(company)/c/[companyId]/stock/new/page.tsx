@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { requireCompanyRole } from "@/lib/auth";
@@ -21,10 +22,17 @@ type LotOption = {
 
 export default async function NewStockMovementPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyRole(
+  const { companyId, role } = await requireCompanyRole(
     routeCompanyId,
     STOCK_WRITE_ROLES,
   );
+
+  // Manuel stok hareketi (cikis/sayim duzeltmesi) fabrika/admin konusu;
+  // depo personeli finished urunlerini Barkod Tara ve siparislerle yonetir.
+  if (role === "operator") {
+    redirect(companyModulePath(companyId, "stock"));
+  }
+
   const supabase = await createServerSupabaseClient();
 
   const { data: lots } = await supabase

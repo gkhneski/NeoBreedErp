@@ -154,7 +154,7 @@ export async function addShipmentItem(
     return { error: parsed.error.issues[0]?.message ?? "Geçersiz kalem." };
   }
 
-  const { ctx, companyId } = await requireCompanyRole(
+  const { ctx, companyId, role } = await requireCompanyRole(
     parsed.data.company_id,
     SHIPMENT_WRITE_ROLES,
   );
@@ -162,13 +162,24 @@ export async function addShipmentItem(
 
   const { data: lot } = await supabase
     .from("material_lots")
-    .select("id, material_id, status, quantity_on_hand")
+    .select(
+      "id, material_id, status, quantity_on_hand, materials:material_id(type)",
+    )
     .eq("id", parsed.data.lot_id)
     .eq("company_id", companyId)
     .is("deleted_at", null)
-    .maybeSingle();
+    .maybeSingle<{
+      id: string;
+      material_id: string;
+      status: string;
+      quantity_on_hand: number;
+      materials: { type: string } | null;
+    }>();
 
   if (!lot) return { error: "Lot bulunamadı." };
+  if (role === "operator" && lot.materials?.type !== "finished") {
+    return { error: "Depo personeli yalnızca bitmiş ürün sevk edebilir." };
+  }
   if (lot.status !== "released") {
     return { error: "Yalnızca 'Serbest' lotlar sevk edilebilir." };
   }

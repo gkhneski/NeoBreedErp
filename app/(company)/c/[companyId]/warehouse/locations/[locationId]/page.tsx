@@ -61,7 +61,11 @@ function formatNumber(n: number): string {
 
 export default async function LocationDetailPage({ params }: PageProps) {
   const { companyId: routeCompanyId, locationId } = await params;
-  const { companyId } = await requireModuleAccess(routeCompanyId, "warehouse");
+  const { companyId, role } = await requireModuleAccess(
+    routeCompanyId,
+    "warehouse",
+  );
+  const isOperator = role === "operator";
   const supabase = await createServerSupabaseClient();
 
   const { data: location } = await supabase
@@ -79,18 +83,21 @@ export default async function LocationDetailPage({ params }: PageProps) {
   const thresholds = await getExpiryThresholds(companyId);
 
   const [{ data: lots }, { data: shelves }] = await Promise.all([
-    supabase
-      .from("material_lots")
-      .select(
-        "id, lot_number, status, quantity_on_hand, expiry_date, " +
-          "materials:material_id(code, name, base_uom)",
-      )
-      .eq("company_id", companyId)
-      .eq("location_id", location.id)
-      .is("deleted_at", null)
-      .gt("quantity_on_hand", 0)
-      .order("expiry_date", { ascending: true, nullsFirst: false })
-      .returns<LocationLot[]>(),
+    (() => {
+      let q = supabase
+        .from("material_lots")
+        .select(
+          `id, lot_number, status, quantity_on_hand, expiry_date, materials:material_id${isOperator ? "!inner" : ""}(code, name, base_uom, type)`,
+        )
+        .eq("company_id", companyId)
+        .eq("location_id", location.id)
+        .is("deleted_at", null)
+        .gt("quantity_on_hand", 0);
+      if (isOperator) q = q.eq("materials.type", "finished");
+      return q
+        .order("expiry_date", { ascending: true, nullsFirst: false })
+        .returns<LocationLot[]>();
+    })(),
     location.kind === "depot"
       ? supabase
           .from("locations")
@@ -105,9 +112,11 @@ export default async function LocationDetailPage({ params }: PageProps) {
   const shelfRows = shelves ?? [];
   let shelfLotCounts = new Map<string, number>();
   if (shelfRows.length > 0) {
-    const { data: shelfLots } = await supabase
+    let shelfLotsQuery = supabase
       .from("material_lots")
-      .select("location_id")
+      .select(
+        `location_id, materials:material_id${isOperator ? "!inner" : ""}(type)`,
+      )
       .eq("company_id", companyId)
       .in(
         "location_id",
@@ -115,6 +124,8 @@ export default async function LocationDetailPage({ params }: PageProps) {
       )
       .is("deleted_at", null)
       .gt("quantity_on_hand", 0);
+    if (isOperator) shelfLotsQuery = shelfLotsQuery.eq("materials.type", "finished");
+    const { data: shelfLots } = await shelfLotsQuery;
     shelfLotCounts = (shelfLots ?? []).reduce((map, row) => {
       if (row.location_id) {
         map.set(row.location_id, (map.get(row.location_id) ?? 0) + 1);
@@ -231,12 +242,16 @@ export default async function LocationDetailPage({ params }: PageProps) {
                   return (
                     <tr key={lot.id} className="border-t border-border">
                       <td className="px-3 py-2 font-mono text-xs">
-                        <Link
-                          href={`${companyModulePath(companyId, "lots")}/${lot.id}`}
-                          className="hover:underline"
-                        >
-                          {lot.lot_number}
-                        </Link>
+                        {isOperator ? (
+                          lot.lot_number
+                        ) : (
+                          <Link
+                            href={`${companyModulePath(companyId, "lots")}/${lot.id}`}
+                            className="hover:underline"
+                          >
+                            {lot.lot_number}
+                          </Link>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-xs">
                         {lot.materials ? (

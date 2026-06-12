@@ -159,11 +159,16 @@ async function loadExpiryCounts(
   const criticalOut = isoDatePlusDays(thresholds.criticalDays);
   const warningOut = isoDatePlusDays(thresholds.warningDays);
 
+  // Depo paneli operatore ozel: yalnizca bitmis urun lotlari sayilir/listelenir.
   const stockedLots = () =>
     supabase
       .from("material_lots")
-      .select("id", { count: "exact", head: true })
+      .select("id, materials:material_id!inner(type)", {
+        count: "exact",
+        head: true,
+      })
       .eq("company_id", companyId)
+      .eq("materials.type", "finished")
       .gt("quantity_on_hand", 0)
       .is("deleted_at", null);
 
@@ -180,10 +185,11 @@ async function loadExpiryCounts(
       .from("material_lots")
       .select(
         "id, lot_number, expiry_date, quantity_on_hand, " +
-          "materials:material_id(name, base_uom), " +
+          "materials:material_id!inner(name, base_uom, type), " +
           "locations:location_id(code, name)",
       )
       .eq("company_id", companyId)
+      .eq("materials.type", "finished")
       .gt("quantity_on_hand", 0)
       .not("expiry_date", "is", null)
       .is("deleted_at", null)
@@ -209,25 +215,26 @@ function ExpiryTrackingSection({
   thresholds: ExpiryThresholds;
   counts: Awaited<ReturnType<typeof loadExpiryCounts>>;
 }) {
-  const lotsPath = companyModulePath(companyId, "lots");
+  // Depo personeli "lots" modulunu gormez; SKT kartlari bitmis urun stoguna gider.
+  const finishedStockPath = `${companyModulePath(companyId, "stock")}?tab=urun`;
   const cards = [
     {
       key: "expired" as const,
       label: EXPIRY_LABEL.expired,
       value: counts.expired,
-      href: `${lotsPath}?skt=expired`,
+      href: finishedStockPath,
     },
     {
       key: "critical" as const,
       label: `${EXPIRY_LABEL.critical} (≤${thresholds.criticalDays} gün)`,
       value: counts.critical,
-      href: `${lotsPath}?skt=critical`,
+      href: finishedStockPath,
     },
     {
       key: "warning" as const,
       label: `${EXPIRY_LABEL.warning} (≤${thresholds.warningDays} gün)`,
       value: counts.warning,
-      href: `${lotsPath}?skt=warning`,
+      href: finishedStockPath,
     },
   ];
 
@@ -268,7 +275,7 @@ function ExpiryTrackingSection({
               return (
                 <li key={lot.id}>
                   <Link
-                    href={`${lotsPath}/${lot.id}`}
+                    href={finishedStockPath}
                     className="flex flex-wrap items-center gap-2 px-3 py-2 transition-colors hover:bg-secondary/40"
                   >
                     <span className="font-mono text-xs">{lot.lot_number}</span>
@@ -335,8 +342,12 @@ async function ClerkDashboard({
       .gte("shipped_at", todayStart.toISOString()),
     supabase
       .from("material_lots")
-      .select("id", { count: "exact", head: true })
+      .select("id, materials:material_id!inner(type)", {
+        count: "exact",
+        head: true,
+      })
       .eq("company_id", companyId)
+      .eq("materials.type", "finished")
       .eq("status", "released")
       .gt("quantity_on_hand", 0)
       .is("deleted_at", null),
@@ -362,7 +373,7 @@ async function ClerkDashboard({
     {
       label: "Sevk Edilebilir Lot",
       value: releasedLots ?? 0,
-      href: companyModulePath(companyId, "lots"),
+      href: `${companyModulePath(companyId, "stock")}?tab=urun`,
     },
     {
       label: "Bekleyen Fiyat Onayı",
@@ -388,14 +399,9 @@ async function ClerkDashboard({
       description: "Hazırlanacak ve gönderilen siparişler.",
     },
     {
-      label: "Mal Kabul",
-      href: companyModulePath(companyId, "lots", "new"),
-      description: "Yeni lot girişi yapın.",
-    },
-    {
-      label: "Mevcut Stok Girişi",
-      href: companyModulePath(companyId, "lots", "onboarding"),
-      description: "Depodaki eski ürünleri SKT ve adetle kaydedin.",
+      label: "Bitmiş Ürün Stoğu",
+      href: `${companyModulePath(companyId, "stock")}?tab=urun`,
+      description: "Eldeki bitmiş ürünleri lot ve SKT ile görün.",
     },
   ];
 

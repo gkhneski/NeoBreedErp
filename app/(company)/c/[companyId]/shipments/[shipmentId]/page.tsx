@@ -81,6 +81,9 @@ export default async function ShipmentDetailPage({ params }: PageProps) {
 
   if (!shipment) notFound();
 
+  // Depo personeli sevkiyata yalnizca bitmis urun lotu ekleyebilir.
+  const isOperator = role === "operator";
+
   const [{ data: items }, { data: pickableLots }] = await Promise.all([
     supabase
       .from("shipment_items")
@@ -93,20 +96,21 @@ export default async function ShipmentDetailPage({ params }: PageProps) {
       .eq("company_id", companyId)
       .order("created_at")
       .returns<ItemRow[]>(),
-    supabase
-      .from("material_lots")
-      .select(
-        "id, lot_number, quantity_on_hand, " +
-          "materials:material_id(code, name, base_uom), " +
-          "locations:location_id(name)",
-      )
-      .eq("company_id", companyId)
-      .eq("status", "released")
-      .gt("quantity_on_hand", 0)
-      .is("deleted_at", null)
-      .order("lot_number")
-      .limit(300)
-      .returns<PickableLot[]>(),
+    (() => {
+      let q = supabase
+        .from("material_lots")
+        .select(
+          "id, lot_number, quantity_on_hand, " +
+            `materials:material_id${isOperator ? "!inner" : ""}(code, name, base_uom, type), ` +
+            "locations:location_id(name)",
+        )
+        .eq("company_id", companyId)
+        .eq("status", "released")
+        .gt("quantity_on_hand", 0)
+        .is("deleted_at", null);
+      if (isOperator) q = q.eq("materials.type", "finished");
+      return q.order("lot_number").limit(300).returns<PickableLot[]>();
+    })(),
   ]);
 
   const itemRows = items ?? [];
