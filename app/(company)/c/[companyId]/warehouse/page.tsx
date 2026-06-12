@@ -60,24 +60,33 @@ export default async function WarehousePage({ params }: PageProps) {
   const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
 
+  // operator = depo: hammadde lot/hareketleri fabrika konusu, yalnizca bitmis urun gorur.
+  const isOperator = role === "operator";
+
+  let lotsQuery = supabase
+    .from("material_lots")
+    .select(
+      `id, lot_number, quantity_on_hand, status, expiry_date, materials:material_id${isOperator ? "!inner" : ""}(code, name, base_uom, type)`,
+    )
+    .eq("company_id", companyId)
+    .is("deleted_at", null);
+  if (isOperator) lotsQuery = lotsQuery.eq("materials.type", "finished");
+
+  let movementsQuery = supabase
+    .from("stock_movements")
+    .select(
+      `id, kind, quantity, occurred_at, materials:material_id${isOperator ? "!inner" : ""}(code, name, base_uom, type), material_lots:lot_id(lot_number), ` +
+        "from_location:from_location_id(name), to_location:to_location_id(name)",
+    )
+    .eq("company_id", companyId);
+  if (isOperator) movementsQuery = movementsQuery.eq("materials.type", "finished");
+
   const [{ data: lots }, { data: movements }] = await Promise.all([
-    supabase
-      .from("material_lots")
-      .select(
-        "id, lot_number, quantity_on_hand, status, expiry_date, materials:material_id(code, name, base_uom)",
-      )
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
+    lotsQuery
       .order("updated_at", { ascending: false })
       .limit(12)
       .returns<LotRow[]>(),
-    supabase
-      .from("stock_movements")
-      .select(
-        "id, kind, quantity, occurred_at, materials:material_id(code, name, base_uom), material_lots:lot_id(lot_number), " +
-          "from_location:from_location_id(name), to_location:to_location_id(name)",
-      )
-      .eq("company_id", companyId)
+    movementsQuery
       .order("occurred_at", { ascending: false })
       .limit(8)
       .returns<MovementRow[]>(),
@@ -105,9 +114,11 @@ export default async function WarehousePage({ params }: PageProps) {
             <Link href={companyModulePath(companyId, "warehouse", "scan")}>
               <Button>Barkod Tara</Button>
             </Link>
-            <Link href={companyModulePath(companyId, "lots", "new")}>
-              <Button variant="outline">Mal Kabul</Button>
-            </Link>
+            {!isOperator ? (
+              <Link href={companyModulePath(companyId, "lots", "new")}>
+                <Button variant="outline">Mal Kabul</Button>
+              </Link>
+            ) : null}
             <Link href={companyModulePath(companyId, "stock", "new")}>
               <Button variant="outline">Stok Hareketi</Button>
             </Link>
