@@ -106,7 +106,7 @@ export function MaterialCertificateUploader({
         </p>
       ) : null}
 
-      <SubmitButton size="sm" pendingLabel="Yükleniyor...">Analiz Sertifikasi Yükle</SubmitButton>
+      <SubmitButton size="sm" pendingLabel="Yükleniyor...">Analiz Sertifikası Yükle</SubmitButton>
     </form>
   );
 }

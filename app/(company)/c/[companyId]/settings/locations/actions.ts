@@ -60,7 +60,7 @@ export async function createLocation(
   if (!parsed.success) {
     return {
       fieldErrors: fieldErrorsFrom(parsed.error.issues),
-      error: "Form alanlarini kontrol edin.",
+      error: "Form alanlarını kontrol edin.",
     };
   }
 
@@ -101,7 +101,7 @@ export async function updateLocation(
   if (!parsed.success || !parsed.data.location_id) {
     return {
       fieldErrors: parsed.success ? {} : fieldErrorsFrom(parsed.error.issues),
-      error: "Form alanlarini kontrol edin.",
+      error: "Form alanlarını kontrol edin.",
     };
   }
 

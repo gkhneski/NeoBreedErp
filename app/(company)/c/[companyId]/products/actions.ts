@@ -82,7 +82,7 @@ export async function createProductWithRecipe(
       const key = issue.path[0] as keyof z.input<typeof productRecipeSchema>;
       if (!fieldErrors[key]) fieldErrors[key] = issue.message;
     }
-    return { fieldErrors, error: "Form alanlarini kontrol edin." };
+    return { fieldErrors, error: "Form alanlarını kontrol edin." };
   }
 
   const selectedIds = new Set(formData.getAll("selected_material_id").map(String));

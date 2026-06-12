@@ -171,7 +171,7 @@ export async function recordPurchaseReceipt(
       const key = issue.path[0] as keyof z.input<typeof purchaseReceiptSchema>;
       if (!fieldErrors[key]) fieldErrors[key] = issue.message;
     }
-    return { fieldErrors, error: "Form alanlarini kontrol edin." };
+    return { fieldErrors, error: "Form alanlarını kontrol edin." };
   }
 
   const { ctx, companyId } = await requireCompanyRole(

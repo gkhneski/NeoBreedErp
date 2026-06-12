@@ -29,12 +29,12 @@ const UOM_OPTIONS = [
 ];
 
 const STORAGE_SUGGESTIONS = [
-  "Oda sicakligi (15-25 C)",
-  "Soguk (2-8 C)",
-  "Dondurulmus (-18 C)",
+  "Oda sıcaklığı (15-25 °C)",
+  "Soğuk (2-8 °C)",
+  "Dondurulmuş (-18 °C)",
   "Kuru ve serin yer",
-  "Isiktan uzak",
-  "Kontrollu atmosfer",
+  "Işıktan uzak",
+  "Kontrollü atmosfer",
 ];
 
 type MaterialInitial = {
@@ -102,7 +102,7 @@ export function MaterialForm({
           <Input value={codePreview} disabled />
           {!initial ? (
             <p className="text-xs text-muted-foreground">
-              Kod kayıt sirasinda otomatik verilir.
+              Kod kayıt sırasında otomatik verilir.
             </p>
           ) : null}
         </div>

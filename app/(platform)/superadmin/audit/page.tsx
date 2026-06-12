@@ -14,6 +14,13 @@ type AuditRow = {
   created_at: string;
 };
 
+const TABLE_LABEL: Record<string, string> = {
+  companies: "Firmalar",
+  company_users: "Firma Üyelikleri",
+  packages: "Paketler",
+  platform_admins: "Platform Yöneticileri",
+};
+
 const ACTION_LABEL: Record<string, string> = {
   create_company: "Firma Oluşturuldu",
   set_status_active: "Firma Aktifleştirildi",
@@ -115,7 +122,7 @@ export default async function AuditLogPage() {
                     {row.target_table ? (
                       <span>
                         <span className="text-xs text-muted-foreground">
-                          {row.target_table}
+                          {TABLE_LABEL[row.target_table] ?? row.target_table}
                         </span>
                         {row.target_id ? (
                           <span

@@ -77,7 +77,7 @@ export default async function EditProductPage({ params }: PageProps) {
         initial={product}
       />
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold">Thumbnail</h2>
+        <h2 className="text-sm font-semibold">Ürün Görseli</h2>
         <ProductThumbnailForm
           companyId={companyId}
           productId={product.id}

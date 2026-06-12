@@ -59,7 +59,7 @@ export function SupplierForm({
           <Input value={initial?.code ?? "TED-01 otomatik"} disabled />
           {!initial ? (
             <p className="text-xs text-muted-foreground">
-              Kod kayıt sirasinda otomatik verilir.
+              Kod kayıt sırasında otomatik verilir.
             </p>
           ) : null}
         </div>

@@ -71,7 +71,7 @@ export default async function LotLabelPage({ params }: PageProps) {
 
       <div className="mx-auto w-[62mm] space-y-2 border border-border bg-white p-3 text-black print:border-0">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={qrDataUrl} alt={`Lot ${lot.lot_number} QR`} className="mx-auto h-[40mm] w-[40mm]" />
+        <img src={qrDataUrl} alt={`${lot.lot_number} lot etiketi QR kodu`} className="mx-auto h-[40mm] w-[40mm]" />
         <p className="text-center font-mono text-lg font-bold leading-tight">
           {lot.lot_number}
         </p>

@@ -117,7 +117,7 @@ export async function createMaterial(
   if (!parsed.success) {
     return {
       fieldErrors: fieldErrorsFrom(parsed.error.issues),
-      error: "Form alanlarini kontrol edin.",
+      error: "Form alanlarını kontrol edin.",
     };
   }
 
@@ -185,7 +185,7 @@ export async function updateMaterial(
       fieldErrors: parsed.success
         ? {}
         : fieldErrorsFrom(parsed.error.issues),
-      error: "Form alanlarini kontrol edin.",
+      error: "Form alanlarını kontrol edin.",
     };
   }
 

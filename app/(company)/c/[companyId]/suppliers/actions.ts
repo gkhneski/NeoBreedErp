@@ -102,7 +102,7 @@ export async function createSupplier(
   if (!parsed.success) {
     return {
       fieldErrors: fieldErrorsFrom(parsed.error.issues),
-      error: "Form alanlarini kontrol edin.",
+      error: "Form alanlarını kontrol edin.",
     };
   }
 
@@ -149,7 +149,7 @@ export async function updateSupplier(
       fieldErrors: parsed.success
         ? {}
         : fieldErrorsFrom(parsed.error.issues),
-      error: "Form alanlarini kontrol edin.",
+      error: "Form alanlarını kontrol edin.",
     };
   }
 

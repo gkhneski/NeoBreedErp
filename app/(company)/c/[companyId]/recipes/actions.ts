@@ -90,7 +90,7 @@ export async function createRecipe(
   if (!parsed.success) {
     return {
       fieldErrors: recipeFieldErrorsFrom(parsed.error.issues),
-      error: "Form alanlarini kontrol edin.",
+      error: "Form alanlarını kontrol edin.",
     };
   }
 
@@ -144,7 +144,7 @@ export async function updateRecipe(
       fieldErrors: parsed.success
         ? {}
         : recipeFieldErrorsFrom(parsed.error.issues),
-      error: "Form alanlarini kontrol edin.",
+      error: "Form alanlarını kontrol edin.",
     };
   }
 
@@ -245,7 +245,7 @@ export async function addRecipeItem(
       const key = issue.path[0] as keyof z.input<typeof recipeItemAddSchema>;
       if (!fieldErrors[key]) fieldErrors[key] = issue.message;
     }
-    return { fieldErrors, error: "Form alanlarini kontrol edin." };
+    return { fieldErrors, error: "Form alanlarını kontrol edin." };
   }
 
   const { ctx, companyId } = await requireCompanyRole(

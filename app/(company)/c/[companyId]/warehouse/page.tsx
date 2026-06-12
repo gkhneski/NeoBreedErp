@@ -42,6 +42,12 @@ const KIND_LABEL: Record<MovementRow["kind"], string> = {
   transfer: "Transfer",
 };
 
+const LOT_STATUS_LABEL: Record<LotRow["status"], string> = {
+  quarantine: "Karantina",
+  released: "Serbest",
+  blocked: "Bloklu",
+};
+
 function formatNumber(n: number): string {
   return Number(n).toLocaleString("tr-TR", {
     minimumFractionDigits: 0,
@@ -158,7 +164,7 @@ export default async function WarehousePage({ params }: PageProps) {
                                 : "warning"
                           }
                         >
-                          {lot.status}
+                          {LOT_STATUS_LABEL[lot.status]}
                         </Badge>
                       </td>
                     </tr>

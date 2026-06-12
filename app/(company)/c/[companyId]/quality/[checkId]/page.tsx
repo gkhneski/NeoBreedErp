@@ -215,7 +215,15 @@ export default async function QualityCheckDetailPage({ params }: PageProps) {
             ) : null}
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>Parti durumu: {batch.status}</span>
+            <span>
+              Parti durumu:{" "}
+              {{
+                in_progress: "Üretimde",
+                completed: "Tamamlandı",
+                closed: "Kapatıldı",
+                cancelled: "İptal",
+              }[batch.status] ?? batch.status}
+            </span>
             {batch.actual_quantity !== null ? (
               <span>
                 · {Number(batch.actual_quantity)} {batch.uom}

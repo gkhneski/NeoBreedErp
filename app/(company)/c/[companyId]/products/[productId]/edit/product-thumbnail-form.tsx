@@ -53,7 +53,7 @@ export function ProductThumbnailForm({
           ) : null}
         </div>
         <div className="min-w-0 flex-1 space-y-1">
-          <Label htmlFor="thumbnail">Ürün thumbnail</Label>
+          <Label htmlFor="thumbnail">Ürün görseli</Label>
           <Input
             id="thumbnail"
             name="thumbnail"
@@ -74,11 +74,11 @@ export function ProductThumbnailForm({
       ) : null}
       {state.ok ? (
         <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600">
-          Thumbnail yüklendi.
+          Ürün görseli yüklendi.
         </p>
       ) : null}
 
-      <SubmitButton size="sm" pendingLabel="Yükleniyor...">Thumbnail Yükle</SubmitButton>
+      <SubmitButton size="sm" pendingLabel="Yükleniyor...">Görseli Yükle</SubmitButton>
     </form>
   );
 }
