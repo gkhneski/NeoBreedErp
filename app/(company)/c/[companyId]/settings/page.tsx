@@ -316,11 +316,16 @@ export default async function SettingsPage({ params }: PageProps) {
             noktaları.
           </p>
         </div>
-        {canManageCompanyUsers(role) ? (
-          <Link href={companyModulePath(companyId, "users")}>
-            <Button>Kullanıcıları Yönet</Button>
+        <div className="flex gap-2">
+          <Link href={companyModulePath(companyId, "settings", "locations")}>
+            <Button variant="outline">Depolar</Button>
           </Link>
-        ) : null}
+          {canManageCompanyUsers(role) ? (
+            <Link href={companyModulePath(companyId, "users")}>
+              <Button>Kullanıcıları Yönet</Button>
+            </Link>
+          ) : null}
+        </div>
       </header>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

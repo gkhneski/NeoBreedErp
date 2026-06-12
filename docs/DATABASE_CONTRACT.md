@@ -493,3 +493,31 @@ Exact structural clone of `suppliers` (§10): `id, company_id, code, name, tax_n
 - `complete_production_batch(...)` — consumed customer-owned lots: `line_cost = 0`, excluded from `cost_total` and from currency inference; snapshot row written with `customer_owned = true`. Output lots are never customer-owned (delivery ownership is out of scope).
 
 **Files affected:** `supabase/migrations/20260612000000_phase7a_customers.sql`, `app/(company)/c/[companyId]/customers/*`, production + lot forms/actions.
+
+---
+
+## 17. Phase 7b — Locations & Lot Transfer (signed off 2026-06-11)
+
+**Business intent:** finished goods physically move to the sister company's shipping depot. Modeled as a second location in the same tenant. Whole-lot transfer only (a lot lives at exactly one location).
+
+### `locations`
+
+`id, company_id, code, name, is_default boolean not null default false, notes, created_at, updated_at, deleted_at, created_by, updated_by`. Partial uniques: `(company_id, code) where deleted_at is null` and `(company_id) where is_default and deleted_at is null` (exactly one default). Canonical member RLS. Migration backfills `('ANA', 'Ana Depo', is_default=true)` for every existing company; `ensure_default_location(p_company_id)` helper covers companies created later. Additional depots are tenant business data, created via settings UI.
+
+### Column additions
+
+- `material_lots.location_id uuid null references locations(id) on delete restrict` — backfilled to the company default; app code always coalesces null to default. Index `(company_id, location_id)`. Same-company check added to `material_lots_check_parents()`.
+- `stock_movements.from_location_id` / `to_location_id uuid null references locations(id) on delete restrict` — non-null, distinct, and same-company **only** for `kind='transfer'`; both null for all other kinds (table check + trigger).
+
+### Ledger change (zero-quantity transfer rows)
+
+- `kind` check widened to `('receipt','issue','adjustment','transfer')`.
+- `stock_movements_signed_qty` widened: `transfer` rows require `quantity = 0`. The on-hand trigger `stock_movements_apply_to_lot()` is untouched: a zero-quantity row preserves the invariant `sum(quantity) = quantity_on_hand` exactly. (Paired ± rows were rejected: they would corrupt the per-lot sum.)
+
+### RPC `transfer_lot(p_company_id, p_lot_id, p_to_location_id, p_notes default null)`
+
+security invoker. Locks the lot `for update`; requires: lot in company & not deleted, `status = 'released'` (quarantine/blocked lots cannot leave the factory), `quantity_on_hand > 0`, target location in company & not deleted & different from current. Inserts one transfer movement (quantity 0, both locations, on-hand qty recorded in notes for audit) and updates `material_lots.location_id`.
+
+`create_lot_with_receipt` and `complete_production_batch` are re-created to stamp new lots with the company default location.
+
+**Files affected:** `supabase/migrations/20260613000000_phase7b_locations.sql`, `app/(company)/c/[companyId]/settings/locations/*`, lot detail/list, warehouse page.

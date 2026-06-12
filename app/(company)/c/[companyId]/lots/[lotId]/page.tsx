@@ -12,7 +12,13 @@ import {
 } from "@/lib/storage/attachments";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { FileAttachment, LotStatus } from "@/types/database";
-import { companyModulePath } from "@/types/roles";
+import {
+  STOCK_WRITE_ROLES,
+  canWriteCompanyData,
+  companyModulePath,
+} from "@/types/roles";
+
+import { TransferForm } from "./transfer-form";
 
 interface PageProps {
   params: Promise<{ companyId: string; lotId: string }>;
@@ -30,9 +36,11 @@ type LotDetail = {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  location_id: string | null;
   materials: { id: string; code: string; name: string; base_uom: string } | null;
   suppliers: { id: string; code: string; name: string } | null;
   customers: { id: string; code: string; name: string } | null;
+  locations: { id: string; code: string; name: string } | null;
 };
 
 const STATUS_LABEL: Record<LotStatus, string> = {
@@ -74,16 +82,17 @@ function DefinitionRow({
 
 export default async function LotDetailPage({ params }: PageProps) {
   const { companyId: routeCompanyId, lotId } = await params;
-  const { companyId } = await requireCompanyUser(routeCompanyId);
+  const { companyId, role } = await requireCompanyUser(routeCompanyId);
   const supabase = await createServerSupabaseClient();
 
   const { data: lot } = await supabase
     .from("material_lots")
     .select(
-      "id, lot_number, received_at, expiry_date, unit_cost, currency, quantity_on_hand, status, notes, created_at, updated_at, " +
+      "id, lot_number, received_at, expiry_date, unit_cost, currency, quantity_on_hand, status, notes, created_at, updated_at, location_id, " +
         "materials:material_id(id, code, name, base_uom), " +
         "suppliers:supplier_id(id, code, name), " +
-        "customers:owner_customer_id(id, code, name)",
+        "customers:owner_customer_id(id, code, name), " +
+        "locations:location_id(id, code, name)",
     )
     .eq("id", lotId)
     .eq("company_id", companyId)
@@ -91,6 +100,14 @@ export default async function LotDetailPage({ params }: PageProps) {
     .maybeSingle<LotDetail>();
 
   if (!lot) notFound();
+
+  const { data: allLocations } = await supabase
+    .from("locations")
+    .select("id, code, name")
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .order("code");
+  const canTransfer = canWriteCompanyData(role, STOCK_WRITE_ROLES);
 
   const { data: attachments } = await supabase
     .from("file_attachments")
@@ -200,8 +217,36 @@ export default async function LotDetailPage({ params }: PageProps) {
               <span className="text-muted-foreground">Kendi malımız</span>
             )}
           </DefinitionRow>
+          <DefinitionRow label="Depo">
+            {lot.locations ? (
+              <span>
+                <span className="font-mono text-xs">{lot.locations.code}</span>{" "}
+                — {lot.locations.name}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">Ana Depo</span>
+            )}
+          </DefinitionRow>
         </dl>
       </section>
+
+      {canTransfer ? (
+        <section className="rounded-md border border-border p-4">
+          <h2 className="mb-1 text-sm font-medium">Depo Transferi</h2>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Lot tam olarak hedef depoya taşınır; hareket defterine transfer
+            kaydı düşülür. Yalnızca &quot;Serbest&quot; lotlar transfer
+            edilebilir.
+          </p>
+          <TransferForm
+            companyId={companyId}
+            lotId={lot.id}
+            currentLocationId={lot.location_id}
+            locations={allLocations ?? []}
+            lotReleased={lot.status === "released"}
+          />
+        </section>
+      ) : null}
 
       {lot.notes ? (
         <section className="rounded-md border border-border p-4">

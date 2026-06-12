@@ -173,6 +173,68 @@ export async function createLot(
   redirect(withFlash(companyModulePath(companyId, "lots"), "created"));
 }
 
+export type TransferLotState = {
+  error?: string;
+};
+
+const transferLotSchema = z.object({
+  company_id: z.string().uuid(),
+  lot_id: z.string().uuid(),
+  to_location_id: z.string().uuid({ message: "Hedef depo seçiniz." }),
+});
+
+export async function transferLot(
+  _prev: TransferLotState,
+  formData: FormData,
+): Promise<TransferLotState> {
+  const parsed = transferLotSchema.safeParse({
+    company_id: formData.get("company_id") ?? "",
+    lot_id: formData.get("lot_id") ?? "",
+    to_location_id: formData.get("to_location_id") ?? "",
+  });
+  if (!parsed.success) {
+    return { error: "Hedef depo seçiniz." };
+  }
+
+  const { companyId } = await requireCompanyRole(
+    parsed.data.company_id,
+    STOCK_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { error } = await supabase.rpc("transfer_lot", {
+    p_company_id: companyId,
+    p_lot_id: parsed.data.lot_id,
+    p_to_location_id: parsed.data.to_location_id,
+    p_notes: null,
+  });
+
+  if (error) {
+    if (error.message.includes("only released lots")) {
+      return {
+        error:
+          "Yalnızca 'Serbest' durumundaki lotlar transfer edilebilir. Önce QC ile serbest bırakın.",
+      };
+    }
+    if (error.message.includes("already at the target")) {
+      return { error: "Lot zaten bu depoda." };
+    }
+    if (error.message.includes("no stock on hand")) {
+      return { error: "Lotta transfer edilecek stok yok." };
+    }
+    return { error: error.message };
+  }
+
+  revalidatePath(companyModulePath(companyId, "lots"));
+  revalidatePath(companyModulePath(companyId, "warehouse"));
+  redirect(
+    withFlash(
+      companyModulePath(companyId, "lots", parsed.data.lot_id),
+      "transferred",
+    ),
+  );
+}
+
 const lotStatusSchema = z.object({
   company_id: z.string().uuid(),
   lot_id: z.string().uuid(),

@@ -10,7 +10,7 @@ export type MaterialType = "raw" | "finished";
 export type RecipeStatus = "draft" | "published" | "archived";
 export type RecipeMode = "quantity" | "percentage";
 export type LotStatus = "quarantine" | "released" | "blocked";
-export type StockMovementKind = "receipt" | "issue" | "adjustment";
+export type StockMovementKind = "receipt" | "issue" | "adjustment" | "transfer";
 export type ProductionOrderStatus =
   | "draft"
   | "planned"
@@ -392,6 +392,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      locations: {
+        Row: {
+          id: string;
+          company_id: string;
+          code: string;
+          name: string;
+          is_default: boolean;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          code: string;
+          name: string;
+          is_default?: boolean;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          code?: string;
+          name?: string;
+          is_default?: boolean;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       recipes: {
         Row: {
           id: string;
@@ -507,6 +549,7 @@ export type Database = {
           material_id: string;
           supplier_id: string | null;
           owner_customer_id: string | null;
+          location_id: string | null;
           lot_number: string;
           received_at: string;
           expiry_date: string | null;
@@ -528,6 +571,7 @@ export type Database = {
           material_id: string;
           supplier_id?: string | null;
           owner_customer_id?: string | null;
+          location_id?: string | null;
           lot_number: string;
           received_at?: string;
           expiry_date?: string | null;
@@ -549,6 +593,7 @@ export type Database = {
           material_id?: string;
           supplier_id?: string | null;
           owner_customer_id?: string | null;
+          location_id?: string | null;
           lot_number?: string;
           received_at?: string;
           expiry_date?: string | null;
@@ -577,6 +622,8 @@ export type Database = {
           quantity: number;
           unit_cost: number | null;
           reason: string | null;
+          from_location_id: string | null;
+          to_location_id: string | null;
           occurred_at: string;
           notes: string | null;
           created_at: string;
@@ -592,6 +639,8 @@ export type Database = {
           quantity: number;
           unit_cost?: number | null;
           reason?: string | null;
+          from_location_id?: string | null;
+          to_location_id?: string | null;
           occurred_at?: string;
           notes?: string | null;
           created_at?: string;
@@ -1039,8 +1088,22 @@ export type Database = {
           p_notes: string | null;
           p_movement_notes: string | null;
           p_owner_customer_id?: string | null;
+          location_id?: string | null;
         };
         Returns: string;
+      };
+      ensure_default_location: {
+        Args: { p_company_id: string };
+        Returns: string;
+      };
+      transfer_lot: {
+        Args: {
+          p_company_id: string;
+          p_lot_id: string;
+          p_to_location_id: string;
+          p_notes?: string | null;
+        };
+        Returns: undefined;
       };
       start_production_order: {
         Args: {

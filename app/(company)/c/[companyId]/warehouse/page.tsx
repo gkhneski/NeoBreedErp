@@ -26,17 +26,20 @@ type LotRow = {
 
 type MovementRow = {
   id: string;
-  kind: "receipt" | "issue" | "adjustment";
+  kind: "receipt" | "issue" | "adjustment" | "transfer";
   quantity: number;
   occurred_at: string;
   materials: { code: string; name: string; base_uom: string } | null;
   material_lots: { lot_number: string } | null;
+  from_location: { name: string } | null;
+  to_location: { name: string } | null;
 };
 
 const KIND_LABEL: Record<MovementRow["kind"], string> = {
   receipt: "Mal Kabul",
   issue: "Çıkış",
   adjustment: "Düzeltme",
+  transfer: "Transfer",
 };
 
 function formatNumber(n: number): string {
@@ -65,7 +68,8 @@ export default async function WarehousePage({ params }: PageProps) {
     supabase
       .from("stock_movements")
       .select(
-        "id, kind, quantity, occurred_at, materials:material_id(code, name, base_uom), material_lots:lot_id(lot_number)",
+        "id, kind, quantity, occurred_at, materials:material_id(code, name, base_uom), material_lots:lot_id(lot_number), " +
+          "from_location:from_location_id(name), to_location:to_location_id(name)",
       )
       .eq("company_id", companyId)
       .order("occurred_at", { ascending: false })
@@ -181,7 +185,17 @@ export default async function WarehousePage({ params }: PageProps) {
                           timeStyle: "short",
                         })}
                       </td>
-                      <td className="px-3 py-2">{KIND_LABEL[movement.kind]}</td>
+                      <td className="px-3 py-2">
+                        {KIND_LABEL[movement.kind]}
+                        {movement.kind === "transfer" &&
+                        movement.from_location &&
+                        movement.to_location ? (
+                          <span className="block text-xs text-muted-foreground">
+                            {movement.from_location.name} →{" "}
+                            {movement.to_location.name}
+                          </span>
+                        ) : null}
+                      </td>
                       <td className="px-3 py-2 font-mono text-xs">
                         {movement.material_lots?.lot_number ?? "—"}
                       </td>

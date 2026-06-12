@@ -30,6 +30,7 @@ type LotRow = {
   materials: { code: string; name: string; base_uom: string } | null;
   suppliers: { code: string; name: string } | null;
   customers: { code: string; name: string } | null;
+  locations: { code: string; name: string; is_default: boolean } | null;
 };
 
 const STATUS_LABEL: Record<LotRow["status"], string> = {
@@ -79,7 +80,8 @@ export default async function LotsListPage({ params }: PageProps) {
       "id, lot_number, received_at, expiry_date, quantity_on_hand, unit_cost, currency, status, " +
         "materials:material_id(code, name, base_uom), " +
         "suppliers:supplier_id(code, name), " +
-        "customers:owner_customer_id(code, name)",
+        "customers:owner_customer_id(code, name), " +
+        "locations:location_id(code, name, is_default)",
     )
     .eq("company_id", companyId)
     .is("deleted_at", null)
@@ -115,6 +117,7 @@ export default async function LotsListPage({ params }: PageProps) {
                 <th className="px-3 py-2 text-left font-medium">Lot No</th>
                 <th className="px-3 py-2 text-left font-medium">Malzeme</th>
                 <th className="px-3 py-2 text-left font-medium">Tedarikçi</th>
+                <th className="px-3 py-2 text-left font-medium">Depo</th>
                 <th className="px-3 py-2 text-left font-medium">Alış</th>
                 <th className="px-3 py-2 text-left font-medium">SKT</th>
                 <th className="px-3 py-2 text-right font-medium">Eldeki</th>
@@ -176,6 +179,19 @@ export default async function LotsListPage({ params }: PageProps) {
                         </span>
                       ) : (
                         "—"
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      {lot.locations ? (
+                        lot.locations.is_default ? (
+                          <span className="text-muted-foreground">
+                            {lot.locations.name}
+                          </span>
+                        ) : (
+                          <Badge variant="outline">{lot.locations.name}</Badge>
+                        )
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">

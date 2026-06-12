@@ -45,7 +45,7 @@ Material codes are **unique per company**, not globally.
   - `receipt` — goods received against a purchase or production output.
   - `issue` — consumed by a production order or written off.
   - `adjustment` — physical count correction, with reason.
-  - `transfer` — between locations (locations introduced if/when needed).
+  - `transfer` — between locations (Phase 7b): a zero-quantity ledger row carrying from/to location; the lot's `location_id` moves with it. Only `released` lots with stock on hand may transfer, and only as a whole lot.
 - Quantity on hand is always derived from `stock_movements`, never edited directly.
 - Lots cannot go negative. If a stock movement would make a lot negative, the operation fails.
 - Expired lots are flagged but not auto-issued; a human decides.
@@ -129,7 +129,7 @@ Material codes are **unique per company**, not globally.
 
 - e-Fatura, e-İrsaliye, GİB integration.
 - Full general ledger / double-entry accounting.
-- Multi-warehouse / multi-location stock (single location for MVP; add later if needed).
+- Per-location partial lot quantities (Phase 7b implements locations with **whole-lot transfer only**: a lot lives at exactly one location; splitting a lot across locations stays out of scope).
 - MRP / demand planning.
 - Customer portals.
 - Supplier portals.
