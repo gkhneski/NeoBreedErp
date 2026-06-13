@@ -12,7 +12,7 @@ import {
 } from "@/lib/supabase/server";
 import {
   MARKETPLACE_APPROVE_ROLES,
-  MASTER_DATA_WRITE_ROLES,
+  MARKETPLACE_WRITE_ROLES,
   canWriteCompanyData,
   companyModulePath,
 } from "@/types/roles";
@@ -100,7 +100,7 @@ export default async function MarketplacePage({ params }: PageProps) {
     sellable_quantity: sellableByMaterial.get(l.material_id) ?? 0,
   }));
 
-  const canManage = canWriteCompanyData(role, MASTER_DATA_WRITE_ROLES);
+  const canManage = canWriteCompanyData(role, MARKETPLACE_WRITE_ROLES);
   const canApprove = canWriteCompanyData(role, MARKETPLACE_APPROVE_ROLES);
   const isAdmin = role === "company_admin";
 

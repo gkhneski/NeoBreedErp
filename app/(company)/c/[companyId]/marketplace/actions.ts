@@ -15,7 +15,7 @@ import {
 } from "@/lib/supabase/server";
 import {
   MARKETPLACE_APPROVE_ROLES,
-  MASTER_DATA_WRITE_ROLES,
+  MARKETPLACE_WRITE_ROLES,
   companyModulePath,
 } from "@/types/roles";
 
@@ -67,7 +67,7 @@ export async function saveListingMappings(
 
   const { ctx, companyId } = await requireCompanyRole(
     parsed.data.company_id,
-    MASTER_DATA_WRITE_ROLES,
+    MARKETPLACE_WRITE_ROLES,
   );
   const supabase = await createServerSupabaseClient();
 
@@ -118,7 +118,7 @@ export async function refreshListingCache(
 ): Promise<void> {
   const { ctx, companyId } = await requireCompanyRole(
     companyIdInput,
-    MASTER_DATA_WRITE_ROLES,
+    MARKETPLACE_WRITE_ROLES,
   );
   const supabase = await createServerSupabaseClient();
 
@@ -232,7 +232,7 @@ export async function saveListingRule(
 
   const { ctx, companyId } = await requireCompanyRole(
     parsed.data.company_id,
-    MASTER_DATA_WRITE_ROLES,
+    MARKETPLACE_WRITE_ROLES,
   );
   const supabase = await createServerSupabaseClient();
 
@@ -304,7 +304,7 @@ export async function pushListingPrice(
 
   const { ctx, companyId } = await requireCompanyRole(
     inputs.data.company,
-    MASTER_DATA_WRITE_ROLES,
+    MARKETPLACE_WRITE_ROLES,
   );
 
   const loaded = await loadListingForPush(companyId, inputs.data.listing);
@@ -468,7 +468,7 @@ export async function runDetectionNow(
 
   const { companyId } = await requireCompanyRole(
     parsed.data,
-    MASTER_DATA_WRITE_ROLES,
+    MARKETPLACE_WRITE_ROLES,
   );
 
   const service = createServiceRoleClient();

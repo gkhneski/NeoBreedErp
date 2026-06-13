@@ -6,7 +6,7 @@ import { getAdapter } from "@/lib/marketplaces/adapters";
 import { getMarketplaceConnection } from "@/lib/marketplaces/connections";
 import { MarketplaceError, type RemoteListing } from "@/lib/marketplaces/types";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { MASTER_DATA_WRITE_ROLES, companyModulePath } from "@/types/roles";
+import { MARKETPLACE_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
 import { ImportMapper } from "./import-mapper";
 
@@ -18,7 +18,7 @@ export default async function MarketplaceImportPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
   const { companyId } = await requireCompanyRole(
     routeCompanyId,
-    MASTER_DATA_WRITE_ROLES,
+    MARKETPLACE_WRITE_ROLES,
   );
 
   const connection = await getMarketplaceConnection(companyId, "trendyol");

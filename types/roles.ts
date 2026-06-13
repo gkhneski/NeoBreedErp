@@ -77,8 +77,17 @@ export const SHIPMENT_WRITE_ROLES = [
 ] as const satisfies readonly CompanyRole[];
 
 // Pazaryeri fiyat onay kuyrugu: depocu tek dokunusla onaylar/reddeder.
-// Kural/fiyat yonetimi MASTER_DATA_WRITE_ROLES, kimlik bilgileri company_admin.
 export const MARKETPLACE_APPROVE_ROLES = [
+  "company_admin",
+  "production_manager",
+  "operator",
+  "company_user",
+] as const satisfies readonly CompanyRole[];
+
+// Pazaryeri listing yonetimi (liste cekme, eslestirme, kural, manuel gonderim,
+// SKT taramasi). Listingler yalnizca bitmis urun oldugundan depocu de tam yetkili.
+// API kimlik bilgileri haric (o company_admin: settings/marketplaces).
+export const MARKETPLACE_WRITE_ROLES = [
   "company_admin",
   "production_manager",
   "operator",
