@@ -12,6 +12,7 @@ import {
 } from "@/lib/currencies";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
+  MASTER_DATA_WRITE_ROLES,
   QUALITY_WRITE_ROLES,
   STOCK_WRITE_ROLES,
   companyModulePath,
@@ -271,6 +272,128 @@ export async function onboardLot(
       lot_number: parsed.data.lot_number,
     },
   };
+}
+
+// --- Barcode-driven onboarding -------------------------------------------
+
+export type ProductOption = {
+  id: string;
+  code: string;
+  name: string;
+  type: "raw" | "finished";
+  base_uom: string;
+};
+
+const barcodeSchema = z
+  .string()
+  .trim()
+  .min(3, "Barkod en az 3 karakter olmalı.")
+  .max(64, "Barkod en fazla 64 karakter olabilir.")
+  .regex(/^[A-Za-z0-9._\-/]+$/, "Barkod geçersiz karakter içeriyor.");
+
+export type ResolveBarcodeResult =
+  | { ok: true; product: ProductOption }
+  | { ok: false; notFound: true }
+  | { ok: false; error: string };
+
+// Okutulan barkoda karsilik gelen urunu bulur. Operator da kullanir (okuma).
+export async function findProductByBarcode(
+  companyIdInput: string,
+  barcodeInput: string,
+): Promise<ResolveBarcodeResult> {
+  const company = z.string().uuid().safeParse(companyIdInput);
+  const barcode = barcodeSchema.safeParse(barcodeInput);
+  if (!company.success) return { ok: false, error: "Geçersiz istek." };
+  if (!barcode.success) {
+    return { ok: false, error: barcode.error.issues[0]?.message ?? "Geçersiz barkod." };
+  }
+
+  const { companyId } = await requireCompanyRole(company.data, STOCK_WRITE_ROLES);
+  const supabase = await createServerSupabaseClient();
+
+  const { data } = await supabase
+    .from("materials")
+    .select("id, code, name, type, base_uom")
+    .eq("company_id", companyId)
+    .eq("barcode", barcode.data)
+    .is("deleted_at", null)
+    .maybeSingle<ProductOption>();
+
+  if (!data) return { ok: false, notFound: true };
+  return { ok: true, product: data };
+}
+
+const createProductSchema = z.object({
+  company_id: z.string().uuid(),
+  barcode: barcodeSchema,
+  name: z.string().trim().min(1, "Ürün adı gerekli.").max(200),
+});
+
+export type CreateProductResult =
+  | { ok: true; product: ProductOption }
+  | { ok: false; error: string };
+
+// Barkodu tanimsiz urunu, recete olmadan, bitmis urun olarak olusturur.
+// Recete fabrika uretimi basladiginda eklenir. Yalnizca ana-veri yazma rolleri.
+export async function createFinishedProductWithBarcode(
+  companyIdInput: string,
+  barcodeInput: string,
+  nameInput: string,
+): Promise<CreateProductResult> {
+  const parsed = createProductSchema.safeParse({
+    company_id: companyIdInput,
+    barcode: barcodeInput,
+    name: nameInput,
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz veri." };
+  }
+
+  const { ctx, companyId } = await requireCompanyRole(
+    parsed.data.company_id,
+    MASTER_DATA_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  // Siradaki URN-NN kodu.
+  const { data: existing } = await supabase
+    .from("materials")
+    .select("code")
+    .eq("company_id", companyId)
+    .like("code", "URN-%");
+  const maxNum = (existing ?? []).reduce((max, row) => {
+    const m = row.code.match(/^URN-(\d+)$/i);
+    return m ? Math.max(max, Number(m[1])) : max;
+  }, 0);
+  const code = `URN-${String(maxNum + 1).padStart(2, "0")}`;
+
+  const { data, error } = await supabase
+    .from("materials")
+    .insert({
+      company_id: companyId,
+      code,
+      name: parsed.data.name,
+      type: "finished",
+      base_uom: "unit",
+      barcode: parsed.data.barcode,
+      created_by: ctx.userId,
+      updated_by: ctx.userId,
+    })
+    .select("id, code, name, type, base_uom")
+    .single<ProductOption>();
+
+  if (error || !data) {
+    if (error?.code === "23505") {
+      return {
+        ok: false,
+        error: "Bu barkod veya kod zaten kayıtlı. Sayfayı yenileyip tekrar deneyin.",
+      };
+    }
+    return { ok: false, error: error?.message ?? "Ürün oluşturulamadı." };
+  }
+
+  revalidatePath(companyModulePath(companyId, "lots", "onboarding"));
+  return { ok: true, product: data };
 }
 
 export type TransferLotState = {

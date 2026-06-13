@@ -248,6 +248,7 @@ The following columns are added to the existing `materials` table from Phase 5a:
 | `allergen_flags` | `jsonb not null default '[]'::jsonb` | Array of string codes. Validated values at app layer: `gluten`, `crustaceans`, `eggs`, `fish`, `peanuts`, `soybeans`, `milk`, `nuts`, `celery`, `mustard`, `sesame`, `sulphites`, `lupin`, `mollusks` (EU 14 + sulphites). DB stores opaque array; expansion does not require migration. |
 | `storage_conditions` | `text` | Nullable. Free text in DB; UI suggests `oda sıcaklığı`, `soğuk (2–8°C)`, `dondurulmuş`, `kuru ve serin`, `ışıktan uzak`, `kontrollü atmosfer`. |
 | `regulatory_notes` | `text` | Nullable; free text (TGK, OGM ref, ihracat kısıtları vb.). |
+| `barcode` | `text` | **Added Phase 8b** (`20260617000000_phase8b_material_barcode.sql`). Nullable GTIN/EAN; raw materials normally null. Unique per company among non-deleted rows (`materials_company_barcode_unique`). Used by scan-based stock onboarding (`lots/onboarding`) to resolve a scanned box → product, and by the marketplace import to auto-match Trendyol listings by barcode. |
 
 **New index:** `materials_supplier_idx on (company_id, default_supplier_id)`.
 

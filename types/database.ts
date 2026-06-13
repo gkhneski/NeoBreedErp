@@ -237,6 +237,7 @@ export type Database = {
           name: string;
           type: MaterialType;
           base_uom: string;
+          barcode: string | null;
           density: number | null;
           default_supplier_id: string | null;
           allergen_flags: Json;
@@ -256,6 +257,7 @@ export type Database = {
           name: string;
           type: MaterialType;
           base_uom: string;
+          barcode?: string | null;
           density?: number | null;
           default_supplier_id?: string | null;
           allergen_flags?: Json;
@@ -275,6 +277,7 @@ export type Database = {
           name?: string;
           type?: MaterialType;
           base_uom?: string;
+          barcode?: string | null;
           density?: number | null;
           default_supplier_id?: string | null;
           allergen_flags?: Json;

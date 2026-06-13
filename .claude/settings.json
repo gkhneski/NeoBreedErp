@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx next *)",
+      "Bash(node -e ' *)",
+      "Bash(npx playwright *)",
+      "Bash(vercel ls *)",
+      "Bash(vercel promote *)",
+      "Bash(sed -n '5,6p')",
+      "Bash(node -e \"fetch\\('https://neobreed-erp.vercel.app/login'\\).then\\(r=>console.log\\('prod /login:', r.status\\)\\)\")"
+    ]
+  }
+}

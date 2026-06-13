@@ -31,7 +31,11 @@
       "Bash(npx tsc *)",
       "Bash(npx --no-install tsc --noEmit)",
       "Bash(git stash *)",
-      "Bash(npx --no-install next lint)"
+      "Bash(npx --no-install next lint)",
+      "Bash(cd C:\\\\Users\\\\geski\\\\Desktop\\\\projekte\\\\NeoBreed-ERP *)",
+      "Bash(powershell -Command \"ls -la 'app/\\(company\\)' | head -20\")",
+      "Bash(sed 's/.*public\\\\.//')",
+      "Bash(sed 's/ .*//')"
     ]
   }
 }

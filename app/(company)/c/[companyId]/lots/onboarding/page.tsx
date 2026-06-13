@@ -3,7 +3,12 @@ import Link from "next/link";
 import { requireCompanyRole } from "@/lib/auth";
 import type { LocationOption } from "@/lib/locations";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { STOCK_WRITE_ROLES, companyModulePath } from "@/types/roles";
+import {
+  MASTER_DATA_WRITE_ROLES,
+  STOCK_WRITE_ROLES,
+  canWriteCompanyData,
+  companyModulePath,
+} from "@/types/roles";
 
 import { OnboardingForm } from "./onboarding-form";
 
@@ -17,11 +22,12 @@ type MaterialRow = {
   name: string;
   type: "raw" | "finished";
   base_uom: string;
+  barcode: string | null;
 };
 
 export default async function LotOnboardingPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { companyId } = await requireCompanyRole(
+  const { companyId, role } = await requireCompanyRole(
     routeCompanyId,
     STOCK_WRITE_ROLES,
   );
@@ -30,7 +36,7 @@ export default async function LotOnboardingPage({ params }: PageProps) {
   const [{ data: materials }, { data: locations }] = await Promise.all([
     supabase
       .from("materials")
-      .select("id, code, name, type, base_uom")
+      .select("id, code, name, type, base_uom, barcode")
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .order("type", { ascending: false })
@@ -65,11 +71,12 @@ export default async function LotOnboardingPage({ params }: PageProps) {
           Mevcut Stok Girişi (Eski Ürünler)
         </h1>
         <p className="text-sm text-muted-foreground">
-          Depoda halihazırda bulunan ürünleri hızlıca kaydedin: ürün, lot
-          numarası, son kullanma tarihi, adet ve raf. Kayıt doğrudan
-          &quot;Serbest&quot; durumda açılır; ardından QR etiketini yazdırıp
-          ürünün üzerine yapıştırın. Form art arda giriş için ürün, SKT ve
-          konum seçimini korur.
+          Depoda halihazırda bulunan ürünleri hızlıca kaydedin. Kutunun
+          barkodunu el okuyucu veya tabletin kamerasıyla okutun; ürün otomatik
+          seçilir (tanımsızsa oracıkta ekleyebilirsiniz). Ardından lot numarası,
+          son kullanma tarihi, adet ve rafı girin. Kayıt doğrudan
+          &quot;Serbest&quot; durumda açılır; QR etiketini yazdırıp ürünün
+          üzerine yapıştırın. Form art arda giriş için seçimleri korur.
         </p>
       </header>
 
@@ -78,6 +85,7 @@ export default async function LotOnboardingPage({ params }: PageProps) {
         materials={materials ?? []}
         locations={locationRows}
         defaultLocationId={defaultLocationId}
+        canCreateProduct={canWriteCompanyData(role, MASTER_DATA_WRITE_ROLES)}
       />
     </div>
   );
