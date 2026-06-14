@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 
-import { SignOutButton } from "@/components/auth/sign-out-button";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { PlatformSidebar } from "@/components/layout/platform-sidebar";
 import { FlashToast } from "@/components/ui/flash-toast";
@@ -16,28 +15,17 @@ export default async function PlatformLayout({
   return (
     <div className="flex min-h-screen">
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 md:block">
-        <PlatformSidebar />
+        <PlatformSidebar email={ctx.email ?? ""} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="h-1 w-full bg-destructive" aria-hidden title="Platform modu" />
         <header className="sticky top-0 z-10 border-b border-border bg-card/95 backdrop-blur">
-          <div className="flex h-14 items-center justify-between gap-4 px-4 md:px-6">
-            <div className="flex min-w-0 items-center gap-3">
-              <MobileNav>
-                <PlatformSidebar />
-              </MobileNav>
-              <span className="text-sm font-medium">Platform Yönetimi</span>
-            </div>
-            <div className="flex items-center gap-3 text-xs">
-              <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-destructive">
-                Süper Admin
-              </span>
-              <span className="hidden text-muted-foreground sm:inline">
-                {ctx.email}
-              </span>
-              <SignOutButton />
-            </div>
+          <div className="flex h-14 items-center gap-3 px-4 md:px-6">
+            <MobileNav>
+              <PlatformSidebar email={ctx.email ?? ""} />
+            </MobileNav>
+            <span className="text-sm font-semibold">Platform Yönetimi</span>
           </div>
         </header>
 
