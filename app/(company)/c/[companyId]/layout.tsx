@@ -1,12 +1,12 @@
 import { Suspense } from "react";
 
-import { SignOutButton } from "@/components/auth/sign-out-button";
 import { CompanySidebar } from "@/components/layout/company-sidebar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { FlashToast } from "@/components/ui/flash-toast";
 import { requireCompanyUser } from "@/lib/auth";
 import { getCompanySummary } from "@/lib/company";
-import { COMPANY_ROLE_BADGE_LABELS } from "@/types/roles";
+
+import { GlobalSearch } from "./global-search";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -25,34 +25,22 @@ export default async function CompanyAppLayout({ children, params }: LayoutProps
           companyId={companyId}
           companyName={company?.name ?? "Firma"}
           role={role}
+          email={ctx.email ?? ""}
         />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 border-b border-border bg-card/95 backdrop-blur">
-          <div className="flex h-14 items-center justify-between gap-4 px-4 md:px-6">
-            <div className="flex min-w-0 items-center gap-3">
-              <MobileNav>
-                <CompanySidebar
-                  companyId={companyId}
-                  companyName={company?.name ?? "Firma"}
-                  role={role}
-                />
-              </MobileNav>
-              <span className="truncate text-sm">
-                <span className="text-muted-foreground">Aktif firma: </span>
-                <span className="font-medium">{company?.name ?? "—"}</span>
-              </span>
-            </div>
-            <div className="flex items-center gap-3 text-xs">
-              <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-                {COMPANY_ROLE_BADGE_LABELS[role]}
-              </span>
-              <span className="hidden text-muted-foreground sm:inline">
-                {ctx.email}
-              </span>
-              <SignOutButton />
-            </div>
+          <div className="flex h-14 items-center gap-3 px-4 md:px-6">
+            <MobileNav>
+              <CompanySidebar
+                companyId={companyId}
+                companyName={company?.name ?? "Firma"}
+                role={role}
+                email={ctx.email ?? ""}
+              />
+            </MobileNav>
+            <GlobalSearch companyId={companyId} />
           </div>
         </header>
 

@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   Layers,
   Leaf,
+  LogOut,
   type LucideIcon,
   Package,
   ReceiptText,
@@ -27,11 +28,11 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { signOut } from "@/app/login/actions";
 import { cn } from "@/lib/utils";
 import {
-  STOCK_WRITE_ROLES,
+  COMPANY_ROLE_BADGE_LABELS,
   canAccessModule,
-  canWriteCompanyData,
   companyHomePath,
   companyModulePath,
   type CompanyRole,
@@ -115,10 +116,12 @@ export function CompanySidebar({
   companyId,
   companyName,
   role,
+  email,
 }: {
   companyId: string;
   companyName: string;
   role: CompanyRole;
+  email: string;
 }) {
   const pathname = usePathname();
   const home = companyHomePath(companyId);
@@ -129,7 +132,8 @@ export function CompanySidebar({
     items: s.items.filter((item) => canAccessModule(role, item.key)),
   })).filter((s) => s.items.length > 0);
 
-  const canStockIn = canWriteCompanyData(role, STOCK_WRITE_ROLES);
+  const emailName = email.split("@")[0] || email;
+  const initials = emailName.slice(0, 2).toUpperCase() || "?";
 
   return (
     <div className="flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
@@ -178,34 +182,30 @@ export function CompanySidebar({
         ))}
       </nav>
 
-      {canStockIn ? (
-        <div className="p-3">
-          <Link
-            href={companyModulePath(companyId, "lots", "onboarding")}
-            className="relative block overflow-hidden rounded-2xl bg-gradient-to-br from-green-900 via-green-800 to-emerald-700 p-4 text-white shadow-[0_12px_30px_-14px_rgba(6,78,59,0.8)]"
-          >
-            <div
-              className="pointer-events-none absolute -right-6 -bottom-8 h-28 w-28 rounded-full opacity-30"
-              style={{
-                background:
-                  "repeating-radial-gradient(circle at center, rgba(255,255,255,0.18) 0, rgba(255,255,255,0.18) 1px, transparent 1px, transparent 12px)",
-              }}
-            />
-            <span className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 backdrop-blur-sm">
-              <ScanBarcode className="h-4 w-4" aria-hidden="true" />
-            </span>
-            <p className="relative mt-3 text-sm font-semibold leading-tight">
-              Tarayarak Stok Girişi
+      <div className="border-t border-sidebar-border p-3">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+            {initials}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-foreground">
+              {emailName}
             </p>
-            <p className="relative mt-1 text-xs text-white/70">
-              Barkod okut, ürünü ekle
+            <p className="truncate text-xs text-sidebar-muted">
+              {COMPANY_ROLE_BADGE_LABELS[role]}
             </p>
-            <span className="relative mt-3 flex w-full items-center justify-center rounded-lg bg-white/15 px-3 py-2 text-xs font-semibold backdrop-blur-sm transition-colors hover:bg-white/25">
-              Başla
-            </span>
-          </Link>
+          </div>
+          <form action={signOut}>
+            <button
+              type="submit"
+              title="Çıkış Yap"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-muted transition-colors hover:bg-sidebar-active/60 hover:text-foreground"
+            >
+              <LogOut className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </form>
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
