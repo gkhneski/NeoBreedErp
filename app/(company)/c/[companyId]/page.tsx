@@ -1,9 +1,15 @@
 import {
+  ArrowUpRight,
+  BookOpenText,
   Boxes,
   ClipboardList,
+  Factory,
+  FlaskConical,
+  Package,
   PackageCheck,
   ScanLine,
   Send,
+  ShieldCheck,
   Store,
   Truck,
   type LucideIcon,
@@ -110,9 +116,12 @@ async function loadCompanyStats(
   };
 }
 
-type QuickAction =
-  | { label: string; href: string; description: string }
-  | { label: string; phase: string };
+type QuickAction = {
+  label: string;
+  href: string;
+  description: string;
+  Icon: LucideIcon;
+};
 
 function buildQuickActions(companyId: string): QuickAction[] {
   return [
@@ -120,31 +129,37 @@ function buildQuickActions(companyId: string): QuickAction[] {
       label: "Yeni Üretim Emri",
       href: companyModulePath(companyId, "production", "new"),
       description: "Yayındaki bir reçeteden üretim emri açın.",
+      Icon: Factory,
     },
     {
       label: "Hammadde Girişi",
       href: companyModulePath(companyId, "lots", "new"),
       description: "Yeni mal kabul ile lot oluşturun.",
+      Icon: FlaskConical,
     },
     {
       label: "Ürün Ekle",
       href: companyModulePath(companyId, "products", "new"),
       description: "Yeni bitmiş ürün kartı tanımlayın.",
+      Icon: Package,
     },
     {
       label: "Reçete Oluştur",
       href: companyModulePath(companyId, "recipes", "new"),
       description: "Bitmiş ürün için yeni reçete oluşturun.",
+      Icon: BookOpenText,
     },
     {
       label: "Kalite Kayıt",
       href: companyModulePath(companyId, "quality", "new"),
       description: "Karantinadaki lot veya parti için QC açın.",
+      Icon: ShieldCheck,
     },
     {
       label: "Sipariş Oluştur",
       href: companyModulePath(companyId, "shipments", "new"),
       description: "Ecza deposu veya pazaryeri siparişi açın.",
+      Icon: Send,
     },
   ];
 }
@@ -185,11 +200,13 @@ async function loadExpiryCounts(
       .is("deleted_at", null);
 
   const [
+    { count: stocked },
     { count: expired },
     { count: critical },
     { count: warning },
     { data: soonest },
   ] = await Promise.all([
+    stockedLots(),
     stockedLots().lt("expiry_date", today),
     stockedLots().gte("expiry_date", today).lte("expiry_date", criticalOut),
     stockedLots().gt("expiry_date", criticalOut).lte("expiry_date", warningOut),
@@ -211,6 +228,7 @@ async function loadExpiryCounts(
   ]);
 
   return {
+    stocked: stocked ?? 0,
     expired: expired ?? 0,
     critical: critical ?? 0,
     warning: warning ?? 0,
@@ -541,49 +559,63 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
   }
 
   const thresholds = await getExpiryThresholds(companyId);
-  const [company, stats] = await Promise.all([
+  const [company, stats, expiry] = await Promise.all([
     getCompanySummary(companyId),
     loadCompanyStats(companyId, thresholds.criticalDays),
+    loadExpiryCounts(companyId, thresholds),
   ]);
   const quickActions = buildQuickActions(companyId);
+  const finishedStockPath = `${companyModulePath(companyId, "stock")}?tab=urun`;
 
-  const cards = [
+  const healthy = Math.max(
+    0,
+    expiry.stocked - expiry.expired - expiry.critical - expiry.warning,
+  );
+  const healthyPct =
+    expiry.stocked > 0 ? Math.round((healthy / expiry.stocked) * 100) : null;
+
+  const kpis = [
     {
       label: "Toplam Ürün",
       value: stats.totalProducts,
+      sub: `${stats.totalMaterials} hammadde tanımlı`,
       href: companyModulePath(companyId, "products"),
-    },
-    {
-      label: "Toplam Hammadde",
-      value: stats.totalMaterials,
-      href: companyModulePath(companyId, "materials"),
-    },
-    {
-      label: `Kritik Stok (SKT ≤${thresholds.criticalDays} gün / bloklu)`,
-      value: stats.criticalStock,
-      href: `${companyModulePath(companyId, "lots")}?skt=critical`,
+      Icon: Package,
+      hero: true,
     },
     {
       label: "Devam Eden Üretim",
       value: stats.ongoingProduction,
+      sub: `${stats.pendingQuality} kalite bekliyor`,
       href: companyModulePath(companyId, "production"),
-    },
-    {
-      label: "Bekleyen Kalite Kontrol",
-      value: stats.pendingQuality,
-      href: companyModulePath(companyId, "quality"),
+      Icon: Factory,
+      hero: false,
     },
     {
       label: "Açık Siparişler",
       value: stats.openOrders,
+      sub: "hazırlanacak / açık",
       href: companyModulePath(companyId, "shipments"),
+      Icon: Send,
+      hero: false,
     },
     {
       label: "Bekleyen Fiyat Onayı",
       value: stats.pendingPriceApprovals,
+      sub: "pazaryeri indirimleri",
       href: companyModulePath(companyId, "marketplace"),
+      Icon: Store,
+      hero: false,
     },
   ];
+
+  const sktBars = [
+    { label: "Geçmiş", value: expiry.expired, cls: "bg-red-500" },
+    { label: "Kritik", value: expiry.critical, cls: "bg-orange-500" },
+    { label: "Uyarı", value: expiry.warning, cls: "bg-amber-400" },
+    { label: "Sağlam", value: healthy, cls: "bg-emerald-500" },
+  ];
+  const sktMax = Math.max(1, ...sktBars.map((b) => b.value));
 
   const hasAnyData =
     stats.totalProducts +
@@ -594,74 +626,223 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {company?.name ?? "Firma"} · Panel
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Operasyonel ERP modülleri. Tüm veri{" "}
-          <code className="font-mono">company_id</code> ile izole edilir.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {company?.name ?? "Firma"}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Panel — üretim, stok ve pazaryeri için genel bakış.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={companyModulePath(companyId, "production", "new")}
+            className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700"
+          >
+            <Factory className="h-4 w-4" aria-hidden="true" />
+            Yeni Üretim Emri
+          </Link>
+          <Link
+            href={companyModulePath(companyId, "lots", "new")}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary/40"
+          >
+            <FlaskConical className="h-4 w-4" aria-hidden="true" />
+            Hammadde Girişi
+          </Link>
+        </div>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map((c) => {
-          const body = (
-            <>
-              <p className="text-xs text-muted-foreground">{c.label}</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
-                {c.value}
-              </p>
-            </>
-          );
-          return c.href ? (
+      {/* KPI satiri — ilki dolu yesil hero */}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {kpis.map((k) => {
+          const Icon = k.Icon;
+          if (k.hero) {
+            return (
+              <Link
+                key={k.label}
+                href={k.href}
+                className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 p-5 text-white shadow-md transition-transform hover:-translate-y-0.5"
+              >
+                <div className="flex items-start justify-between">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15">
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <ArrowUpRight className="h-4 w-4 text-white/70 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                </div>
+                <p className="mt-4 text-4xl font-semibold tabular-nums tracking-tight">
+                  {k.value}
+                </p>
+                <p className="mt-1 text-sm font-medium text-white/90">
+                  {k.label}
+                </p>
+                <p className="mt-0.5 text-xs text-white/70">{k.sub}</p>
+              </Link>
+            );
+          }
+          return (
             <Link
-              key={c.label}
-              href={c.href}
-              className="rounded-md border border-border bg-card p-4 transition-colors hover:bg-secondary/40"
+              key={k.label}
+              href={k.href}
+              className="group rounded-2xl border border-border bg-card p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-500/40 hover:shadow-md"
             >
-              {body}
+              <div className="flex items-start justify-between">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <ArrowUpRight className="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-emerald-600" />
+              </div>
+              <p className="mt-4 text-3xl font-semibold tabular-nums tracking-tight">
+                {k.value}
+              </p>
+              <p className="mt-1 text-sm font-medium">{k.label}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{k.sub}</p>
             </Link>
-          ) : (
-            <article
-              key={c.label}
-              className="rounded-md border border-border bg-card p-4"
-            >
-              {body}
-            </article>
           );
         })}
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold">Hızlı İşlemler</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {quickActions.map((a) =>
-            "href" in a ? (
-              <Link
-                key={a.label}
-                href={a.href}
-                className="rounded-md border border-border bg-card p-4 transition-colors hover:bg-secondary/40"
-              >
-                <p className="text-sm font-medium">{a.label}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {a.description}
-                </p>
-              </Link>
-            ) : (
-              <article
-                key={a.label}
-                className="rounded-md border border-border bg-card p-4 opacity-70"
-              >
-                <p className="text-sm font-medium">{a.label}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Faz {a.phase}&apos;te aktifleşecek.
-                </p>
-              </article>
-            ),
+      {/* SKT bar grafigi + Yaklasan SKT */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <section className="rounded-2xl border border-border bg-card p-5 shadow-sm lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold">Son Kullanma Durumu</h2>
+              <p className="text-xs text-muted-foreground">
+                Eldeki bitmiş ürün lotları ({expiry.stocked})
+              </p>
+            </div>
+            <Link
+              href={finishedStockPath}
+              className="text-xs font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+            >
+              Stoğa git →
+            </Link>
+          </div>
+          <div className="mt-6 flex h-44 items-end gap-4">
+            {sktBars.map((b) => (
+              <div key={b.label} className="flex flex-1 flex-col items-center gap-2">
+                <span className="text-sm font-semibold tabular-nums">
+                  {b.value}
+                </span>
+                <div className="flex h-full w-full items-end">
+                  <div
+                    className={`w-full rounded-t-lg ${b.cls} transition-all`}
+                    style={{ height: `${Math.max(4, (b.value / sktMax) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-xs text-muted-foreground">{b.label}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <h2 className="text-sm font-semibold">Yaklaşan SKT</h2>
+          {expiry.soonest.length > 0 ? (
+            <ul className="mt-3 space-y-2.5">
+              {expiry.soonest.slice(0, 5).map((lot) => {
+                const urgency = expiryUrgency(lot.expiry_date, thresholds);
+                const dte = daysUntil(lot.expiry_date);
+                return (
+                  <li key={lot.id}>
+                    <Link
+                      href={finishedStockPath}
+                      className="flex items-center gap-3 rounded-xl px-2 py-1.5 transition-colors hover:bg-secondary/50"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">
+                          {lot.materials?.name ?? "—"}
+                        </span>
+                        <span className="block truncate font-mono text-xs text-muted-foreground">
+                          {lot.lot_number} · {lot.expiry_date}
+                        </span>
+                      </span>
+                      {urgency && urgency !== "ok" ? (
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${EXPIRY_BADGE_CLASS[urgency]}`}
+                        >
+                          {urgency === "expired" ? EXPIRY_LABEL.expired : `${dte}g`}
+                        </span>
+                      ) : null}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Yaklaşan SKT yok.
+            </p>
           )}
-        </div>
-      </section>
+        </section>
+      </div>
+
+      {/* Hizli islemler + Stok sagligi gostergesi */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <section className="rounded-2xl border border-border bg-card p-5 shadow-sm lg:col-span-2">
+          <h2 className="text-sm font-semibold">Hızlı İşlemler</h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {quickActions.map((a) => {
+              const Icon = a.Icon;
+              return (
+                <Link
+                  key={a.label}
+                  href={a.href}
+                  className="group flex items-start gap-3 rounded-xl border border-border p-3 transition-all hover:-translate-y-0.5 hover:border-emerald-500/40 hover:shadow-sm"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 transition-colors group-hover:bg-emerald-600 group-hover:text-white dark:text-emerald-400">
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span>
+                    <p className="text-sm font-medium">{a.label}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {a.description}
+                    </p>
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="flex flex-col items-center rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex w-full items-center justify-between">
+            <h2 className="text-sm font-semibold">Stok Sağlığı</h2>
+            <Link
+              href={finishedStockPath}
+              className="text-xs font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+            >
+              Detay →
+            </Link>
+          </div>
+          {healthyPct !== null ? (
+            <>
+              <div
+                className="relative mt-5 h-40 w-40 rounded-full"
+                style={{
+                  background: `conic-gradient(#059669 ${healthyPct}%, rgba(148,163,184,0.25) ${healthyPct}% 100%)`,
+                }}
+              >
+                <div className="absolute inset-[14px] flex flex-col items-center justify-center rounded-full bg-card">
+                  <span className="text-3xl font-semibold tabular-nums">
+                    %{healthyPct}
+                  </span>
+                  <span className="text-xs text-muted-foreground">SKT güvende</span>
+                </div>
+              </div>
+              <p className="mt-4 text-center text-xs text-muted-foreground">
+                {healthy} / {expiry.stocked} lotun son kullanma tarihi güvenli
+                aralıkta.
+              </p>
+            </>
+          ) : (
+            <p className="mt-10 text-center text-sm text-muted-foreground">
+              Henüz stoklu bitmiş ürün lotu yok.
+            </p>
+          )}
+        </section>
+      </div>
 
       {hasAnyData ? null : (
         <EmptyState
