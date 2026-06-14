@@ -108,7 +108,7 @@ function Card({
 }) {
   return (
     <section
-      className={`rounded-3xl border border-border bg-card p-5 shadow-[0_2px_12px_-6px_rgba(0,0,0,0.12)] ${className}`}
+      className={`rounded-3xl border border-border bg-card p-4 shadow-[0_2px_12px_-6px_rgba(0,0,0,0.12)] sm:p-5 ${className}`}
     >
       {children}
     </section>
@@ -119,7 +119,7 @@ function KpiCard({ kpi, index }: { kpi: KpiData; index: number }) {
   const mounted = useMounted();
   const display = useCountUp(kpi.value, mounted);
   const Icon = ICONS[kpi.icon] ?? Package;
-  const base = `group relative overflow-hidden rounded-3xl p-5 transition-all duration-500 ease-out hover:-translate-y-1 ${
+  const base = `group relative overflow-hidden rounded-3xl p-4 transition-all duration-500 ease-out hover:-translate-y-1 sm:p-5 ${
     mounted ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
   }`;
 
@@ -143,7 +143,7 @@ function KpiCard({ kpi, index }: { kpi: KpiData; index: number }) {
             <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
           </span>
         </div>
-        <p className="relative mt-3 text-5xl font-bold tabular-nums tracking-tight">
+        <p className="relative mt-3 text-4xl font-bold tabular-nums tracking-tight sm:text-5xl">
           {display}
         </p>
         <span className="relative mt-3 inline-flex items-center gap-1 rounded-lg bg-white/15 px-2 py-1 text-xs font-medium text-white/90">
@@ -166,7 +166,7 @@ function KpiCard({ kpi, index }: { kpi: KpiData; index: number }) {
           <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </span>
       </div>
-      <p className="mt-3 flex items-center gap-2 text-5xl font-bold tabular-nums tracking-tight">
+      <p className="mt-3 flex items-center gap-2 text-4xl font-bold tabular-nums tracking-tight sm:text-5xl">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
           <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
@@ -331,7 +331,7 @@ function LiveClock() {
     : "";
 
   return (
-    <div className="relative flex h-full flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br from-green-900 via-green-800 to-emerald-700 p-5 text-white shadow-[0_18px_40px_-18px_rgba(6,78,59,0.8)]">
+    <div className="relative flex h-full min-h-[140px] flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br from-green-900 via-green-800 to-emerald-700 p-4 text-white shadow-[0_18px_40px_-18px_rgba(6,78,59,0.8)] sm:p-5">
       <div
         className="pointer-events-none absolute inset-0 opacity-25"
         style={{

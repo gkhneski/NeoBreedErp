@@ -81,7 +81,7 @@ export function GlobalSearch({ companyId }: { companyId: string }) {
   const showDropdown = open && query.trim().length >= 2;
 
   return (
-    <div ref={boxRef} className="relative w-full max-w-xl">
+    <div ref={boxRef} className="relative w-full min-w-0 max-w-xl">
       <div className="flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2">
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <input
@@ -90,7 +90,7 @@ export function GlobalSearch({ companyId }: { companyId: string }) {
           onFocus={() => query.trim().length >= 2 && setOpen(true)}
           onKeyDown={onKeyDown}
           placeholder="Ara: ürün, hammadde, lot, tedarikçi, kullanıcı…"
-          className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
         {loading ? (
           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
