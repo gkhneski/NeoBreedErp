@@ -2,6 +2,8 @@
 
 This file is the **first** document any AI agent (Claude Code, Cursor, Copilot, Codex, etc.) must read before touching this repository. It is binding.
 
+> **Orientation — read next:** [docs/CODEBASE_MAP.md](docs/CODEBASE_MAP.md) for where everything lives, the current state of what's built, key files per domain, deploy/migration workflow, and the gotchas. For UI/dashboard/sidebar/theme work also read [docs/UI_DESIGN_SYSTEM.md](docs/UI_DESIGN_SYSTEM.md).
+
 ---
 
 ## 1. Project Identity
