@@ -33,12 +33,18 @@ export default async function LotOnboardingPage({ params }: PageProps) {
   );
   const supabase = await createServerSupabaseClient();
 
+  // Depocu (operator) yalnizca bitmis urun girer; hammadde fabrika konusu.
+  let materialsQuery = supabase
+    .from("materials")
+    .select("id, code, name, type, base_uom, barcode")
+    .eq("company_id", companyId)
+    .is("deleted_at", null);
+  if (role === "operator") {
+    materialsQuery = materialsQuery.eq("type", "finished");
+  }
+
   const [{ data: materials }, { data: locations }] = await Promise.all([
-    supabase
-      .from("materials")
-      .select("id, code, name, type, base_uom, barcode")
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
+    materialsQuery
       .order("type", { ascending: false })
       .order("code")
       .returns<MaterialRow[]>(),

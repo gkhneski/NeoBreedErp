@@ -104,6 +104,9 @@ const OPERATOR_MODULES = new Set([
   "warehouse",
   "shipments",
   "marketplace",
+  // Depocu eldeki bitmis urunu barkod okutarak girer; tam "lots" modulu
+  // (hammadde/fabrika lotlari) acilmaz, yalnizca onboarding ekrani.
+  "lots/onboarding",
 ]);
 
 export function canAccessModule(
