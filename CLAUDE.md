@@ -20,7 +20,8 @@ The user is the platform owner, not an end user of a single company. When discus
 1. Read AGENTS.md.
 2. Read the doc most relevant to the task (e.g., `docs/SUPERADMIN_RULES.md` for Super Admin features).
 3. If the task touches DB shape, read `docs/DATABASE_CONTRACT.md` first.
-4. Confirm which **phase** you are in via `docs/PHASE_PLAN.md`. If the task is outside the current phase, push back.
+4. If the task touches **UI / layout / dashboards / sidebar / theme**, read `docs/UI_DESIGN_SYSTEM.md` first and keep its conventions.
+5. Confirm which **phase** you are in via `docs/PHASE_PLAN.md`. If the task is outside the current phase, push back.
 5. Plan briefly (one paragraph) before touching files. For multi-step work, use TaskCreate.
 
 ---
