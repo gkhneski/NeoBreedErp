@@ -6,12 +6,12 @@ import {
   BookOpenText,
   Box,
   Building2,
-  ChevronDown,
   ClipboardList,
   Factory,
   FlaskConical,
   LayoutDashboard,
   Layers,
+  Leaf,
   type LucideIcon,
   Package,
   ReceiptText,
@@ -26,11 +26,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
 import {
+  STOCK_WRITE_ROLES,
   canAccessModule,
+  canWriteCompanyData,
   companyHomePath,
   companyModulePath,
   type CompanyRole,
@@ -101,6 +102,15 @@ function isItemActive(pathname: string, href: string, exact?: boolean): boolean 
     : pathname === href || pathname.startsWith(href + "/");
 }
 
+function itemClass(active: boolean): string {
+  return cn(
+    "relative flex items-center gap-3 rounded-xl px-3 py-2.5 font-medium transition-colors",
+    active
+      ? "bg-sidebar-active text-sidebar-accent before:absolute before:-left-3 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-full before:bg-sidebar-accent"
+      : "text-sidebar-foreground hover:bg-sidebar-active/50 hover:text-foreground",
+  );
+}
+
 export function CompanySidebar({
   companyId,
   companyName,
@@ -112,113 +122,90 @@ export function CompanySidebar({
 }) {
   const pathname = usePathname();
   const home = companyHomePath(companyId);
+  const homeActive = pathname === home;
 
   const sections = SECTIONS.map((s) => ({
     ...s,
     items: s.items.filter((item) => canAccessModule(role, item.key)),
   })).filter((s) => s.items.length > 0);
 
-  const activeSection = sections.find((s) =>
-    s.items.some((item) =>
-      isItemActive(pathname, companyModulePath(companyId, item.key)),
-    ),
-  )?.title;
-
-  const [open, setOpen] = useState<Record<string, boolean>>(() => ({
-    ...(activeSection ? { [activeSection]: true } : {}),
-  }));
-
-  useEffect(() => {
-    if (activeSection) {
-      setOpen((prev) => ({ ...prev, [activeSection]: true }));
-    }
-  }, [activeSection]);
-
-  const homeActive = pathname === home;
+  const canStockIn = canWriteCompanyData(role, STOCK_WRITE_ROLES);
 
   return (
     <div className="flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       <Link
         href={home}
-        className="flex flex-col gap-0.5 border-b border-sidebar-border px-5 py-4"
+        className="flex items-center gap-2.5 border-b border-sidebar-border px-5 py-4"
       >
-        <span className="text-sm font-semibold tracking-tight text-foreground">
-          NeoBreed-ERP
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-green-600 to-emerald-500 text-white shadow-sm">
+          <Leaf className="h-5 w-5" aria-hidden="true" />
         </span>
-        <span className="truncate text-xs text-sidebar-muted">
-          {companyName}
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate text-sm font-bold tracking-tight text-foreground">
+            NeoBreed-ERP
+          </span>
+          <span className="truncate text-xs text-sidebar-muted">
+            {companyName}
+          </span>
         </span>
       </Link>
 
       <nav className="no-scrollbar flex-1 overflow-y-auto px-3 py-4 text-sm">
-        <Link
-          href={home}
-          className={cn(
-            "relative flex items-center gap-2.5 rounded-md px-3 py-2 transition-colors",
-            homeActive
-              ? "bg-sidebar-active text-sidebar-accent before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-sidebar-accent"
-              : "hover:bg-sidebar-active/60 hover:text-foreground",
-          )}
-        >
-          <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <Link href={home} className={itemClass(homeActive)}>
+          <LayoutDashboard className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
           <span>Panel</span>
         </Link>
 
-        <div className="mt-3 space-y-1">
-          {sections.map((section) => {
-            const expanded = !!open[section.title];
-            return (
-              <div key={section.title}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOpen((prev) => ({
-                      ...prev,
-                      [section.title]: !expanded,
-                    }))
-                  }
-                  aria-expanded={expanded}
-                  className="flex w-full items-center justify-between rounded-md px-3 py-2 text-[11px] font-medium uppercase tracking-widest text-sidebar-muted transition-colors hover:bg-sidebar-active/60 hover:text-foreground"
-                >
-                  <span>{section.title}</span>
-                  <ChevronDown
-                    className={cn(
-                      "h-3.5 w-3.5 transition-transform duration-200",
-                      expanded ? "rotate-180" : "",
-                    )}
-                    aria-hidden="true"
-                  />
-                </button>
-
-                {expanded ? (
-                  <div className="space-y-0.5 pb-1">
-                    {section.items.map((item) => {
-                      const href = companyModulePath(companyId, item.key);
-                      const active = isItemActive(pathname, href);
-                      const Icon = item.icon;
-                      return (
-                        <Link
-                          key={item.key}
-                          href={href}
-                          className={cn(
-                            "relative flex items-center gap-2.5 rounded-md px-3 py-2 transition-colors",
-                            active
-                              ? "bg-sidebar-active text-sidebar-accent before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-sidebar-accent"
-                              : "hover:bg-sidebar-active/60 hover:text-foreground",
-                          )}
-                        >
-                          <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                          <span className="truncate">{item.label}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
+        {sections.map((section) => (
+          <div key={section.title} className="mt-5">
+            <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-sidebar-muted">
+              {section.title}
+            </p>
+            <div className="space-y-0.5">
+              {section.items.map((item) => {
+                const href = companyModulePath(companyId, item.key);
+                const active = isItemActive(pathname, href, item.exact);
+                const Icon = item.icon;
+                return (
+                  <Link key={item.key} href={href} className={itemClass(active)}>
+                    <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+                    <span className="truncate">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
+
+      {canStockIn ? (
+        <div className="p-3">
+          <Link
+            href={companyModulePath(companyId, "lots", "onboarding")}
+            className="relative block overflow-hidden rounded-2xl bg-gradient-to-br from-green-900 via-green-800 to-emerald-700 p-4 text-white shadow-[0_12px_30px_-14px_rgba(6,78,59,0.8)]"
+          >
+            <div
+              className="pointer-events-none absolute -right-6 -bottom-8 h-28 w-28 rounded-full opacity-30"
+              style={{
+                background:
+                  "repeating-radial-gradient(circle at center, rgba(255,255,255,0.18) 0, rgba(255,255,255,0.18) 1px, transparent 1px, transparent 12px)",
+              }}
+            />
+            <span className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 backdrop-blur-sm">
+              <ScanBarcode className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <p className="relative mt-3 text-sm font-semibold leading-tight">
+              Tarayarak Stok Girişi
+            </p>
+            <p className="relative mt-1 text-xs text-white/70">
+              Barkod okut, ürünü ekle
+            </p>
+            <span className="relative mt-3 flex w-full items-center justify-center rounded-lg bg-white/15 px-3 py-2 text-xs font-semibold backdrop-blur-sm transition-colors hover:bg-white/25">
+              Başla
+            </span>
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }
