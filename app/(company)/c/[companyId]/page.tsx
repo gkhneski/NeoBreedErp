@@ -26,13 +26,20 @@ import {
   type ExpiryThresholds,
 } from "@/lib/expiry";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import {
+  COMPANY_ROLE_LABELS,
+  companyModulePath,
+  type CompanyRole,
+} from "@/types/roles";
 
 import {
   DashboardVisuals,
-  type ActionData,
+  type GaugeData,
   type KpiData,
-  type SoonItem,
+  type Member,
+  type ReminderData,
+  type TaskItem,
+  type Tone,
   type WeeklyBar,
 } from "./dashboard-visuals";
 import { DepotHero } from "./depot-hero";
@@ -119,45 +126,55 @@ async function loadCompanyStats(
   };
 }
 
-function buildQuickActions(companyId: string): ActionData[] {
-  return [
-    {
-      label: "Yeni Üretim Emri",
-      href: companyModulePath(companyId, "production", "new"),
-      description: "Yayındaki bir reçeteden üretim emri açın.",
-      icon: "factory",
-    },
-    {
-      label: "Hammadde Girişi",
-      href: companyModulePath(companyId, "lots", "new"),
-      description: "Yeni mal kabul ile lot oluşturun.",
-      icon: "flask",
-    },
-    {
-      label: "Ürün Ekle",
-      href: companyModulePath(companyId, "products", "new"),
-      description: "Yeni bitmiş ürün kartı tanımlayın.",
-      icon: "package",
-    },
-    {
-      label: "Reçete Oluştur",
-      href: companyModulePath(companyId, "recipes", "new"),
-      description: "Bitmiş ürün için yeni reçete oluşturun.",
-      icon: "book",
-    },
-    {
-      label: "Kalite Kayıt",
-      href: companyModulePath(companyId, "quality", "new"),
-      description: "Karantinadaki lot veya parti için QC açın.",
-      icon: "shield",
-    },
-    {
-      label: "Sipariş Oluştur",
-      href: companyModulePath(companyId, "shipments", "new"),
-      description: "Ecza deposu veya pazaryeri siparişi açın.",
-      icon: "send",
-    },
-  ];
+const MEMBER_TONES: Tone[] = [
+  "emerald",
+  "blue",
+  "violet",
+  "amber",
+  "rose",
+  "cyan",
+];
+
+async function loadTeam(companyId: string): Promise<Member[]> {
+  const supabase = await createServerSupabaseClient();
+  const { data: members } = await supabase
+    .from("company_users")
+    .select("user_id, role, created_at")
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: true })
+    .limit(6)
+    .returns<Array<{ user_id: string; role: CompanyRole }>>();
+
+  const ids = (members ?? []).map((m) => m.user_id);
+  type Prof = { id: string; full_name: string | null; email: string | null };
+  const { data: profiles } = ids.length
+    ? await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", ids)
+        .returns<Prof[]>()
+    : { data: [] as Prof[] };
+  const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
+
+  return (members ?? []).map((m, i) => {
+    const p = byId.get(m.user_id);
+    const name = p?.full_name || p?.email?.split("@")[0] || "Üye";
+    const initials =
+      name
+        .split(/\s+/)
+        .map((w) => w[0])
+        .filter(Boolean)
+        .slice(0, 2)
+        .join("")
+        .toUpperCase() || "?";
+    return {
+      name,
+      role: COMPANY_ROLE_LABELS[m.role] ?? m.role,
+      initials,
+      tone: MEMBER_TONES[i % MEMBER_TONES.length],
+    };
+  });
 }
 
 async function loadWeeklyMovements(companyId: string): Promise<WeeklyBar[]> {
@@ -586,11 +603,12 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
   }
 
   const thresholds = await getExpiryThresholds(companyId);
-  const [company, stats, expiry, weekly] = await Promise.all([
+  const [company, stats, expiry, weekly, team] = await Promise.all([
     getCompanySummary(companyId),
     loadCompanyStats(companyId, thresholds.criticalDays),
     loadExpiryCounts(companyId, thresholds),
     loadWeeklyMovements(companyId),
+    loadTeam(companyId),
   ]);
   const finishedStockPath = `${companyModulePath(companyId, "stock")}?tab=urun`;
 
@@ -634,24 +652,57 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
     },
   ];
 
-  const soonest: SoonItem[] = expiry.soonest.slice(0, 5).map((lot) => {
-    const urgency = expiryUrgency(lot.expiry_date, thresholds);
-    const dte = daysUntil(lot.expiry_date);
-    const active = urgency !== null && urgency !== "ok";
-    return {
-      id: lot.id,
-      name: lot.materials?.name ?? "—",
-      lot: lot.lot_number,
-      date: lot.expiry_date ?? "—",
-      badge: active
-        ? urgency === "expired"
-          ? EXPIRY_LABEL.expired
-          : `${dte}g`
-        : null,
-      badgeClass:
-        urgency && urgency !== "ok" ? EXPIRY_BADGE_CLASS[urgency] : "",
-    };
-  });
+  const gauge: GaugeData = {
+    pct: healthyPct,
+    healthy,
+    critical: expiry.critical,
+    expired: expiry.expired,
+    stocked: expiry.stocked,
+  };
+
+  const nearest = expiry.soonest[0];
+  const reminder: ReminderData = nearest
+    ? {
+        title: nearest.materials?.name ?? "Yaklaşan SKT",
+        subtitle: `${nearest.lot_number} · SKT ${nearest.expiry_date ?? "—"}${
+          nearest.expiry_date
+            ? ` · ${daysUntil(nearest.expiry_date)} gün kaldı`
+            : ""
+        }`,
+        href: finishedStockPath,
+      }
+    : null;
+
+  const tasks: TaskItem[] = [
+    {
+      label: "Bekleyen Kalite Kontrol",
+      count: stats.pendingQuality,
+      href: companyModulePath(companyId, "quality"),
+      icon: "shield",
+      tone: "violet",
+    },
+    {
+      label: "Açık Siparişler",
+      count: stats.openOrders,
+      href: companyModulePath(companyId, "shipments"),
+      icon: "clipboard",
+      tone: "blue",
+    },
+    {
+      label: "Bekleyen Fiyat Onayı",
+      count: stats.pendingPriceApprovals,
+      href: companyModulePath(companyId, "marketplace"),
+      icon: "store",
+      tone: "amber",
+    },
+    {
+      label: "Kritik / Geçmiş SKT",
+      count: expiry.critical + expiry.expired,
+      href: finishedStockPath,
+      icon: "alert",
+      tone: "rose",
+    },
+  ];
 
   const hasAnyData =
     stats.totalProducts +
@@ -693,12 +744,12 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
         kpis={kpis}
         weekly={weekly}
         weeklyTotalLabel={`Bu hafta ${weeklyTotal} stok hareketi`}
-        healthyPct={healthyPct}
-        healthy={healthy}
-        stocked={expiry.stocked}
-        soonest={soonest}
-        actions={buildQuickActions(companyId)}
+        gauge={gauge}
+        reminder={reminder}
+        tasks={tasks}
+        team={team}
         stockHref={finishedStockPath}
+        membersHref={companyModulePath(companyId, "users")}
       />
 
       {hasAnyData ? null : (
