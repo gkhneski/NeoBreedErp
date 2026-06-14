@@ -360,6 +360,7 @@ export function DashboardVisuals({
   team,
   stockHref,
   membersHref,
+  canManageTeam = true,
 }: {
   kpis: KpiData[];
   weekly: WeeklyBar[];
@@ -369,7 +370,8 @@ export function DashboardVisuals({
   tasks: TaskItem[];
   team: Member[];
   stockHref: string;
-  membersHref: string;
+  membersHref?: string;
+  canManageTeam?: boolean;
 }) {
   return (
     <div className="space-y-5">
@@ -473,13 +475,15 @@ export function DashboardVisuals({
         <Card className="lg:col-span-5">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold">Ekip</h2>
-            <Link
-              href={membersHref}
-              className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-medium transition-colors hover:bg-secondary/50"
-            >
-              <Plus className="h-3 w-3" />
-              Üye Ekle
-            </Link>
+            {canManageTeam && membersHref ? (
+              <Link
+                href={membersHref}
+                className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-medium transition-colors hover:bg-secondary/50"
+              >
+                <Plus className="h-3 w-3" />
+                Üye Ekle
+              </Link>
+            ) : null}
           </div>
           {team.length > 0 ? (
             <ul className="mt-3 space-y-1">

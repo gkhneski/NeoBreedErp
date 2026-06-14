@@ -1,15 +1,4 @@
-import {
-  Boxes,
-  ClipboardList,
-  Factory,
-  FlaskConical,
-  PackageCheck,
-  ScanLine,
-  Send,
-  Store,
-  Truck,
-  type LucideIcon,
-} from "lucide-react";
+import { Factory, FlaskConical, ScanLine, Send } from "lucide-react";
 import Link from "next/link";
 
 import { EmptyState } from "@/components/ui/empty-state";
@@ -17,10 +6,7 @@ import { requireCompanyUser } from "@/lib/auth";
 import { getCompanySummary } from "@/lib/company";
 import { getExpiryThresholds } from "@/lib/company-settings";
 import {
-  EXPIRY_BADGE_CLASS,
-  EXPIRY_LABEL,
   daysUntil,
-  expiryUrgency,
   isoDatePlusDays,
   todayIso,
   type ExpiryThresholds,
@@ -42,7 +28,6 @@ import {
   type Tone,
   type WeeklyBar,
 } from "./dashboard-visuals";
-import { DepotHero } from "./depot-hero";
 
 interface CompanyStats {
   totalProducts: number;
@@ -280,120 +265,6 @@ async function loadExpiryCounts(
   };
 }
 
-function ExpirySummary({
-  companyId,
-  thresholds,
-  counts,
-}: {
-  companyId: string;
-  thresholds: ExpiryThresholds;
-  counts: Awaited<ReturnType<typeof loadExpiryCounts>>;
-}) {
-  // Depo personeli "lots" modulunu gormez; SKT kartlari bitmis urun stoguna gider.
-  const finishedStockPath = `${companyModulePath(companyId, "stock")}?tab=urun`;
-  const chips = [
-    {
-      key: "expired" as const,
-      label: EXPIRY_LABEL.expired,
-      value: counts.expired,
-      ring: "ring-red-500/30",
-      grad: "from-red-500 to-rose-600",
-    },
-    {
-      key: "critical" as const,
-      label: `${EXPIRY_LABEL.critical} ≤${thresholds.criticalDays}g`,
-      value: counts.critical,
-      ring: "ring-orange-500/30",
-      grad: "from-orange-400 to-amber-500",
-    },
-    {
-      key: "warning" as const,
-      label: `${EXPIRY_LABEL.warning} ≤${thresholds.warningDays}g`,
-      value: counts.warning,
-      ring: "ring-amber-400/30",
-      grad: "from-amber-300 to-yellow-400",
-    },
-  ];
-
-  return (
-    <section className="animate-fade-up space-y-3" style={{ animationDelay: "160ms" }}>
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Son Kullanma Takibi</h2>
-        <Link
-          href={finishedStockPath}
-          className="text-xs font-medium text-primary hover:underline"
-        >
-          Tümü →
-        </Link>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        {chips.map((c) => (
-          <Link
-            key={c.key}
-            href={finishedStockPath}
-            className={`flex items-center justify-between rounded-xl bg-card p-4 ring-1 ${c.ring} transition-transform hover:-translate-y-0.5`}
-          >
-            <div>
-              <p className="text-xs text-muted-foreground">{c.label}</p>
-              <p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight">
-                {c.value}
-              </p>
-            </div>
-            <span
-              className={`flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br ${c.grad} text-sm font-bold text-white tabular-nums shadow-md`}
-            >
-              {c.value}
-            </span>
-          </Link>
-        ))}
-      </div>
-
-      {counts.soonest.length > 0 ? (
-        <div className="overflow-hidden rounded-xl border border-border">
-          <p className="border-b border-border bg-secondary/50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            En Yakın SKT
-          </p>
-          <ul className="divide-y divide-border text-sm">
-            {counts.soonest.slice(0, 4).map((lot) => {
-              const urgency = expiryUrgency(lot.expiry_date, thresholds);
-              const dte = daysUntil(lot.expiry_date);
-              return (
-                <li key={lot.id}>
-                  <Link
-                    href={finishedStockPath}
-                    className="flex flex-wrap items-center gap-2 px-3 py-2 transition-colors hover:bg-secondary/40"
-                  >
-                    <span className="font-mono text-xs">{lot.lot_number}</span>
-                    <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                      {lot.materials?.name ?? "—"}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {lot.locations?.code ?? "ANA"}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {lot.expiry_date}
-                    </span>
-                    {urgency && urgency !== "ok" ? (
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${EXPIRY_BADGE_CLASS[urgency]}`}
-                      >
-                        {urgency === "expired"
-                          ? EXPIRY_LABEL.expired
-                          : `${dte}g`}
-                      </span>
-                    ) : null}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
 async function ClerkDashboard({
   companyId,
   companyName,
@@ -412,7 +283,9 @@ async function ClerkDashboard({
     { count: shippedToday },
     { count: releasedLots },
     { count: pendingPriceApprovals },
-    expiryCounts,
+    expiry,
+    weekly,
+    team,
   ] = await Promise.all([
     supabase
       .from("shipments")
@@ -443,147 +316,148 @@ async function ClerkDashboard({
       .eq("company_id", companyId)
       .eq("status", "pending"),
     loadExpiryCounts(companyId, thresholds),
+    loadWeeklyMovements(companyId),
+    loadTeam(companyId),
   ]);
 
-  const cards: Array<{
-    label: string;
-    value: number;
-    href: string;
-    grad: string;
-    glow: string;
-    Icon: LucideIcon;
-  }> = [
+  const finishedStockPath = `${companyModulePath(companyId, "stock")}?tab=urun`;
+  const shipmentsPath = companyModulePath(companyId, "shipments");
+  const marketplacePath = companyModulePath(companyId, "marketplace");
+
+  const healthy = Math.max(
+    0,
+    expiry.stocked - expiry.expired - expiry.critical - expiry.warning,
+  );
+  const healthyPct =
+    expiry.stocked > 0 ? Math.round((healthy / expiry.stocked) * 100) : null;
+  const weeklyTotal = weekly.reduce((sum, b) => sum + b.value, 0);
+
+  const kpis: KpiData[] = [
+    {
+      label: "Sevk Edilebilir Lot",
+      value: releasedLots ?? 0,
+      sub: "bitmiş ürün, serbest",
+      href: finishedStockPath,
+      icon: "boxes",
+      hero: true,
+    },
     {
       label: "Hazırlanacak Sipariş",
       value: toPrepare ?? 0,
-      href: companyModulePath(companyId, "shipments") + "?durum=preparing",
-      grad: "from-amber-400 to-orange-500",
-      glow: "rgba(249,115,22,0.45)",
-      Icon: ClipboardList,
+      sub: "hazırlanacak / açık",
+      href: `${shipmentsPath}?durum=preparing`,
+      icon: "clipboard",
     },
     {
       label: "Bugün Gönderilen",
       value: shippedToday ?? 0,
-      href: companyModulePath(companyId, "shipments") + "?durum=shipped",
-      grad: "from-emerald-400 to-teal-500",
-      glow: "rgba(16,185,129,0.45)",
-      Icon: Truck,
-    },
-    {
-      label: "Sevk Edilebilir Lot",
-      value: releasedLots ?? 0,
-      href: `${companyModulePath(companyId, "stock")}?tab=urun`,
-      grad: "from-cyan-400 to-sky-500",
-      glow: "rgba(14,165,233,0.45)",
-      Icon: PackageCheck,
+      sub: "bugün sevk edilen",
+      href: `${shipmentsPath}?durum=shipped`,
+      icon: "send",
     },
     {
       label: "Bekleyen Fiyat Onayı",
       value: pendingPriceApprovals ?? 0,
-      href: companyModulePath(companyId, "marketplace"),
-      grad: "from-violet-500 to-fuchsia-500",
-      glow: "rgba(217,70,239,0.45)",
-      Icon: Store,
+      sub: "pazaryeri indirimleri",
+      href: marketplacePath,
+      icon: "store",
     },
   ];
 
-  const actions: Array<{
-    label: string;
-    href: string;
-    description: string;
-    Icon: LucideIcon;
-  }> = [
+  const gauge: GaugeData = {
+    pct: healthyPct,
+    healthy,
+    critical: expiry.critical,
+    expired: expiry.expired,
+    stocked: expiry.stocked,
+  };
+
+  const nearest = expiry.soonest[0];
+  const reminder: ReminderData = nearest
+    ? {
+        title: nearest.materials?.name ?? "Yaklaşan SKT",
+        subtitle: `${nearest.lot_number} · SKT ${nearest.expiry_date ?? "—"}${
+          nearest.expiry_date
+            ? ` · ${daysUntil(nearest.expiry_date)} gün kaldı`
+            : ""
+        }`,
+        href: finishedStockPath,
+      }
+    : null;
+
+  const tasks: TaskItem[] = [
     {
-      label: "Barkod Tara",
-      href: companyModulePath(companyId, "warehouse", "scan"),
-      description: "Gelen koliyi okutup depoya alın.",
-      Icon: ScanLine,
+      label: "Hazırlanacak Sipariş",
+      sub: "Sevk bekliyor",
+      count: toPrepare ?? 0,
+      href: `${shipmentsPath}?durum=preparing`,
+      icon: "clipboard",
+      tone: "blue",
     },
     {
-      label: "Yeni Sipariş",
-      href: companyModulePath(companyId, "shipments", "new"),
-      description: "Ecza deposu veya pazaryeri siparişi açın.",
-      Icon: Send,
+      label: "Bekleyen Fiyat Onayı",
+      sub: "Pazaryeri indirimleri",
+      count: pendingPriceApprovals ?? 0,
+      href: marketplacePath,
+      icon: "store",
+      tone: "amber",
     },
     {
-      label: "Siparişler",
-      href: companyModulePath(companyId, "shipments"),
-      description: "Hazırlanacak ve gönderilen siparişler.",
-      Icon: ClipboardList,
+      label: "Kritik / Geçmiş SKT",
+      sub: "Acil eritilecek stok",
+      count: expiry.critical + expiry.expired,
+      href: finishedStockPath,
+      icon: "alert",
+      tone: "rose",
     },
     {
-      label: "Bitmiş Ürün Stoğu",
-      href: `${companyModulePath(companyId, "stock")}?tab=urun`,
-      description: "Eldeki bitmiş ürünleri lot ve SKT ile görün.",
-      Icon: Boxes,
+      label: "Yaklaşan SKT",
+      sub: `≤${thresholds.warningDays} gün`,
+      count: expiry.warning,
+      href: finishedStockPath,
+      icon: "shield",
+      tone: "violet",
     },
   ];
 
   return (
     <div className="space-y-6">
-      <DepotHero companyName={companyName} />
-
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map((c, i) => {
-          const Icon = c.Icon;
-          return (
-            <Link
-              key={c.label}
-              href={c.href}
-              className={`animate-fade-up group relative overflow-hidden rounded-2xl bg-gradient-to-br ${c.grad} p-4 text-white shadow-lg transition-transform duration-200 hover:-translate-y-1`}
-              style={{
-                animationDelay: `${i * 70}ms`,
-                boxShadow: `0 10px 30px -12px ${c.glow}`,
-              }}
-            >
-              <div className="flex items-start justify-between">
-                <p className="text-xs font-medium text-white/85">{c.label}</p>
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20">
-                  <Icon className="h-4 w-4" aria-hidden="true" />
-                </span>
-              </div>
-              <p className="mt-3 text-4xl font-semibold tabular-nums tracking-tight">
-                {c.value}
-              </p>
-            </Link>
-          );
-        })}
-      </section>
-
-      <ExpirySummary
-        companyId={companyId}
-        thresholds={thresholds}
-        counts={expiryCounts}
-      />
-
-      <section
-        className="animate-fade-up space-y-3"
-        style={{ animationDelay: "240ms" }}
-      >
-        <h2 className="text-sm font-semibold">Hızlı İşlemler</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {actions.map((a) => {
-            const Icon = a.Icon;
-            return (
-              <Link
-                key={a.label}
-                href={a.href}
-                className="group flex items-start gap-3 rounded-2xl border border-border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                  <Icon className="h-5 w-5" aria-hidden="true" />
-                </span>
-                <span>
-                  <p className="text-sm font-medium">{a.label}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {a.description}
-                  </p>
-                </span>
-              </Link>
-            );
-          })}
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">{companyName}</h1>
+          <p className="text-sm text-muted-foreground">
+            Depo Paneli — sevkiyat ve bitmiş ürün stoğu.
+          </p>
         </div>
-      </section>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={companyModulePath(companyId, "lots", "onboarding")}
+            className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700"
+          >
+            <ScanLine className="h-4 w-4" aria-hidden="true" />
+            Stok Girişi
+          </Link>
+          <Link
+            href={companyModulePath(companyId, "shipments", "new")}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary/40"
+          >
+            <Send className="h-4 w-4" aria-hidden="true" />
+            Yeni Sipariş
+          </Link>
+        </div>
+      </header>
+
+      <DashboardVisuals
+        kpis={kpis}
+        weekly={weekly}
+        weeklyTotalLabel={`Bu hafta ${weeklyTotal} stok hareketi`}
+        gauge={gauge}
+        reminder={reminder}
+        tasks={tasks}
+        team={team}
+        stockHref={finishedStockPath}
+        canManageTeam={false}
+      />
     </div>
   );
 }
