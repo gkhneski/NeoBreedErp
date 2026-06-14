@@ -613,6 +613,7 @@ export type Database = {
           last_batch_request_id: string | null;
           sync_status: MarketplaceSyncStatus;
           sync_error: string | null;
+          applied_sale_price: number | null;
           created_at: string;
           updated_at: string;
           deleted_at: string | null;
@@ -637,6 +638,7 @@ export type Database = {
           last_batch_request_id?: string | null;
           sync_status?: MarketplaceSyncStatus;
           sync_error?: string | null;
+          applied_sale_price?: number | null;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
@@ -661,9 +663,43 @@ export type Database = {
           last_batch_request_id?: string | null;
           sync_status?: MarketplaceSyncStatus;
           sync_error?: string | null;
+          applied_sale_price?: number | null;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      marketplace_discount_tiers: {
+        Row: {
+          id: string;
+          company_id: string;
+          max_days_left: number;
+          discount_percent: number;
+          created_at: string;
+          updated_at: string;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          max_days_left: number;
+          discount_percent: number;
+          created_at?: string;
+          updated_at?: string;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          max_days_left?: number;
+          discount_percent?: number;
+          created_at?: string;
+          updated_at?: string;
           created_by?: string | null;
           updated_by?: string | null;
         };

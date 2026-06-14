@@ -135,6 +135,79 @@ export async function refreshListingCache(
   }
 }
 
+// --- Discount ladder (per company) -----------------------------------------
+
+const tiersSchema = z.object({
+  company_id: z.string().uuid(),
+  tiers: z
+    .array(
+      z.object({
+        max_days_left: z.number().int().positive().max(36500),
+        discount_percent: z.number().min(0).max(95),
+      }),
+    )
+    .max(20),
+});
+
+export type TiersActionState = { error?: string; success?: string };
+
+export async function saveDiscountTiers(
+  companyIdInput: string,
+  tiersInput: Array<{ max_days_left: number; discount_percent: number }>,
+): Promise<TiersActionState> {
+  const parsed = tiersSchema.safeParse({
+    company_id: companyIdInput,
+    tiers: tiersInput,
+  });
+  if (!parsed.success) {
+    return { error: "Merdiven verisi geçersiz. Gün ve yüzde değerlerini kontrol edin." };
+  }
+
+  // Collapse duplicate bands (last one wins), drop 0% bands, sort ascending.
+  const byBand = new Map<number, number>();
+  for (const t of parsed.data.tiers) {
+    if (t.discount_percent > 0) byBand.set(t.max_days_left, t.discount_percent);
+  }
+  const clean = Array.from(byBand.entries())
+    .map(([max_days_left, discount_percent]) => ({ max_days_left, discount_percent }))
+    .sort((a, b) => a.max_days_left - b.max_days_left);
+
+  const { ctx, companyId } = await requireCompanyRole(
+    parsed.data.company_id,
+    MARKETPLACE_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { error: delError } = await supabase
+    .from("marketplace_discount_tiers")
+    .delete()
+    .eq("company_id", companyId);
+  if (delError) return { error: delError.message };
+
+  if (clean.length > 0) {
+    const { error: insError } = await supabase
+      .from("marketplace_discount_tiers")
+      .insert(
+        clean.map((t) => ({
+          company_id: companyId,
+          max_days_left: t.max_days_left,
+          discount_percent: t.discount_percent,
+          created_by: ctx.userId,
+          updated_by: ctx.userId,
+        })),
+      );
+    if (insError) return { error: insError.message };
+  }
+
+  revalidatePath(marketplacePath(companyId));
+  return {
+    success:
+      clean.length > 0
+        ? `${clean.length} kademe kaydedildi.`
+        : "Merdiven temizlendi (otomatik indirim kapalı).",
+  };
+}
+
 // --- Listing rule -----------------------------------------------------------
 
 const ruleSchema = z

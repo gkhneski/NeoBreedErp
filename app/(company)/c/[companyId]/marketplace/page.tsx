@@ -4,7 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireModuleAccess } from "@/lib/auth";
-import { getExpiryThresholds } from "@/lib/company-settings";
 import { reconcilePendingBatches } from "@/lib/marketplaces/discount-engine";
 import {
   createServerSupabaseClient,
@@ -19,6 +18,7 @@ import {
 
 import { ApprovalQueue, type PendingEventRow } from "./approval-queue";
 import { DetectionButton } from "./detection-button";
+import { DiscountLadder, type Tier } from "./discount-ladder";
 import { ListingsTable, type ListingRow } from "./listings-table";
 
 interface PageProps {
@@ -36,7 +36,6 @@ export default async function MarketplacePage({ params }: PageProps) {
   await reconcilePendingBatches(service, companyId);
 
   const supabase = await createServerSupabaseClient();
-  const thresholds = await getExpiryThresholds(companyId);
 
   const { data: connection } = await service
     .from("marketplace_connections")
@@ -45,7 +44,8 @@ export default async function MarketplacePage({ params }: PageProps) {
     .eq("channel", "trendyol")
     .maybeSingle();
 
-  const [{ data: pendingEvents }, { data: listings }] = await Promise.all([
+  const [{ data: pendingEvents }, { data: listings }, { data: tierRows }] =
+    await Promise.all([
     supabase
       .from("marketplace_price_events")
       .select(
@@ -61,7 +61,7 @@ export default async function MarketplacePage({ params }: PageProps) {
       .select(
         "id, barcode, stock_code, title, normal_sale_price, normal_list_price, " +
           "discount_price, discount_threshold_days, sync_stock, current_price_state, " +
-          "sync_status, sync_error, last_synced_at, material_id, " +
+          "applied_sale_price, sync_status, sync_error, last_synced_at, material_id, " +
           "materials:material_id(code, name, base_uom)",
       )
       .eq("company_id", companyId)
@@ -69,6 +69,12 @@ export default async function MarketplacePage({ params }: PageProps) {
       .is("deleted_at", null)
       .order("created_at", { ascending: true })
       .returns<Array<Omit<ListingRow, "sellable_quantity">>>(),
+    supabase
+      .from("marketplace_discount_tiers")
+      .select("max_days_left, discount_percent")
+      .eq("company_id", companyId)
+      .order("max_days_left", { ascending: true })
+      .returns<Tier[]>(),
   ]);
 
   const listingRows = listings ?? [];
@@ -100,6 +106,10 @@ export default async function MarketplacePage({ params }: PageProps) {
     sellable_quantity: sellableByMaterial.get(l.material_id) ?? 0,
   }));
 
+  const tiers: Tier[] = (tierRows ?? []).map((t) => ({
+    max_days_left: Number(t.max_days_left),
+    discount_percent: Number(t.discount_percent),
+  }));
   const canManage = canWriteCompanyData(role, MARKETPLACE_WRITE_ROLES);
   const canApprove = canWriteCompanyData(role, MARKETPLACE_APPROVE_ROLES);
   const isAdmin = role === "company_admin";
@@ -142,6 +152,12 @@ export default async function MarketplacePage({ params }: PageProps) {
             </p>
           ) : null}
 
+          <DiscountLadder
+            companyId={companyId}
+            tiers={tiers}
+            canManage={canManage}
+          />
+
           <section className="space-y-3">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold">Bekleyen Fiyat Onayları</h2>
@@ -170,7 +186,6 @@ export default async function MarketplacePage({ params }: PageProps) {
                 companyId={companyId}
                 rows={tableRows}
                 canManage={canManage}
-                defaultThresholdDays={thresholds.criticalDays}
               />
             )}
           </section>

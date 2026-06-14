@@ -25,6 +25,7 @@ export type ListingRow = {
   normal_list_price: number | null;
   discount_price: number | null;
   discount_threshold_days: number | null;
+  applied_sale_price: number | null;
   sync_stock: boolean;
   current_price_state: "normal" | "discounted" | "unknown";
   sync_status: "never" | "pending" | "ok" | "failed";
@@ -69,12 +70,10 @@ const initialRuleState: RuleFormState = {};
 function RuleEditor({
   companyId,
   listing,
-  defaultThresholdDays,
   onDone,
 }: {
   companyId: string;
   listing: ListingRow;
-  defaultThresholdDays: number;
   onDone: () => void;
 }) {
   const [state, formAction] = useActionState(saveListingRule, initialRuleState);
@@ -84,7 +83,7 @@ function RuleEditor({
       <input type="hidden" name="company_id" value={companyId} />
       <input type="hidden" name="listing_id" value={listing.id} />
 
-      <div className="grid gap-3 sm:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor={`nsp-${listing.id}`} className="text-xs">
             Normal Satış Fiyatı (₺) *
@@ -122,45 +121,13 @@ function RuleEditor({
             </p>
           ) : null}
         </div>
-        <div className="space-y-1">
-          <Label htmlFor={`dp-${listing.id}`} className="text-xs">
-            SKT İndirimli Fiyat (₺)
-          </Label>
-          <Input
-            id={`dp-${listing.id}`}
-            name="discount_price"
-            type="number"
-            step="0.01"
-            min="0.01"
-            defaultValue={listing.discount_price ?? ""}
-            placeholder="Boş = kural yok"
-          />
-          {state.fieldErrors?.discount_price ? (
-            <p className="text-xs text-destructive">
-              {state.fieldErrors.discount_price}
-            </p>
-          ) : null}
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor={`dt-${listing.id}`} className="text-xs">
-            SKT Eşiği (gün)
-          </Label>
-          <Input
-            id={`dt-${listing.id}`}
-            name="discount_threshold_days"
-            type="number"
-            min="1"
-            max="3650"
-            defaultValue={listing.discount_threshold_days ?? ""}
-            placeholder={`Varsayılan: ${defaultThresholdDays} gün`}
-          />
-          {state.fieldErrors?.discount_threshold_days ? (
-            <p className="text-xs text-destructive">
-              {state.fieldErrors.discount_threshold_days}
-            </p>
-          ) : null}
-        </div>
       </div>
+
+      <p className="rounded-md border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
+        SKT indirimi artık firma <strong>İndirim Merdiveni</strong>nden otomatik
+        uygulanır (lotların son kullanma tarihine göre). Burada sadece normal
+        satış/liste fiyatını ve stok senkronunu ayarlarsın.
+      </p>
 
       <label className="flex items-center gap-2 text-xs">
         <input
@@ -198,12 +165,10 @@ export function ListingsTable({
   companyId,
   rows,
   canManage,
-  defaultThresholdDays,
 }: {
   companyId: string;
   rows: ListingRow[];
   canManage: boolean;
-  defaultThresholdDays: number;
 }) {
   const router = useRouter();
   const [openRuleId, setOpenRuleId] = useState<string | null>(null);
@@ -237,7 +202,7 @@ export function ListingsTable({
               <th className="px-3 py-2 text-left font-medium">Ürün</th>
               <th className="px-3 py-2 text-left font-medium">Barkod</th>
               <th className="px-3 py-2 text-right font-medium">Normal Fiyat</th>
-              <th className="px-3 py-2 text-right font-medium">SKT Kuralı</th>
+              <th className="px-3 py-2 text-right font-medium">Otomatik İndirim</th>
               <th className="px-3 py-2 text-right font-medium">Stok</th>
               <th className="px-3 py-2 text-left font-medium">Fiyat Durumu</th>
               <th className="px-3 py-2 text-left font-medium">Senkron</th>
@@ -276,19 +241,27 @@ export function ListingsTable({
                     {formatPrice(Number(listing.normal_sale_price))} ₺
                   </td>
                   <td className="px-3 py-2 text-right text-xs">
-                    {listing.discount_price !== null ? (
+                    {listing.applied_sale_price !== null &&
+                    Number(listing.applied_sale_price) <
+                      Number(listing.normal_sale_price) ? (
                       <span className="font-mono">
-                        {formatPrice(Number(listing.discount_price))} ₺
-                        <span className="text-muted-foreground">
+                        {formatPrice(Number(listing.applied_sale_price))} ₺
+                        <span className="font-sans text-emerald-600 dark:text-emerald-400">
                           {" "}
-                          (≤
-                          {listing.discount_threshold_days ??
-                            defaultThresholdDays}
-                          g)
+                          (-%
+                          {Math.round(
+                            (1 -
+                              Number(listing.applied_sale_price) /
+                                Number(listing.normal_sale_price)) *
+                              100,
+                          )}
+                          )
                         </span>
                       </span>
                     ) : (
-                      <span className="text-muted-foreground">Kural yok</span>
+                      <span className="text-muted-foreground">
+                        Normal (merdivenden otomatik)
+                      </span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-right font-mono text-xs">
@@ -354,7 +327,6 @@ export function ListingsTable({
                       <RuleEditor
                         companyId={companyId}
                         listing={listing}
-                        defaultThresholdDays={defaultThresholdDays}
                         onDone={() => {
                           setOpenRuleId(null);
                           router.refresh();

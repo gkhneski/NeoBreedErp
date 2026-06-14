@@ -2,7 +2,6 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { DEFAULT_EXPIRY_THRESHOLDS } from "@/lib/expiry";
 import type { Database, MarketplaceChannel } from "@/types/database";
 
 import { getAdapter } from "./adapters";
@@ -17,10 +16,28 @@ type DetectionListing = {
   channel: MarketplaceChannel;
   material_id: string;
   normal_sale_price: number;
-  discount_price: number | null;
-  discount_threshold_days: number | null;
   current_price_state: "normal" | "discounted" | "unknown";
+  applied_sale_price: number | null;
 };
+
+type DiscountTier = { max_days_left: number; discount_percent: number };
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+// Tiers sorted ascending by max_days_left. Returns the deepest applicable
+// percent: the tightest band whose window still contains days_left.
+function pickTierPercent(
+  tiersAsc: DiscountTier[],
+  daysLeft: number | undefined,
+): number {
+  if (daysLeft === undefined) return 0;
+  for (const tier of tiersAsc) {
+    if (daysLeft <= tier.max_days_left) return tier.discount_percent;
+  }
+  return 0;
+}
 
 export interface DetectionSummary {
   companiesChecked: number;
@@ -119,6 +136,7 @@ export async function reconcilePendingBatches(
         .from("marketplace_listings")
         .update({
           current_price_state: priceState,
+          applied_sale_price: event.new_price,
           sync_status: "ok",
           sync_error: null,
           last_synced_at: now,
@@ -172,36 +190,38 @@ export async function runDiscountDetection(
   const today = isoDate(0);
 
   for (const [company, channels] of channelsByCompany) {
+    // Per-company discount ladder. No ladder => nothing is auto-discounted.
+    const { data: tierRows } = await service
+      .from("marketplace_discount_tiers")
+      .select("max_days_left, discount_percent")
+      .eq("company_id", company)
+      .order("max_days_left", { ascending: true })
+      .returns<DiscountTier[]>();
+
+    const tiers = (tierRows ?? []).map((t) => ({
+      max_days_left: Number(t.max_days_left),
+      discount_percent: Number(t.discount_percent),
+    }));
+    if (tiers.length === 0) continue;
+    const maxThreshold = tiers[tiers.length - 1].max_days_left;
+
     const { data: listingRows } = await service
       .from("marketplace_listings")
       .select(
         "id, company_id, channel, material_id, normal_sale_price, " +
-          "discount_price, discount_threshold_days, current_price_state",
+          "current_price_state, applied_sale_price",
       )
       .eq("company_id", company)
       .in("channel", Array.from(channels))
-      .not("discount_price", "is", null)
       .is("deleted_at", null)
       .returns<DetectionListing[]>();
 
     const listings = listingRows ?? [];
     if (listings.length === 0) continue;
 
-    const { data: settings } = await service
-      .from("company_settings")
-      .select("expiry_critical_days")
-      .eq("company_id", company)
-      .maybeSingle();
-    const defaultThreshold =
-      settings?.expiry_critical_days ?? DEFAULT_EXPIRY_THRESHOLDS.criticalDays;
-
-    const maxThreshold = listings.reduce(
-      (max, l) => Math.max(max, l.discount_threshold_days ?? defaultThreshold),
-      0,
-    );
     const materialIds = Array.from(new Set(listings.map((l) => l.material_id)));
 
-    // Satilabilir lotlardan, en genis esik penceresine giren SKT'ler.
+    // Satilabilir lotlardan, merdivenin en genis penceresine giren SKT'ler.
     const { data: lotRows } = await service
       .from("material_lots")
       .select("material_id, expiry_date")
@@ -224,35 +244,46 @@ export async function runDiscountDetection(
     }
 
     for (const listing of listings) {
-      const threshold = listing.discount_threshold_days ?? defaultThreshold;
-      const thresholdDate = isoDate(threshold);
+      const normal = Number(listing.normal_sale_price);
       const earliestExpiry = earliestExpiryByMaterial.get(listing.material_id);
-      const triggered =
-        earliestExpiry !== undefined && earliestExpiry <= thresholdDate;
+      const daysLeft =
+        earliestExpiry === undefined
+          ? undefined
+          : Math.round(
+              (new Date(earliestExpiry + "T00:00:00").getTime() -
+                new Date(today + "T00:00:00").getTime()) /
+                86_400_000,
+            );
 
-      if (triggered && listing.current_price_state !== "discounted") {
-        const daysLeft = Math.round(
-          (new Date(earliestExpiry + "T00:00:00").getTime() -
-            new Date(today + "T00:00:00").getTime()) /
-            86_400_000,
-        );
+      const pct = pickTierPercent(tiers, daysLeft);
+      const targetPrice = pct > 0 ? round2(normal * (1 - pct / 100)) : normal;
+      const livePrice =
+        listing.applied_sale_price !== null
+          ? Number(listing.applied_sale_price)
+          : normal;
+
+      // Already at the right price (within a cent) -> nothing to do.
+      if (Math.abs(targetPrice - livePrice) < 0.005) continue;
+
+      if (targetPrice < normal) {
         const inserted = await insertProposal(service, {
           company_id: company,
           listing_id: listing.id,
           kind: "discount",
-          old_price: listing.normal_sale_price,
-          new_price: listing.discount_price!,
-          trigger_expiry_date: earliestExpiry,
-          trigger_days_left: daysLeft,
+          old_price: livePrice,
+          new_price: targetPrice,
+          trigger_expiry_date: earliestExpiry ?? null,
+          trigger_days_left: daysLeft ?? null,
         });
         if (inserted) summary.discountProposals += 1;
-      } else if (!triggered && listing.current_price_state === "discounted") {
+      } else {
+        // Back up to (or above) normal -> restore.
         const inserted = await insertProposal(service, {
           company_id: company,
           listing_id: listing.id,
           kind: "restore",
-          old_price: listing.discount_price,
-          new_price: listing.normal_sale_price,
+          old_price: livePrice,
+          new_price: normal,
         });
         if (inserted) summary.restoreProposals += 1;
       }
