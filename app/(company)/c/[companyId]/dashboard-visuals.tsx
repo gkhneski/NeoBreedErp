@@ -54,6 +54,7 @@ export type KpiData = {
 export type WeeklyBar = { label: string; value: number };
 export type TaskItem = {
   label: string;
+  sub: string;
   count: number;
   href: string;
   icon: keyof typeof ICONS;
@@ -428,29 +429,35 @@ export function DashboardVisuals({
               <Plus className="h-3.5 w-3.5" />
             </span>
           </div>
-          <ul className="mt-3 space-y-1">
+          <ul className="mt-4 space-y-1.5">
             {tasks.map((t) => {
               const Icon = ICONS[t.icon] ?? ClipboardList;
               return (
                 <li key={t.label}>
                   <Link
                     href={t.href}
-                    className="flex items-center gap-3 rounded-xl px-1.5 py-2 transition-colors hover:bg-secondary/50"
+                    className="flex items-center gap-3 rounded-2xl px-2 py-2 transition-colors hover:bg-secondary/50"
                   >
                     <span
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${TONES[t.tone]}`}
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${TONES[t.tone]}`}
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className="h-[18px] w-[18px]" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">
+                      <span className="block truncate text-sm font-semibold">
                         {t.label}
                       </span>
-                      <span className="block text-xs text-muted-foreground">
-                        {t.count} kayıt
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {t.sub}
                       </span>
                     </span>
-                    <span className="text-lg font-semibold tabular-nums text-muted-foreground">
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold tabular-nums ${
+                        t.count > 0
+                          ? TONES[t.tone]
+                          : "bg-secondary text-muted-foreground"
+                      }`}
+                    >
                       {t.count}
                     </span>
                   </Link>

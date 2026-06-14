@@ -676,6 +676,7 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
   const tasks: TaskItem[] = [
     {
       label: "Bekleyen Kalite Kontrol",
+      sub: "Karantinadaki lotlar",
       count: stats.pendingQuality,
       href: companyModulePath(companyId, "quality"),
       icon: "shield",
@@ -683,6 +684,7 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
     },
     {
       label: "Açık Siparişler",
+      sub: "Hazırlanacak / açık",
       count: stats.openOrders,
       href: companyModulePath(companyId, "shipments"),
       icon: "clipboard",
@@ -690,6 +692,7 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
     },
     {
       label: "Bekleyen Fiyat Onayı",
+      sub: "Pazaryeri indirimleri",
       count: stats.pendingPriceApprovals,
       href: companyModulePath(companyId, "marketplace"),
       icon: "store",
@@ -697,6 +700,7 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
     },
     {
       label: "Kritik / Geçmiş SKT",
+      sub: "Acil eritilecek stok",
       count: expiry.critical + expiry.expired,
       href: finishedStockPath,
       icon: "alert",
