@@ -220,3 +220,131 @@ export const trendyolAdapter: MarketplaceAdapter = {
 };
 
 export type { PriceStockItem };
+
+// =============================================================================
+// Model B — publish a product from the ERP to Trendyol (catalog + create).
+// These are Trendyol-specific helpers, not part of the generic adapter.
+// =============================================================================
+
+export type TrendyolCategoryAttribute = {
+  attributeId: number;
+  name: string;
+  required: boolean;
+  allowCustom: boolean;
+  values: Array<{ id: number; name: string }>;
+};
+
+export async function getCategoryAttributes(
+  conn: MarketplaceConnectionInfo,
+  categoryId: number,
+): Promise<TrendyolCategoryAttribute[]> {
+  const data = (await trendyolFetch(
+    conn,
+    `/integration/product/product-categories/${categoryId}/attributes`,
+  )) as {
+    categoryAttributes?: Array<{
+      attribute: { id: number; name: string };
+      required: boolean;
+      allowCustom: boolean;
+      attributeValues?: Array<{ id: number; name: string }>;
+    }>;
+  } | null;
+
+  return (data?.categoryAttributes ?? []).map((a) => ({
+    attributeId: a.attribute.id,
+    name: a.attribute.name,
+    required: a.required,
+    allowCustom: a.allowCustom,
+    values: (a.attributeValues ?? []).map((v) => ({ id: v.id, name: v.name })),
+  }));
+}
+
+export async function getBrandsByName(
+  conn: MarketplaceConnectionInfo,
+  name: string,
+): Promise<Array<{ id: number; name: string }>> {
+  const data = (await trendyolFetch(
+    conn,
+    `/integration/product/brands/by-name?name=${encodeURIComponent(name)}`,
+  )) as Array<{ id: number; name: string }> | { brands?: Array<{ id: number; name: string }> } | null;
+  if (Array.isArray(data)) return data;
+  return data?.brands ?? [];
+}
+
+export type TrendyolAddress = {
+  id: number;
+  isShipmentAddress: boolean;
+  isReturningAddress: boolean;
+  fullAddress: string | null;
+};
+
+export async function getSupplierAddresses(
+  conn: MarketplaceConnectionInfo,
+): Promise<TrendyolAddress[]> {
+  const data = (await trendyolFetch(
+    conn,
+    `/integration/sellers/${conn.sellerId}/addresses`,
+  )) as { supplierAddresses?: TrendyolAddress[] } | null;
+  return data?.supplierAddresses ?? [];
+}
+
+export type CreateProductAttribute =
+  | { attributeId: number; attributeValueId: number }
+  | { attributeId: number; customAttributeValue: string };
+
+export type CreateProductItem = {
+  barcode: string;
+  title: string;
+  productMainId: string;
+  brandId: number;
+  categoryId: number;
+  quantity: number;
+  stockCode: string;
+  dimensionalWeight: number;
+  description: string;
+  currencyType: "TRY";
+  listPrice: number;
+  salePrice: number;
+  vatRate: number;
+  cargoCompanyId: number;
+  shipmentAddressId?: number;
+  returningAddressId?: number;
+  images: Array<{ url: string }>;
+  attributes: CreateProductAttribute[];
+};
+
+// Creates (or updates by barcode) products on Trendyol. Returns the async
+// batchRequestId; approval is then polled via getBatchStatus.
+export async function createProducts(
+  conn: MarketplaceConnectionInfo,
+  items: CreateProductItem[],
+): Promise<{ batchRequestId: string }> {
+  if (items.length === 0) {
+    throw new MarketplaceError("Gönderilecek ürün yok.");
+  }
+  for (const item of items) {
+    if (item.images.length === 0) {
+      throw new MarketplaceError(
+        `En az bir ürün görseli gerekli (barkod ${item.barcode}).`,
+      );
+    }
+    if (item.listPrice < item.salePrice) {
+      throw new MarketplaceError(
+        `Liste fiyatı satış fiyatından küçük olamaz (barkod ${item.barcode}).`,
+      );
+    }
+  }
+
+  const data = (await trendyolFetch(
+    conn,
+    `/integration/product/sellers/${conn.sellerId}/products`,
+    { method: "POST", body: JSON.stringify({ items }) },
+  )) as { batchRequestId?: string } | null;
+
+  if (!data?.batchRequestId) {
+    throw new MarketplaceError(
+      "Trendyol ürün oluşturma bir takip numarası (batchRequestId) döndürmedi.",
+    );
+  }
+  return { batchRequestId: data.batchRequestId };
+}
