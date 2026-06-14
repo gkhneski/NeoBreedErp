@@ -614,6 +614,9 @@ export type Database = {
           sync_status: MarketplaceSyncStatus;
           sync_error: string | null;
           applied_sale_price: number | null;
+          content_batch_id: string | null;
+          publish_status: "none" | "pending" | "approved" | "rejected";
+          publish_error: string | null;
           created_at: string;
           updated_at: string;
           deleted_at: string | null;
@@ -639,6 +642,9 @@ export type Database = {
           sync_status?: MarketplaceSyncStatus;
           sync_error?: string | null;
           applied_sale_price?: number | null;
+          content_batch_id?: string | null;
+          publish_status?: "none" | "pending" | "approved" | "rejected";
+          publish_error?: string | null;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
@@ -664,6 +670,9 @@ export type Database = {
           sync_status?: MarketplaceSyncStatus;
           sync_error?: string | null;
           applied_sale_price?: number | null;
+          content_batch_id?: string | null;
+          publish_status?: "none" | "pending" | "approved" | "rejected";
+          publish_error?: string | null;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;

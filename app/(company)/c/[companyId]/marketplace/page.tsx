@@ -130,6 +130,9 @@ export default async function MarketplacePage({ params }: PageProps) {
             <Link href={companyModulePath(companyId, "marketplace", "import")}>
               <Button variant="outline">Trendyol&apos;dan Listeleri Çek</Button>
             </Link>
+            <Link href={companyModulePath(companyId, "marketplace", "publish")}>
+              <Button>Trendyol&apos;a Ürün Yayınla</Button>
+            </Link>
           </div>
         ) : null}
       </header>
