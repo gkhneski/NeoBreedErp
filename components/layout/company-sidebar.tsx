@@ -137,12 +137,12 @@ export function CompanySidebar({
   const homeActive = pathname === home;
 
   return (
-    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
+    <div className="flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       <Link
         href={home}
         className="flex flex-col gap-0.5 border-b border-sidebar-border px-5 py-4"
       >
-        <span className="text-sm font-semibold tracking-tight text-white">
+        <span className="text-sm font-semibold tracking-tight text-foreground">
           NeoBreed-ERP
         </span>
         <span className="truncate text-xs text-sidebar-muted">
@@ -157,7 +157,7 @@ export function CompanySidebar({
             "relative flex items-center gap-2.5 rounded-md px-3 py-2 transition-colors",
             homeActive
               ? "bg-sidebar-active text-sidebar-accent before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-sidebar-accent"
-              : "hover:bg-sidebar-active/60 hover:text-white",
+              : "hover:bg-sidebar-active/60 hover:text-foreground",
           )}
         >
           <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -178,7 +178,7 @@ export function CompanySidebar({
                     }))
                   }
                   aria-expanded={expanded}
-                  className="flex w-full items-center justify-between rounded-md px-3 py-2 text-[11px] font-medium uppercase tracking-widest text-sidebar-muted transition-colors hover:bg-sidebar-active/60 hover:text-white"
+                  className="flex w-full items-center justify-between rounded-md px-3 py-2 text-[11px] font-medium uppercase tracking-widest text-sidebar-muted transition-colors hover:bg-sidebar-active/60 hover:text-foreground"
                 >
                   <span>{section.title}</span>
                   <ChevronDown
@@ -204,7 +204,7 @@ export function CompanySidebar({
                             "relative flex items-center gap-2.5 rounded-md px-3 py-2 transition-colors",
                             active
                               ? "bg-sidebar-active text-sidebar-accent before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-sidebar-accent"
-                              : "hover:bg-sidebar-active/60 hover:text-white",
+                              : "hover:bg-sidebar-active/60 hover:text-foreground",
                           )}
                         >
                           <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
