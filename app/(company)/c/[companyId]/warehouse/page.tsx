@@ -147,8 +147,8 @@ export default async function WarehousePage({ params }: PageProps) {
         <div className="space-y-3">
           <h2 className="text-sm font-semibold">Güncel Lotlar</h2>
           {lotRows.length > 0 ? (
-            <div className="overflow-hidden rounded-md border border-border">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="w-full min-w-[640px] text-sm">
                 <tbody>
                   {lotRows.map((lot) => (
                     <tr key={lot.id} className="border-t border-border first:border-t-0">
@@ -196,8 +196,8 @@ export default async function WarehousePage({ params }: PageProps) {
         <div className="space-y-3">
           <h2 className="text-sm font-semibold">Son Hareketler</h2>
           {movementRows.length > 0 ? (
-            <div className="overflow-hidden rounded-md border border-border">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="w-full min-w-[640px] text-sm">
                 <tbody>
                   {movementRows.map((movement) => (
                     <tr key={movement.id} className="border-t border-border first:border-t-0">

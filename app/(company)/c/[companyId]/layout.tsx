@@ -44,7 +44,7 @@ export default async function CompanyAppLayout({ children, params }: LayoutProps
           </div>
         </header>
 
-        <main className="flex-1 px-6 py-6">
+        <main className="flex-1 px-4 py-5 sm:px-6 sm:py-6">
           <div className="mx-auto w-full max-w-6xl">{children}</div>
         </main>
       </div>

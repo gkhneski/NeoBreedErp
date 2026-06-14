@@ -51,8 +51,8 @@ export default async function PlatformUsersPage() {
           description="Bir firmaya kullanıcı atandığında bu listede görünecektir."
         />
       ) : (
-        <div className="overflow-hidden rounded-md border border-border bg-card">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-md border border-border bg-card">
+          <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-secondary/40 text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="px-4 py-2 text-left font-medium">Kullanıcı</th>

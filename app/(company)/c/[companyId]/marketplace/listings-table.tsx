@@ -230,8 +230,8 @@ export function ListingsTable({
         </p>
       ) : null}
 
-      <div className="overflow-hidden rounded-md border border-border">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-md border border-border">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-3 py-2 text-left font-medium">Ürün</th>

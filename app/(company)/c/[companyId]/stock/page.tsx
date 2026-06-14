@@ -110,8 +110,8 @@ function StockTable({
           </Link>
         </div>
       ) : null}
-      <div className="overflow-hidden rounded-md border border-border">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-md border border-border">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-3 py-2 text-left font-medium">Kod</th>
@@ -199,8 +199,8 @@ function MovementsTable({
           </Link>
         </div>
       ) : null}
-      <div className="overflow-hidden rounded-md border border-border">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-md border border-border">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-3 py-2 text-left font-medium">Tarih</th>
@@ -313,8 +313,8 @@ function FinishedLotTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-md border border-border">
-      <table className="w-full text-sm">
+    <div className="overflow-x-auto rounded-md border border-border">
+      <table className="w-full min-w-[640px] text-sm">
         <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
             <th className="px-3 py-2 text-left font-medium">Lot No</th>

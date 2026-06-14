@@ -356,8 +356,8 @@ function FrozenResultsTable({ rows }: { rows: ResultRow[] }) {
   return (
     <section className="space-y-3">
       <h2 className="text-sm font-semibold">Kontrol Sonuçları (dondurulmuş)</h2>
-      <div className="overflow-hidden rounded-md border border-border">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-md border border-border">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-3 py-2 text-left font-medium">#</th>
