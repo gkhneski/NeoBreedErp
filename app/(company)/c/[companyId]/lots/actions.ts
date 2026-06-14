@@ -12,7 +12,6 @@ import {
 } from "@/lib/currencies";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
-  MASTER_DATA_WRITE_ROLES,
   QUALITY_WRITE_ROLES,
   STOCK_WRITE_ROLES,
   companyModulePath,
@@ -334,7 +333,9 @@ export type CreateProductResult =
   | { ok: false; error: string };
 
 // Barkodu tanimsiz urunu, recete olmadan, bitmis urun olarak olusturur.
-// Recete fabrika uretimi basladiginda eklenir. Yalnizca ana-veri yazma rolleri.
+// Recete fabrika uretimi basladiginda eklenir. Stok girisi yapabilen herkes
+// (depocu dahil) okuttugu kutuyu bitmis urun olarak tanimlayabilir; hammadde/
+// tedarikci/recete/fiyat kapsami acilmaz.
 export async function createFinishedProductWithBarcode(
   companyIdInput: string,
   barcodeInput: string,
@@ -351,7 +352,7 @@ export async function createFinishedProductWithBarcode(
 
   const { ctx, companyId } = await requireCompanyRole(
     parsed.data.company_id,
-    MASTER_DATA_WRITE_ROLES,
+    STOCK_WRITE_ROLES,
   );
   const supabase = await createServerSupabaseClient();
 

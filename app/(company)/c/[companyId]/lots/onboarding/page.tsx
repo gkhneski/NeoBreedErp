@@ -4,7 +4,6 @@ import { requireCompanyRole } from "@/lib/auth";
 import type { LocationOption } from "@/lib/locations";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
-  MASTER_DATA_WRITE_ROLES,
   STOCK_WRITE_ROLES,
   canWriteCompanyData,
   companyModulePath,
@@ -88,7 +87,7 @@ export default async function LotOnboardingPage({ params }: PageProps) {
         materials={materials ?? []}
         locations={locationRows}
         defaultLocationId={defaultLocationId}
-        canCreateProduct={canWriteCompanyData(role, MASTER_DATA_WRITE_ROLES)}
+        canCreateProduct={canWriteCompanyData(role, STOCK_WRITE_ROLES)}
       />
     </div>
   );
