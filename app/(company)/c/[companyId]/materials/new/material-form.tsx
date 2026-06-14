@@ -43,6 +43,7 @@ type MaterialInitial = {
   name: string;
   type: "raw" | "finished";
   base_uom: string;
+  barcode: string | null;
   density: number | null;
   default_supplier_id: string | null;
   allergen_flags: unknown;
@@ -144,6 +145,20 @@ export function MaterialForm({
             ))}
           </select>
           <FieldError message={state.fieldErrors?.base_uom} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="barcode">Barkod (GTIN)</Label>
+          <Input
+            id="barcode"
+            name="barcode"
+            defaultValue={initial?.barcode ?? ""}
+            placeholder="Kutudaki barkod (ör. 8681689328238)"
+            className="font-mono"
+          />
+          <p className="text-xs text-muted-foreground">
+            Stok girişinde barkod okutunca ürün otomatik bulunur. Boş bırakılabilir.
+          </p>
+          <FieldError message={state.fieldErrors?.barcode} />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="density">Yoğunluk (g/mL)</Label>

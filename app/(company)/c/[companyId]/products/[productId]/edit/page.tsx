@@ -21,6 +21,7 @@ type ProductInitial = {
   name: string;
   type: "raw" | "finished";
   base_uom: string;
+  barcode: string | null;
   density: number | null;
   default_supplier_id: string | null;
   allergen_flags: unknown;
@@ -41,7 +42,7 @@ export default async function EditProductPage({ params }: PageProps) {
     supabase
       .from("materials")
       .select(
-        "id, code, name, type, base_uom, density, default_supplier_id, allergen_flags, storage_conditions, regulatory_notes, notes",
+        "id, code, name, type, base_uom, barcode, density, default_supplier_id, allergen_flags, storage_conditions, regulatory_notes, notes",
       )
       .eq("company_id", companyId)
       .eq("id", productId)

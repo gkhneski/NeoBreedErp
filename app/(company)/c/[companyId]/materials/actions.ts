@@ -20,6 +20,17 @@ const materialSchema = z.object({
   name: z.string().trim().min(2, "Ad en az 2 karakter olmalı.").max(200),
   type: z.enum(["raw", "finished"], { message: "Tip seçiniz." }),
   base_uom: z.enum(ALLOWED_UOM, { message: "Geçerli bir birim seçiniz." }),
+  barcode: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : null))
+    .refine(
+      (v) =>
+        v === null ||
+        (v.length >= 3 && v.length <= 64 && /^[A-Za-z0-9._\-/]+$/.test(v)),
+      { message: "Barkod 3-64 karakter; harf, rakam ve . _ - / olabilir." },
+    ),
   density: z
     .string()
     .trim()
@@ -68,6 +79,7 @@ function parseMaterialForm(formData: FormData) {
     name: formData.get("name") ?? "",
     type: formData.get("type") ?? "",
     base_uom: formData.get("base_uom") ?? "",
+    barcode: formData.get("barcode") ?? "",
     density: formData.get("density") ?? "",
     default_supplier_id: formData.get("default_supplier_id") ?? "",
     allergen_flags: formData.getAll("allergen_flags").map(String),
@@ -140,6 +152,7 @@ export async function createMaterial(
     name: parsed.data.name,
     type: parsed.data.type,
     base_uom: parsed.data.base_uom,
+    barcode: parsed.data.barcode,
     density: parsed.data.density,
     default_supplier_id: parsed.data.default_supplier_id,
     allergen_flags: parsed.data.allergen_flags,
@@ -152,6 +165,12 @@ export async function createMaterial(
 
   if (error) {
     if (error.code === "23505") {
+      if (error.message?.includes("barcode")) {
+        return {
+          error: "Bu barkod başka bir ürüne tanımlı.",
+          fieldErrors: { barcode: "Barkod benzersiz olmalı." },
+        };
+      }
       return { error: "Otomatik kod oluşturulamadı; lütfen tekrar deneyin." };
     }
     if (error.code === "23514") {
@@ -201,6 +220,7 @@ export async function updateMaterial(
       name: parsed.data.name,
       type: parsed.data.type,
       base_uom: parsed.data.base_uom,
+      barcode: parsed.data.barcode,
       density: parsed.data.density,
       default_supplier_id: parsed.data.default_supplier_id,
       allergen_flags: parsed.data.allergen_flags,
@@ -213,6 +233,12 @@ export async function updateMaterial(
     .eq("company_id", companyId);
 
   if (error) {
+    if (error.code === "23505") {
+      return {
+        error: "Bu barkod başka bir ürüne tanımlı.",
+        fieldErrors: { barcode: "Barkod benzersiz olmalı." },
+      };
+    }
     if (error.code === "23514") {
       return {
         error: "Seçilen tedarikçi farklı bir firmaya ait.",
