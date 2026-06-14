@@ -33,19 +33,15 @@ export default async function LotOnboardingPage({ params }: PageProps) {
   );
   const supabase = await createServerSupabaseClient();
 
-  // Depocu (operator) yalnizca bitmis urun girer; hammadde fabrika konusu.
-  let materialsQuery = supabase
-    .from("materials")
-    .select("id, code, name, type, base_uom, barcode")
-    .eq("company_id", companyId)
-    .is("deleted_at", null);
-  if (role === "operator") {
-    materialsQuery = materialsQuery.eq("type", "finished");
-  }
-
+  // Bu ekran yalnizca BITMIS URUN stok girisi icindir (depo/satis).
+  // Hammadde mal kabulu ayri akistir (Lotlar -> Yeni Lot: tedarikci/maliyet).
   const [{ data: materials }, { data: locations }] = await Promise.all([
-    materialsQuery
-      .order("type", { ascending: false })
+    supabase
+      .from("materials")
+      .select("id, code, name, type, base_uom, barcode")
+      .eq("company_id", companyId)
+      .eq("type", "finished")
+      .is("deleted_at", null)
       .order("code")
       .returns<MaterialRow[]>(),
     supabase
@@ -74,13 +70,14 @@ export default async function LotOnboardingPage({ params }: PageProps) {
           </Link>
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">
-          Mevcut Stok Girişi (Eski Ürünler)
+          Bitmiş Ürün Stok Girişi
         </h1>
         <p className="text-sm text-muted-foreground">
-          Depoda halihazırda bulunan ürünleri hızlıca kaydedin. Kutunun
-          barkodunu el okuyucu veya tabletin kamerasıyla okutun; ürün otomatik
-          seçilir (tanımsızsa oracıkta ekleyebilirsiniz). Ardından lot numarası,
-          son kullanma tarihi, adet ve rafı girin. Kayıt doğrudan
+          Depodaki <strong>bitmiş ürünleri</strong> hızlıca kaydedin (hammadde
+          değil — o, Lotlar → Yeni Lot&apos;tan girilir). Kutunun barkodunu el
+          okuyucu veya tabletin kamerasıyla okutun; ürün otomatik seçilir
+          (tanımsızsa oracıkta ekleyebilirsiniz). Ardından lot numarası, son
+          kullanma tarihi, adet ve depoyu girin. Kayıt doğrudan
           &quot;Serbest&quot; durumda açılır; QR etiketini yazdırıp ürünün
           üzerine yapıştırın. Form art arda giriş için seçimleri korur.
         </p>
