@@ -46,10 +46,11 @@ export default async function PurchaseReceiptsPage({ params }: PageProps) {
     .select(
       "id, quantity, unit_cost, occurred_at, notes, " +
         "materials:material_id(code, name, base_uom), " +
-        "material_lots:lot_id(lot_number)",
+        "material_lots:lot_id!inner(lot_number, deleted_at)",
     )
     .eq("company_id", companyId)
     .eq("kind", "receipt")
+    .is("material_lots.deleted_at", null)
     .order("occurred_at", { ascending: false })
     .limit(200)
     .returns<ReceiptRow[]>();

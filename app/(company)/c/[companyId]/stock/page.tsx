@@ -477,9 +477,11 @@ export default async function StockPage({ params, searchParams }: PageProps) {
       .select(
         "id, kind, quantity, unit_cost, reason, occurred_at, notes, " +
           `materials:material_id${isOperator ? "!inner" : ""}(code, name, base_uom), ` +
-          "material_lots:lot_id(lot_number)",
+          "material_lots:lot_id!inner(lot_number, deleted_at)",
       )
-      .eq("company_id", companyId);
+      .eq("company_id", companyId)
+      // Hide movements of removed (soft-deleted) lots from the ledger view.
+      .is("material_lots.deleted_at", null);
     if (isOperator) {
       query = query.eq("materials.type", "finished");
     }

@@ -171,8 +171,9 @@ async function loadWeeklyMovements(companyId: string): Promise<WeeklyBar[]> {
 
   const { data } = await supabase
     .from("stock_movements")
-    .select("occurred_at")
+    .select("occurred_at, material_lots:lot_id!inner(deleted_at)")
     .eq("company_id", companyId)
+    .is("material_lots.deleted_at", null)
     .gte("occurred_at", since.toISOString())
     .limit(5000);
 

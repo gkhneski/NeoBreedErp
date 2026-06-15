@@ -75,10 +75,11 @@ export default async function WarehousePage({ params }: PageProps) {
   let movementsQuery = supabase
     .from("stock_movements")
     .select(
-      `id, kind, quantity, occurred_at, materials:material_id${isOperator ? "!inner" : ""}(code, name, base_uom, type), material_lots:lot_id(lot_number), ` +
+      `id, kind, quantity, occurred_at, materials:material_id${isOperator ? "!inner" : ""}(code, name, base_uom, type), material_lots:lot_id!inner(lot_number, deleted_at), ` +
         "from_location:from_location_id(name), to_location:to_location_id(name)",
     )
-    .eq("company_id", companyId);
+    .eq("company_id", companyId)
+    .is("material_lots.deleted_at", null);
   if (isOperator) movementsQuery = movementsQuery.eq("materials.type", "finished");
 
   const [{ data: lots }, { data: movements }] = await Promise.all([
