@@ -120,6 +120,11 @@ export function OperatorOrderNotifier({ companyId }: { companyId: string }) {
               <p className="truncate text-xs text-muted-foreground">
                 {o.summary || "—"}
               </p>
+              {o.order_date ? (
+                <p className="text-[11px] text-muted-foreground">
+                  {new Date(o.order_date).toLocaleString("tr-TR")}
+                </p>
+              ) : null}
             </div>
             <Button
               size="sm"

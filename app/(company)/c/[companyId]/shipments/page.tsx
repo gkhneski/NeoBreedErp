@@ -75,6 +75,24 @@ export default async function ShipmentsListPage({
   const canWrite = canWriteCompanyData(role, SHIPMENT_WRITE_ROLES);
   const baseHref = companyModulePath(companyId, "shipments");
 
+  const { data: tyOrders } = await supabase
+    .from("marketplace_orders")
+    .select("order_number, status, customer_name, order_date, lines")
+    .eq("company_id", companyId)
+    .eq("channel", "trendyol")
+    .order("order_date", { ascending: false, nullsFirst: false })
+    .limit(100)
+    .returns<
+      Array<{
+        order_number: string;
+        status: string | null;
+        customer_name: string | null;
+        order_date: string | null;
+        lines: Array<{ name: string; quantity: number }> | null;
+      }>
+    >();
+  const tyRows = tyOrders ?? [];
+
   return (
     <div className="space-y-6">
       <header className="flex items-end justify-between gap-4">
@@ -91,6 +109,53 @@ export default async function ShipmentsListPage({
           </Link>
         ) : null}
       </header>
+
+      {tyRows.length > 0 ? (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold">
+            Trendyol Siparişleri ({tyRows.length})
+          </h2>
+          <div className="overflow-x-auto rounded-md border border-border">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium">Tarih / Saat</th>
+                  <th className="px-3 py-2 text-left font-medium">Sipariş No</th>
+                  <th className="px-3 py-2 text-left font-medium">Müşteri</th>
+                  <th className="px-3 py-2 text-left font-medium">Ürün</th>
+                  <th className="px-3 py-2 text-left font-medium">Durum</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tyRows.map((o) => (
+                  <tr key={o.order_number} className="border-t border-border">
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {o.order_date ? formatDateTime(o.order_date) : "—"}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-xs">
+                      {o.order_number}
+                    </td>
+                    <td className="px-3 py-2">{o.customer_name ?? "—"}</td>
+                    <td className="max-w-xs px-3 py-2 text-xs text-muted-foreground">
+                      <span className="line-clamp-2">
+                        {(o.lines ?? [])
+                          .map((l) => `${l.name} x${l.quantity}`)
+                          .join(", ") || "—"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <Badge variant="secondary">{o.status ?? "—"}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Pazaryeri siparişleri Panel her açıldığında otomatik güncellenir.
+          </p>
+        </section>
+      ) : null}
 
       <div className="flex flex-wrap gap-1.5">
         {STATUS_FILTERS.map((f) => {
