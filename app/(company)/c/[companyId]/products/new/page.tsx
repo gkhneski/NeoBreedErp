@@ -28,6 +28,13 @@ export default async function NewProductPage({ params }: PageProps) {
     .is("deleted_at", null)
     .order("code", { ascending: true });
 
+  const { data: trendyolProducts } = await supabase
+    .from("marketplace_remote_products")
+    .select("barcode, title, image_url")
+    .eq("company_id", companyId)
+    .eq("channel", "trendyol")
+    .order("title", { ascending: true });
+
   if (!rawMaterials || rawMaterials.length === 0) {
     return (
       <div className="max-w-3xl space-y-6">
@@ -63,7 +70,11 @@ export default async function NewProductPage({ params }: PageProps) {
           Ürün kartını açın ve kayıtlı hammaddelerden reçete kalemlerini seçin.
         </p>
       </header>
-      <ProductRecipeForm companyId={companyId} rawMaterials={rawMaterials} />
+      <ProductRecipeForm
+        companyId={companyId}
+        rawMaterials={rawMaterials}
+        trendyolProducts={trendyolProducts ?? []}
+      />
     </div>
   );
 }

@@ -27,6 +27,7 @@ const productRecipeSchema = z.object({
       message: "Verim miktarı pozitif bir sayı olmalı.",
     }),
   yield_uom: z.enum(ALLOWED_UOM, { message: "Geçerli bir verim birimi seçiniz." }),
+  product_barcode: z.string().trim().max(128).optional().or(z.literal("")),
   notes: z.string().trim().max(2000).optional().or(z.literal("")),
 });
 
@@ -73,6 +74,7 @@ export async function createProductWithRecipe(
     recipe_name: formData.get("recipe_name") ?? "",
     yield_quantity: formData.get("yield_quantity") ?? "",
     yield_uom: formData.get("yield_uom") ?? "",
+    product_barcode: formData.get("product_barcode") ?? "",
     notes: formData.get("notes") ?? "",
   });
 
@@ -157,6 +159,7 @@ export async function createProductWithRecipe(
       name: parsed.data.product_name,
       type: "finished",
       base_uom: parsed.data.product_uom,
+      barcode: emptyToNull(parsed.data.product_barcode),
       allergen_flags: [],
       notes: emptyToNull(parsed.data.notes),
       created_by: ctx.userId,

@@ -53,18 +53,30 @@ function formatQuantity(value: number): string {
   });
 }
 
+type TrendyolProductOption = {
+  barcode: string;
+  title: string | null;
+  image_url: string | null;
+};
+
 export function ProductRecipeForm({
   companyId,
   rawMaterials,
+  trendyolProducts,
 }: {
   companyId: string;
   rawMaterials: RawMaterialOption[];
+  trendyolProducts: TrendyolProductOption[];
 }) {
   const [state, formAction] = useActionState(
     createProductWithRecipe,
     initialState,
   );
   const cancelHref = companyModulePath(companyId, "products");
+
+  const [productName, setProductName] = useState("");
+  const [productBarcode, setProductBarcode] = useState("");
+  const selectedTy = trendyolProducts.find((p) => p.barcode === productBarcode);
 
   const [query, setQuery] = useState("");
   const q = query.trim().toLocaleLowerCase("tr");
@@ -91,6 +103,45 @@ export function ProductRecipeForm({
           </p>
         </div>
 
+        {trendyolProducts.length > 0 ? (
+          <div className="space-y-1.5 rounded-xl border border-border bg-background p-3">
+            <Label htmlFor="ty_product">Trendyol ürününden doldur (opsiyonel)</Label>
+            <div className="flex items-center gap-3">
+              {selectedTy?.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={selectedTy.image_url}
+                  alt=""
+                  className="h-12 w-12 shrink-0 rounded border border-border object-cover"
+                />
+              ) : null}
+              <select
+                id="ty_product"
+                value={productBarcode}
+                onChange={(e) => {
+                  const p = trendyolProducts.find((x) => x.barcode === e.target.value);
+                  setProductBarcode(e.target.value);
+                  if (p) setProductName(p.title ?? "");
+                }}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">— Trendyol&apos;dan seç (ad + barkod otomatik dolar) —</option>
+                {trendyolProducts.map((p) => (
+                  <option key={p.barcode} value={p.barcode}>
+                    {(p.title ?? "—").slice(0, 70)} · {p.barcode}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Seçince ürün adı Trendyol&apos;daki adla birebir dolar ve barkod
+              ürüne kaydedilir; istersen adı yine de düzenleyebilirsin.
+            </p>
+          </div>
+        ) : null}
+
+        <input type="hidden" name="product_barcode" value={productBarcode} />
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label>Kod</Label>
@@ -98,7 +149,13 @@ export function ProductRecipeForm({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="product_name">Ürün Adı *</Label>
-            <Input id="product_name" name="product_name" required />
+            <Input
+              id="product_name"
+              name="product_name"
+              required
+              value={productName}
+              onChange={(e) => setProductName(e.target.value)}
+            />
             <FieldError message={state.fieldErrors?.product_name} />
           </div>
           <div className="space-y-1.5">
