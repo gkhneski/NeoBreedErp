@@ -74,6 +74,7 @@ export type StatusStripData = {
   toPrepare: number;
   urgentExpiry: number;
   shippedToday: number;
+  urgentLabel: string | null;
   readyHref: string;
   prepareHref: string;
   urgentHref: string;
@@ -429,61 +430,80 @@ function StatusTile({
   );
 }
 
+const STATUS_BANNER: Record<
+  StatusLevel,
+  { tint: string; dot: string; arrow: string }
+> = {
+  ok: {
+    tint: "bg-emerald-500/10 text-emerald-800 ring-1 ring-emerald-500/25 dark:text-emerald-300",
+    dot: "bg-emerald-500",
+    arrow: "text-emerald-600/70 dark:text-emerald-400/70",
+  },
+  attention: {
+    tint: "bg-amber-500/10 text-amber-800 ring-1 ring-amber-500/25 dark:text-amber-300",
+    dot: "bg-amber-500",
+    arrow: "text-amber-600/70 dark:text-amber-400/70",
+  },
+  urgent: {
+    tint: "bg-rose-500/10 text-rose-800 ring-1 ring-rose-500/30 dark:text-rose-300",
+    dot: "bg-rose-500",
+    arrow: "text-rose-600/70 dark:text-rose-400/70",
+  },
+};
+
 export function StatusStrip({ data }: { data: StatusStripData }) {
   const mounted = useMounted();
   const level: StatusLevel =
     data.urgentExpiry > 0 ? "urgent" : data.toPrepare > 0 ? "attention" : "ok";
 
-  const grad: Record<StatusLevel, string> = {
-    ok: "from-green-800 via-green-600 to-emerald-500",
-    attention: "from-amber-600 via-amber-500 to-yellow-400",
-    urgent: "from-rose-700 via-red-600 to-orange-500",
-  };
   const title: Record<StatusLevel, string> = {
     ok: "Bugün her şey yolunda 🎉",
     attention: "Hazırlanacak işin var 👋",
-    urgent: "Acil: önce bunları sat ⚠️",
+    urgent: "Acil: önce bunu sat ⚠️",
   };
   const subtitle: Record<StatusLevel, string> = {
-    ok: "Hazırlanacak sipariş yok, acil ürün yok. Keyfine bak ☕",
-    attention: `${data.toPrepare} sipariş hazırlanacak. Acil SKT yok.`,
-    urgent: `${data.urgentExpiry} ürünün SKT'si kritik — önce bunları sat.${
-      data.toPrepare > 0 ? ` Ayrıca ${data.toPrepare} sipariş hazırla.` : ""
-    }`,
+    ok: "Acil iş yok, sipariş yok. Keyfine bak ☕",
+    attention: `${data.toPrepare} sipariş hazırlanacak`,
+    urgent:
+      data.urgentLabel ??
+      `${data.urgentExpiry} ürünün SKT'si kritik — önce bunları sat`,
   };
+  const bannerHref =
+    level === "urgent"
+      ? data.urgentHref
+      : level === "attention"
+        ? data.prepareHref
+        : data.readyHref;
+  const b = STATUS_BANNER[level];
 
   return (
     <section className="space-y-3">
-      <div
-        className={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${grad[level]} p-5 text-white shadow-[0_18px_40px_-18px_rgba(0,0,0,0.45)] transition-all duration-700 ease-out sm:p-6 ${
-          mounted ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
+      <Link
+        href={bannerHref}
+        className={`flex items-center gap-3 rounded-2xl p-3.5 transition-all duration-500 ease-out hover:-translate-y-0.5 sm:p-4 ${b.tint} ${
+          mounted ? "translate-y-0 opacity-100" : "-translate-y-1.5 opacity-0"
         }`}
       >
-        <div
-          className="pointer-events-none absolute -right-10 -top-12 h-44 w-44 rounded-full opacity-30"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(255,255,255,0.6) 0%, transparent 70%)",
-          }}
-        />
-        <div className="relative flex items-center gap-2.5">
-          <span className="relative flex h-3 w-3">
-            {level === "urgent" ? (
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
-            ) : null}
-            <span className="relative inline-flex h-3 w-3 rounded-full bg-white" />
-          </span>
-          <span className="text-xs font-semibold uppercase tracking-widest text-white/85">
-            Depo Durumu
-          </span>
+        <span className="relative flex h-2.5 w-2.5 shrink-0">
+          {level === "urgent" ? (
+            <span
+              className={`absolute inline-flex h-full w-full animate-ping rounded-full ${b.dot} opacity-60`}
+            />
+          ) : null}
+          <span
+            className={`relative inline-flex h-2.5 w-2.5 rounded-full ${b.dot}`}
+          />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold leading-tight sm:text-base">
+            {title[level]}
+          </p>
+          <p className="truncate text-xs opacity-80 sm:text-sm">
+            {subtitle[level]}
+          </p>
         </div>
-        <p className="relative mt-2 text-xl font-bold leading-tight tracking-tight sm:text-2xl">
-          {title[level]}
-        </p>
-        <p className="relative mt-1 text-sm text-white/90 sm:text-base">
-          {subtitle[level]}
-        </p>
-      </div>
+        <ArrowUpRight className={`h-4 w-4 shrink-0 ${b.arrow}`} />
+      </Link>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatusTile

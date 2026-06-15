@@ -12,6 +12,7 @@ import {
   type ExpiryThresholds,
 } from "@/lib/expiry";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { uomLabel } from "@/lib/uom";
 import {
   COMPANY_ROLE_LABELS,
   companyModulePath,
@@ -389,11 +390,20 @@ async function ClerkDashboard({
       }
     : null;
 
+  const urgentExpiry = expiry.critical + expiry.expired;
+  const urgentLot = urgentExpiry > 0 ? expiry.soonest[0] : null;
+  const urgentLabel = urgentLot
+    ? `${urgentLot.materials?.name ?? "Ürün"} · ${Number(
+        urgentLot.quantity_on_hand,
+      ).toLocaleString("tr-TR")} ${uomLabel(urgentLot.materials?.base_uom)}`
+    : null;
+
   const statusStrip: StatusStripData = {
     readyToShip: releasedLots ?? 0,
     toPrepare: toPrepare ?? 0,
-    urgentExpiry: expiry.critical + expiry.expired,
+    urgentExpiry,
     shippedToday: shippedToday ?? 0,
+    urgentLabel,
     readyHref: finishedStockPath,
     prepareHref: `${shipmentsPath}?durum=preparing`,
     urgentHref: finishedStockPath,
