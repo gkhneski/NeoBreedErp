@@ -207,6 +207,7 @@ type ExpiringLotRow = {
   lot_number: string;
   expiry_date: string | null;
   quantity_on_hand: number;
+  material_id: string;
   materials: { name: string; base_uom: string } | null;
   locations: { code: string; name: string } | null;
 };
@@ -247,7 +248,7 @@ async function loadExpiryCounts(
     supabase
       .from("material_lots")
       .select(
-        "id, lot_number, expiry_date, quantity_on_hand, " +
+        "id, lot_number, expiry_date, quantity_on_hand, material_id, " +
           "materials:material_id!inner(name, base_uom, type), " +
           "locations:location_id(code, name)",
       )
@@ -406,7 +407,9 @@ async function ClerkDashboard({
     urgentLabel,
     readyHref: finishedStockPath,
     prepareHref: `${shipmentsPath}?durum=preparing`,
-    urgentHref: finishedStockPath,
+    urgentHref: urgentLot
+      ? `${companyModulePath(companyId, "sales")}?urun=${urgentLot.material_id}`
+      : finishedStockPath,
     shippedHref: `${shipmentsPath}?durum=shipped`,
   };
 

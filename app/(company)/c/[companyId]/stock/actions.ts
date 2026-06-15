@@ -65,6 +65,73 @@ function emptyToNull(v: string | undefined | null) {
   return t === "" ? null : t;
 }
 
+export type CorrectQtyResult = { ok: true } | { ok: false; error: string };
+
+// One-off opening-stock fix: set a finished lot's on-hand to the right amount.
+// stock_movements is append-only, so we post an adjustment for the delta and the
+// ledger trigger updates quantity_on_hand. Used to fix mis-entered LTD depot
+// quantities (e.g. a 470.999999 float) until factory output drives stock.
+export async function correctLotQuantity(
+  companyIdInput: string,
+  lotId: string,
+  newQuantity: number,
+): Promise<CorrectQtyResult> {
+  if (!z.string().uuid().safeParse(companyIdInput).success) {
+    return { ok: false, error: "Geçersiz firma." };
+  }
+  if (!z.string().uuid().safeParse(lotId).success) {
+    return { ok: false, error: "Geçersiz lot." };
+  }
+  if (!Number.isFinite(newQuantity) || newQuantity < 0) {
+    return { ok: false, error: "Geçerli bir adet giriniz (0 veya üzeri)." };
+  }
+
+  const { ctx, companyId } = await requireCompanyRole(
+    companyIdInput,
+    STOCK_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { data: lot, error: lotErr } = await supabase
+    .from("material_lots")
+    .select("id, material_id, quantity_on_hand")
+    .eq("id", lotId)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (lotErr || !lot) {
+    return { ok: false, error: "Lot bulunamadı veya bu firmaya ait değil." };
+  }
+
+  const delta = newQuantity - Number(lot.quantity_on_hand);
+  if (Math.abs(delta) < 1e-6) {
+    return { ok: true };
+  }
+
+  const { error } = await supabase.from("stock_movements").insert({
+    company_id: companyId,
+    material_id: lot.material_id,
+    lot_id: lot.id,
+    kind: "adjustment",
+    quantity: delta,
+    reason: "Açılış stok adedi düzeltmesi (tek seferlik)",
+    occurred_at: new Date().toISOString(),
+    created_by: ctx.userId,
+  });
+
+  if (error) {
+    if (error.code === "23514" && /below zero/i.test(error.message)) {
+      return { ok: false, error: "Adet negatife düşemez." };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath(companyModulePath(companyId, "stock"));
+  revalidatePath(companyModulePath(companyId, "lots"));
+  return { ok: true };
+}
+
 export async function recordStockMovement(
   _prev: StockMovementFormState,
   formData: FormData,

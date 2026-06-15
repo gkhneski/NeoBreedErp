@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { STOCK_WRITE_ROLES, canWriteCompanyData, companyModulePath } from "@/types/roles";
 
 import { KIND_LABEL, KIND_VARIANT } from "./constants";
+import { LotQuantityEditor } from "./lot-quantity-editor";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -300,9 +301,13 @@ const LOT_STATUS_VARIANT: Record<
 function FinishedLotTable({
   rows,
   thresholds,
+  companyId,
+  canEdit,
 }: {
   rows: FinishedLotRow[];
   thresholds: ExpiryThresholds;
+  companyId: string;
+  canEdit: boolean;
 }) {
   if (rows.length === 0) {
     return (
@@ -324,6 +329,9 @@ function FinishedLotTable({
             <th className="px-3 py-2 text-right font-medium">Eldeki</th>
             <th className="px-3 py-2 text-left font-medium">SKT</th>
             <th className="px-3 py-2 text-left font-medium">Durum</th>
+            {canEdit ? (
+              <th className="px-3 py-2 text-right font-medium">Düzelt</th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
@@ -388,6 +396,16 @@ function FinishedLotTable({
                     {LOT_STATUS_LABEL[lot.status]}
                   </Badge>
                 </td>
+                {canEdit ? (
+                  <td className="px-3 py-2 text-right">
+                    <LotQuantityEditor
+                      companyId={companyId}
+                      lotId={lot.id}
+                      current={Number(lot.quantity_on_hand)}
+                      uom={uomLabel(lot.materials?.base_uom)}
+                    />
+                  </td>
+                ) : null}
               </tr>
             );
           })}
@@ -533,7 +551,12 @@ export default async function StockPage({ params, searchParams }: PageProps) {
           canWrite={canWrite}
         />
       ) : isOperator && tab === "urun" && thresholds ? (
-        <FinishedLotTable rows={finishedLotRows} thresholds={thresholds} />
+        <FinishedLotTable
+          rows={finishedLotRows}
+          thresholds={thresholds}
+          companyId={companyId}
+          canEdit={canWrite}
+        />
       ) : (
         <StockTable
           rows={stockRows}

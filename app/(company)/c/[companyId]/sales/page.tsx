@@ -10,6 +10,7 @@ import {
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
+  searchParams: Promise<{ urun?: string }>;
 }
 
 type OrderRow = {
@@ -27,6 +28,12 @@ type ListingRow = {
   applied_sale_price: number | null;
   material_id: string;
 };
+type MaterialRow = {
+  id: string;
+  name: string;
+  barcode: string | null;
+  base_uom: string;
+};
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -34,8 +41,9 @@ function dayKey(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-export default async function SalesPage({ params }: PageProps) {
+export default async function SalesPage({ params, searchParams }: PageProps) {
   const { companyId: routeCompanyId } = await params;
+  const { urun: highlightId } = await searchParams;
   const { companyId } = await requireModuleAccess(routeCompanyId, "sales");
   const supabase = await createServerSupabaseClient();
 
@@ -43,7 +51,7 @@ export default async function SalesPage({ params }: PageProps) {
   const since90 = new Date(now.getTime() - 90 * DAY_MS);
   const since30 = new Date(now.getTime() - 30 * DAY_MS);
 
-  const [{ data: orders }, { data: remotes }, { data: listings }] =
+  const [{ data: orders }, { data: remotes }, { data: listings }, { data: materials }] =
     await Promise.all([
       supabase
         .from("marketplace_orders")
@@ -67,6 +75,14 @@ export default async function SalesPage({ params }: PageProps) {
         .eq("channel", "trendyol")
         .is("deleted_at", null)
         .returns<ListingRow[]>(),
+      supabase
+        .from("materials")
+        .select("id, name, barcode, base_uom")
+        .eq("company_id", companyId)
+        .eq("type", "finished")
+        .is("deleted_at", null)
+        .order("name", { ascending: true })
+        .returns<MaterialRow[]>(),
     ]);
 
   const orderRows = orders ?? [];
@@ -125,20 +141,19 @@ export default async function SalesPage({ params }: PageProps) {
     },
   );
 
-  // Sellable stock per material (released, not reserved to a customer).
-  const listingRows = listings ?? [];
-  const materialIds = Array.from(new Set(listingRows.map((l) => l.material_id)));
+  // Sellable stock per finished material (released, not reserved to a customer).
   const stockByMaterial = new Map<string, number>();
-  if (materialIds.length > 0) {
+  {
     const { data: lots } = await supabase
       .from("material_lots")
-      .select("material_id, quantity_on_hand")
+      .select("material_id, quantity_on_hand, materials:material_id!inner(type)")
       .eq("company_id", companyId)
-      .in("material_id", materialIds)
+      .eq("materials.type", "finished")
       .eq("status", "released")
       .is("owner_customer_id", null)
       .is("deleted_at", null)
-      .gt("quantity_on_hand", 0);
+      .gt("quantity_on_hand", 0)
+      .returns<Array<{ material_id: string; quantity_on_hand: number }>>();
     for (const lot of lots ?? []) {
       stockByMaterial.set(
         lot.material_id,
@@ -147,46 +162,41 @@ export default async function SalesPage({ params }: PageProps) {
       );
     }
   }
-  const listingByBarcode = new Map(listingRows.map((l) => [l.barcode, l]));
 
-  // Product cards: start from the catalog (images), then add any sold barcode
-  // missing from it. Each card carries 30-day units, price and sellable stock.
-  const cards = new Map<string, ProductCard>();
-  for (const r of remotes ?? []) {
-    const listing = listingByBarcode.get(r.barcode);
-    cards.set(r.barcode, {
-      barcode: r.barcode,
-      title: r.title ?? nameByBarcode.get(r.barcode) ?? "—",
-      imageUrl: r.image_url,
-      units: unitsByBarcode.get(r.barcode) ?? 0,
-      price: listing ? Number(listing.normal_sale_price ?? 0) : null,
-      appliedPrice:
-        listing && listing.applied_sale_price !== null
-          ? Number(listing.applied_sale_price)
-          : null,
-      stock: listing ? stockByMaterial.get(listing.material_id) ?? 0 : null,
-    });
-  }
-  for (const [bc, u] of unitsByBarcode) {
-    if (cards.has(bc)) continue;
-    const listing = listingByBarcode.get(bc);
-    cards.set(bc, {
-      barcode: bc,
-      title: nameByBarcode.get(bc) ?? "—",
-      imageUrl: null,
-      units: u,
-      price: listing ? Number(listing.normal_sale_price ?? 0) : null,
-      appliedPrice:
-        listing && listing.applied_sale_price !== null
-          ? Number(listing.applied_sale_price)
-          : null,
-      stock: listing ? stockByMaterial.get(listing.material_id) ?? 0 : null,
-    });
-  }
-
-  const products = Array.from(cards.values()).sort(
-    (a, b) => b.units - a.units || a.title.localeCompare(b.title, "tr"),
+  const remoteByBarcode = new Map((remotes ?? []).map((r) => [r.barcode, r]));
+  const listingByMaterial = new Map(
+    (listings ?? []).map((l) => [l.material_id, l]),
   );
+
+  // One card per real finished product. Image comes from the Trendyol catalog
+  // (matched on the product barcode), 30-day units from order lines, price from
+  // the listing, and stock from released lots. Keyed by material id so the
+  // dashboard "Acil" banner can deep-link straight to a product.
+  const products: ProductCard[] = (materials ?? [])
+    .map((m) => {
+      const bc = (m.barcode ?? "").trim();
+      const remote = bc ? remoteByBarcode.get(bc) : undefined;
+      const listing = listingByMaterial.get(m.id);
+      return {
+        id: m.id,
+        barcode: bc,
+        title: m.name,
+        imageUrl: remote?.image_url ?? null,
+        units: bc ? unitsByBarcode.get(bc) ?? 0 : 0,
+        price: listing ? Number(listing.normal_sale_price ?? 0) : null,
+        appliedPrice:
+          listing && listing.applied_sale_price !== null
+            ? Number(listing.applied_sale_price)
+            : null,
+        stock: stockByMaterial.get(m.id) ?? 0,
+      };
+    })
+    .sort((a, b) => b.units - a.units || a.title.localeCompare(b.title, "tr"));
+
+  const validHighlight =
+    highlightId && products.some((p) => p.id === highlightId)
+      ? highlightId
+      : null;
 
   return (
     <div className="space-y-6">
@@ -202,6 +212,7 @@ export default async function SalesPage({ params }: PageProps) {
         kpis={kpis}
         revenueSeries={revenueSeries}
         products={products}
+        highlightId={validHighlight}
       />
     </div>
   );

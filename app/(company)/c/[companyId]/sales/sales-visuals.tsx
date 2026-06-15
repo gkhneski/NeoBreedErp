@@ -22,6 +22,7 @@ export type SalesKpis = {
 };
 export type RevenueBar = { label: string; value: number };
 export type ProductCard = {
+  id: string;
   barcode: string;
   title: string;
   imageUrl: string | null;
@@ -276,10 +277,26 @@ function Lightbox({
 
 /* ---------- Product grid ---------- */
 
-function ProductGrid({ products }: { products: ProductCard[] }) {
+function ProductGrid({
+  products,
+  highlightId,
+}: {
+  products: ProductCard[];
+  highlightId?: string | null;
+}) {
   const mounted = useMounted();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<ProductCard | null>(null);
+
+  // Deep-link from the dashboard "Acil" banner: open the product straight away.
+  useEffect(() => {
+    if (!highlightId) return;
+    const target = products.find((p) => p.id === highlightId);
+    if (target) {
+      const t = setTimeout(() => setSelected(target), 250);
+      return () => clearTimeout(t);
+    }
+  }, [highlightId, products]);
 
   const q = query.trim().toLocaleLowerCase("tr");
   const filtered = useMemo(
@@ -328,13 +345,18 @@ function ProductGrid({ products }: { products: ProductCard[] }) {
               p.price !== null &&
               p.appliedPrice < p.price;
             const isTop = i === 0 && q === "" && p.units > 0;
+            const isHighlight = p.id === highlightId;
             return (
               <button
-                key={p.barcode}
+                key={p.id}
                 type="button"
                 onClick={() => setSelected(p)}
                 style={{ transitionDelay: `${Math.min(i, 12) * 40}ms` }}
-                className={`group flex flex-col overflow-hidden rounded-2xl border border-border bg-card text-left shadow-[0_2px_12px_-6px_rgba(0,0,0,0.12)] transition-all duration-500 ease-out hover:-translate-y-1 hover:border-emerald-500/50 hover:shadow-[0_14px_30px_-18px_rgba(5,150,105,0.55)] ${
+                className={`group flex flex-col overflow-hidden rounded-2xl border bg-card text-left shadow-[0_2px_12px_-6px_rgba(0,0,0,0.12)] transition-all duration-500 ease-out hover:-translate-y-1 hover:border-emerald-500/50 hover:shadow-[0_14px_30px_-18px_rgba(5,150,105,0.55)] ${
+                  isHighlight
+                    ? "border-rose-400 ring-2 ring-rose-400/50"
+                    : "border-border"
+                } ${
                   mounted ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
                 }`}
               >
@@ -413,10 +435,12 @@ export function SalesVisuals({
   kpis,
   revenueSeries,
   products,
+  highlightId,
 }: {
   kpis: SalesKpis;
   revenueSeries: RevenueBar[];
   products: ProductCard[];
+  highlightId?: string | null;
 }) {
   return (
     <div className="space-y-5">
@@ -457,7 +481,7 @@ export function SalesVisuals({
 
       <RevenueChart bars={revenueSeries} />
 
-      <ProductGrid products={products} />
+      <ProductGrid products={products} highlightId={highlightId} />
     </div>
   );
 }
