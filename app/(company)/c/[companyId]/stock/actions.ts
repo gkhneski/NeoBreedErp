@@ -105,7 +105,9 @@ export async function correctLotQuantity(
   }
 
   const delta = newQuantity - Number(lot.quantity_on_hand);
-  if (Math.abs(delta) < 1e-6) {
+  // Tiny epsilon: a float fix like 471 - 470.999999 ≈ 1e-6 IS a real correction,
+  // so only treat a truly-zero delta as a no-op.
+  if (Math.abs(delta) < 1e-9) {
     return { ok: true };
   }
 
