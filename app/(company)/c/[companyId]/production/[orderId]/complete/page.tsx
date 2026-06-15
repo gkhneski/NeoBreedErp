@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyRole, requireModuleAccess } from "@/lib/auth";
 import type { LocationOption } from "@/lib/locations";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { convertQuantity } from "@/lib/uom";
 import { PRODUCTION_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
 import { updateLotStatus } from "../../../lots/actions";
@@ -153,16 +154,24 @@ export default async function CompleteBatchPage({ params }: PageProps) {
       ? Number(order.planned_quantity) / Number(recipe.yield_quantity)
       : 0;
 
-  const formItems = recipeItems.map((item) => ({
+  const formItems = recipeItems.map((item) => {
+    const baseUom = item.materials?.base_uom ?? item.uom;
+    // Recipe is authored in item.uom (e.g. g) but stock lots are in the
+    // material base unit (e.g. kg). Consume in the lot's unit so it can't go
+    // negative. Fall back to no conversion for incompatible/unknown units.
+    const perRecipeUnit = convertQuantity(1, item.uom, baseUom);
+    const factor = perRecipeUnit ?? 1;
+    const displayUom = perRecipeUnit !== null ? baseUom : item.uom;
+    return {
     recipe_item_id: item.id,
     position: item.position,
     material_id: item.material_id,
     material_code: item.materials?.code ?? "",
     material_name: item.materials?.name ?? "",
-    base_uom: item.materials?.base_uom ?? item.uom,
+    base_uom: baseUom,
     recipe_quantity: Number(item.quantity),
-    uom: item.uom,
-    planned_consumption: Number(item.quantity) * baseScaleFactor,
+    uom: displayUom,
+    planned_consumption: Number(item.quantity) * baseScaleFactor * factor,
     lots: lots
       .filter((l) => l.material_id === item.material_id)
       .map((l) => ({
@@ -173,7 +182,8 @@ export default async function CompleteBatchPage({ params }: PageProps) {
         unit_cost: l.unit_cost !== null ? Number(l.unit_cost) : null,
         currency: l.currency,
       })),
-  }));
+    };
+  });
 
   const allItemsHaveLots = formItems.every((i) => i.lots.length > 0);
 
