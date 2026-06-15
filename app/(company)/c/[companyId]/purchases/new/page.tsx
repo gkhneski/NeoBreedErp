@@ -6,7 +6,7 @@ import { requireCompanyRole, requireModuleAccess } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { STOCK_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
-import { PurchaseReceiptForm } from "./purchase-receipt-form";
+import { PurchaseDocumentForm } from "./purchase-document-form";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -94,11 +94,11 @@ export default async function NewPurchaseReceiptPage({ params }: PageProps) {
           Yeni Fatura / İrsaliye
         </h1>
         <p className="text-sm text-muted-foreground">
-          Sirket ici manuel alım belgesi. Yeni lot acabilir veya mevcut bir
-          lota ek stok girisi yapabilirsiniz.
+          Aynı tedarikçi ve fatura/irsaliye için birden fazla mal kalemini tek
+          belgede girin. Her kalem yeni lot açabilir veya mevcut lota eklenebilir.
         </p>
       </header>
-      <PurchaseReceiptForm
+      <PurchaseDocumentForm
         companyId={companyId}
         materials={materials ?? []}
         suppliers={suppliers ?? []}

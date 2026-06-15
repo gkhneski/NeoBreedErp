@@ -1454,6 +1454,17 @@ export type Database = {
         };
         Returns: string;
       };
+      create_receipt_document: {
+        Args: {
+          p_company_id: string;
+          p_supplier_id: string | null;
+          p_received_at: string | null;
+          p_currency: string | null;
+          p_doc_notes: string | null;
+          p_lines: Json;
+        };
+        Returns: number;
+      };
       ship_shipment: {
         Args: { p_company_id: string; p_shipment_id: string };
         Returns: undefined;
