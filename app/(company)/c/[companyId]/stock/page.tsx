@@ -424,15 +424,20 @@ export default async function StockPage({ params, searchParams }: PageProps) {
   const thresholds = isOperator ? await getExpiryThresholds(companyId) : null;
 
   if (isOperator && tab === "urun") {
+    // Depocu yalnizca KENDI deposundaki bitmis urunu gorur: varsayilan konum
+    // (Ana Depo = fabrika ana deposu, is_default) fabrikaya aittir; oradaki
+    // karantina/uretim stogu henuz depoya devredilmemistir. !inner + is_default
+    // = false ile sadece devredilmis depo lotlari listelenir.
     const { data } = await supabase
       .from("material_lots")
       .select(
         "id, lot_number, expiry_date, quantity_on_hand, status, " +
           "materials:material_id!inner(code, name, base_uom, type), " +
-          "locations:location_id(code, name, is_default)",
+          "locations:location_id!inner(code, name, is_default)",
       )
       .eq("company_id", companyId)
       .eq("materials.type", "finished")
+      .eq("locations.is_default", false)
       .is("deleted_at", null)
       .gt("quantity_on_hand", 0)
       .order("expiry_date", { ascending: true, nullsFirst: false })
