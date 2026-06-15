@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   Layers,
   Leaf,
+  LineChart,
   LogOut,
   type LucideIcon,
   Package,
@@ -83,6 +84,7 @@ const SECTIONS: NavSection[] = [
   {
     title: "Sevkiyat",
     items: [
+      { key: "sales", label: "Satış & Ürünler", icon: LineChart },
       { key: "shipments", label: "Siparişler", icon: Send },
       { key: "marketplace", label: "Pazaryeri", icon: Store },
     ],
