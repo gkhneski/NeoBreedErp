@@ -1,7 +1,8 @@
 "use client";
 
+import { Search } from "lucide-react";
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -64,6 +65,19 @@ export function ProductRecipeForm({
     initialState,
   );
   const cancelHref = companyModulePath(companyId, "products");
+
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLocaleLowerCase("tr");
+  const matchIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of rawMaterials) {
+      if (q === "" || `${m.code} ${m.name}`.toLocaleLowerCase("tr").includes(q)) {
+        set.add(m.id);
+      }
+    }
+    return set;
+  }, [rawMaterials, q]);
+  const matchCount = matchIds.size;
 
   return (
     <form action={formAction} className="space-y-6">
@@ -166,6 +180,28 @@ export function ProductRecipeForm({
           </p>
         </div>
 
+        <div className="relative max-w-md">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Malzeme ara: kod veya ad…"
+            className="pl-9"
+          />
+        </div>
+        {q !== "" ? (
+          <p className="text-xs text-muted-foreground">
+            {matchCount} malzeme eşleşti{" "}
+            <span className="text-muted-foreground/70">
+              (seçimleriniz korunur)
+            </span>
+          </p>
+        ) : null}
+
         <div className="overflow-x-auto rounded-md border border-border">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
@@ -191,7 +227,10 @@ export function ProductRecipeForm({
                   .reduce((sum, lot) => sum + Number(lot.quantity_on_hand), 0);
 
                 return (
-                  <tr key={material.id} className="border-t border-border">
+                  <tr
+                    key={material.id}
+                    className={`border-t border-border ${matchIds.has(material.id) ? "" : "hidden"}`}
+                  >
                     <td className="px-3 py-2">
                       <input
                         type="checkbox"
