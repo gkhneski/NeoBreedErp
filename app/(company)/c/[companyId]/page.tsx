@@ -20,10 +20,12 @@ import {
 
 import {
   DashboardVisuals,
+  StatusStrip,
   type GaugeData,
   type KpiData,
   type Member,
   type ReminderData,
+  type StatusStripData,
   type TaskItem,
   type Tone,
   type WeeklyBar,
@@ -387,6 +389,17 @@ async function ClerkDashboard({
       }
     : null;
 
+  const statusStrip: StatusStripData = {
+    readyToShip: releasedLots ?? 0,
+    toPrepare: toPrepare ?? 0,
+    urgentExpiry: expiry.critical + expiry.expired,
+    shippedToday: shippedToday ?? 0,
+    readyHref: finishedStockPath,
+    prepareHref: `${shipmentsPath}?durum=preparing`,
+    urgentHref: finishedStockPath,
+    shippedHref: `${shipmentsPath}?durum=shipped`,
+  };
+
   const tasks: TaskItem[] = [
     {
       label: "Hazırlanacak Sipariş",
@@ -448,6 +461,8 @@ async function ClerkDashboard({
           </Link>
         </div>
       </header>
+
+      <StatusStrip data={statusStrip} />
 
       <OperatorOrderNotifier companyId={companyId} />
 

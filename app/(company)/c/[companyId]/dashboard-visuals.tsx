@@ -69,6 +69,16 @@ export type GaugeData = {
   expired: number;
   stocked: number;
 };
+export type StatusStripData = {
+  readyToShip: number;
+  toPrepare: number;
+  urgentExpiry: number;
+  shippedToday: number;
+  readyHref: string;
+  prepareHref: string;
+  urgentHref: string;
+  shippedHref: string;
+};
 
 function useMounted() {
   const [m, setM] = useState(false);
@@ -345,6 +355,175 @@ function LiveClock() {
         <p className="mt-1 text-sm capitalize text-white/80">{date}</p>
       </div>
     </div>
+  );
+}
+
+/* ---------- Status strip (traffic-light, operator) ---------- */
+
+type StatusLevel = "ok" | "attention" | "urgent";
+
+const STATUS_TILE: Record<
+  "emerald" | "amber" | "rose" | "blue",
+  { active: string; idle: string }
+> = {
+  emerald: {
+    active:
+      "bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-500/30 dark:text-emerald-300",
+    idle: "bg-secondary/60 text-muted-foreground",
+  },
+  amber: {
+    active:
+      "bg-amber-500/15 text-amber-700 ring-1 ring-amber-500/30 dark:text-amber-400",
+    idle: "bg-secondary/60 text-muted-foreground",
+  },
+  rose: {
+    active:
+      "bg-rose-500/15 text-rose-700 ring-1 ring-rose-500/40 dark:text-rose-400",
+    idle: "bg-secondary/60 text-muted-foreground",
+  },
+  blue: {
+    active:
+      "bg-blue-500/15 text-blue-700 ring-1 ring-blue-500/30 dark:text-blue-300",
+    idle: "bg-secondary/60 text-muted-foreground",
+  },
+};
+
+function StatusTile({
+  value,
+  label,
+  emoji,
+  tone,
+  active,
+  href,
+  index,
+}: {
+  value: number;
+  label: string;
+  emoji: string;
+  tone: keyof typeof STATUS_TILE;
+  active: boolean;
+  href: string;
+  index: number;
+}) {
+  const mounted = useMounted();
+  const display = useCountUp(value, mounted);
+  const cls = active ? STATUS_TILE[tone].active : STATUS_TILE[tone].idle;
+  return (
+    <Link
+      href={href}
+      style={{ transitionDelay: `${index * 80}ms` }}
+      className={`flex flex-col items-center justify-center rounded-2xl p-3 text-center transition-all duration-500 ease-out hover:-translate-y-0.5 sm:p-4 ${
+        mounted ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
+      } ${cls}`}
+    >
+      <span className="text-xl sm:text-2xl" aria-hidden="true">
+        {emoji}
+      </span>
+      <span className="mt-0.5 text-3xl font-bold tabular-nums tracking-tight sm:text-5xl">
+        {display}
+      </span>
+      <span className="mt-0.5 text-[11px] font-medium leading-tight sm:text-sm">
+        {label}
+      </span>
+    </Link>
+  );
+}
+
+export function StatusStrip({ data }: { data: StatusStripData }) {
+  const mounted = useMounted();
+  const level: StatusLevel =
+    data.urgentExpiry > 0 ? "urgent" : data.toPrepare > 0 ? "attention" : "ok";
+
+  const grad: Record<StatusLevel, string> = {
+    ok: "from-green-800 via-green-600 to-emerald-500",
+    attention: "from-amber-600 via-amber-500 to-yellow-400",
+    urgent: "from-rose-700 via-red-600 to-orange-500",
+  };
+  const title: Record<StatusLevel, string> = {
+    ok: "Bugün her şey yolunda 🎉",
+    attention: "Hazırlanacak işin var 👋",
+    urgent: "Acil: önce bunları sat ⚠️",
+  };
+  const subtitle: Record<StatusLevel, string> = {
+    ok: "Hazırlanacak sipariş yok, acil ürün yok. Keyfine bak ☕",
+    attention: `${data.toPrepare} sipariş hazırlanacak. Acil SKT yok.`,
+    urgent: `${data.urgentExpiry} ürünün SKT'si kritik — önce bunları sat.${
+      data.toPrepare > 0 ? ` Ayrıca ${data.toPrepare} sipariş hazırla.` : ""
+    }`,
+  };
+
+  return (
+    <section className="space-y-3">
+      <div
+        className={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${grad[level]} p-5 text-white shadow-[0_18px_40px_-18px_rgba(0,0,0,0.45)] transition-all duration-700 ease-out sm:p-6 ${
+          mounted ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
+        }`}
+      >
+        <div
+          className="pointer-events-none absolute -right-10 -top-12 h-44 w-44 rounded-full opacity-30"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(255,255,255,0.6) 0%, transparent 70%)",
+          }}
+        />
+        <div className="relative flex items-center gap-2.5">
+          <span className="relative flex h-3 w-3">
+            {level === "urgent" ? (
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+            ) : null}
+            <span className="relative inline-flex h-3 w-3 rounded-full bg-white" />
+          </span>
+          <span className="text-xs font-semibold uppercase tracking-widest text-white/85">
+            Depo Durumu
+          </span>
+        </div>
+        <p className="relative mt-2 text-xl font-bold leading-tight tracking-tight sm:text-2xl">
+          {title[level]}
+        </p>
+        <p className="relative mt-1 text-sm text-white/90 sm:text-base">
+          {subtitle[level]}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatusTile
+          index={0}
+          value={data.readyToShip}
+          label="Sevke hazır"
+          emoji="📦"
+          tone="emerald"
+          active={data.readyToShip > 0}
+          href={data.readyHref}
+        />
+        <StatusTile
+          index={1}
+          value={data.toPrepare}
+          label="Hazırlanacak sipariş"
+          emoji="📋"
+          tone="amber"
+          active={data.toPrepare > 0}
+          href={data.prepareHref}
+        />
+        <StatusTile
+          index={2}
+          value={data.urgentExpiry}
+          label="Acil SKT"
+          emoji="⏰"
+          tone="rose"
+          active={data.urgentExpiry > 0}
+          href={data.urgentHref}
+        />
+        <StatusTile
+          index={3}
+          value={data.shippedToday}
+          label="Bugün gönderilen"
+          emoji="🚚"
+          tone="blue"
+          active={data.shippedToday > 0}
+          href={data.shippedHref}
+        />
+      </div>
+    </section>
   );
 }
 

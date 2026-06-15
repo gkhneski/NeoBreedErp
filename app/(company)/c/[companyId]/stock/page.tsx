@@ -14,6 +14,7 @@ import {
   type ExpiryUrgency,
 } from "@/lib/expiry";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { uomLabel } from "@/lib/uom";
 import { cn } from "@/lib/utils";
 import { STOCK_WRITE_ROLES, canWriteCompanyData, companyModulePath } from "@/types/roles";
 
@@ -158,7 +159,7 @@ function StockTable({
                     {blocked > 0 ? formatQty(blocked) : "—"}
                   </td>
                   <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                    {m.base_uom}
+                    {uomLabel(m.base_uom)}
                   </td>
                 </tr>
               );
@@ -250,7 +251,7 @@ function MovementsTable({
                     {isOut ? "" : "+"}
                     {formatQty(Number(m.quantity))}{" "}
                     <span className="text-muted-foreground">
-                      {m.materials?.base_uom ?? ""}
+                      {uomLabel(m.materials?.base_uom)}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">
@@ -365,7 +366,7 @@ function FinishedLotTable({
                 <td className="px-3 py-2 text-right font-mono text-xs">
                   {formatQty(Number(lot.quantity_on_hand))}{" "}
                   <span className="text-muted-foreground">
-                    {lot.materials?.base_uom ?? ""}
+                    {uomLabel(lot.materials?.base_uom)}
                   </span>
                 </td>
                 <td className="px-3 py-2 text-xs text-muted-foreground">

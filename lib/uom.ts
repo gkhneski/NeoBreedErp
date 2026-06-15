@@ -6,6 +6,15 @@
 const MASS_IN_G: Record<string, number> = { mg: 0.001, g: 1, kg: 1000 };
 const VOLUME_IN_ML: Record<string, number> = { mL: 1, L: 1000 };
 
+// Human-facing label for a stored UOM code. "unit" is stored in English but
+// shown to Turkish depot users as "adet" (here = boxes/sellable units, not pills).
+const UOM_LABELS: Record<string, string> = { unit: "adet" };
+
+export function uomLabel(uom: string | null | undefined): string {
+  if (!uom) return "";
+  return UOM_LABELS[uom] ?? uom;
+}
+
 export function convertQuantity(
   value: number,
   from: string,
