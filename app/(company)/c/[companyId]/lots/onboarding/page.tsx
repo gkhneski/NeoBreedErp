@@ -53,9 +53,21 @@ export default async function LotOnboardingPage({ params }: PageProps) {
       .returns<LocationOption[]>(),
   ]);
 
+  const { data: trendyolProducts } = await supabase
+    .from("marketplace_remote_products")
+    .select("barcode, title, image_url")
+    .eq("company_id", companyId)
+    .eq("channel", "trendyol")
+    .order("title", { ascending: true });
+
   const locationRows = locations ?? [];
+  // Bu ekran LTD deposu içindir: varsayılan konum LTD deposu olsun.
+  const ltdDepot = locationRows.find((l) => /ltd/i.test(l.name));
   const defaultLocationId =
-    locationRows.find((l) => l.is_default)?.id ?? locationRows[0]?.id ?? null;
+    ltdDepot?.id ??
+    locationRows.find((l) => l.is_default)?.id ??
+    locationRows[0]?.id ??
+    null;
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -88,6 +100,7 @@ export default async function LotOnboardingPage({ params }: PageProps) {
         locations={locationRows}
         defaultLocationId={defaultLocationId}
         canCreateProduct={canWriteCompanyData(role, STOCK_WRITE_ROLES)}
+        trendyolProducts={trendyolProducts ?? []}
       />
     </div>
   );

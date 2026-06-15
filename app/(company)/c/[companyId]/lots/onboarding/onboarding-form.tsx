@@ -47,18 +47,22 @@ function FieldError({ message }: { message?: string }) {
   return <p className="text-xs text-destructive">{message}</p>;
 }
 
+type TyOption = { barcode: string; title: string | null; image_url: string | null };
+
 export function OnboardingForm({
   companyId,
   materials,
   locations,
   defaultLocationId,
   canCreateProduct,
+  trendyolProducts,
 }: {
   companyId: string;
   materials: MaterialOption[];
   locations: LocationOption[];
   defaultLocationId: string | null;
   canCreateProduct: boolean;
+  trendyolProducts: TyOption[];
 }) {
   const [state, formAction] = useActionState(onboardLot, initialState);
   const lotInputRef = useRef<HTMLInputElement>(null);
@@ -140,6 +144,58 @@ export function OnboardingForm({
         }
         return;
       }
+      setScanMsg({ kind: "err", text: res.error });
+    },
+    [companyId, resolving, canCreateProduct, selectProduct],
+  );
+
+  // Trendyol kataloğundan seç: barkodla varsa eşle, yoksa Trendyol adıyla
+  // otomatik bitmiş ürün oluştur ve seç.
+  const handlePickTrendyol = useCallback(
+    async (bc: string, title: string) => {
+      if (!bc || resolving) return;
+      setScanMsg(null);
+      setNewProduct(null);
+      setResolving(true);
+      const res = await findProductByBarcode(companyId, bc);
+      if (res.ok) {
+        setResolving(false);
+        selectProduct(res.product);
+        setScanMsg({
+          kind: "ok",
+          text: `Ürün: ${res.product.code} — ${res.product.name}`,
+        });
+        lotInputRef.current?.focus();
+        return;
+      }
+      if ("notFound" in res) {
+        if (!canCreateProduct) {
+          setResolving(false);
+          setScanMsg({
+            kind: "err",
+            text: "Bu barkod tanımlı değil ve ekleme yetkiniz yok.",
+          });
+          return;
+        }
+        const created = await createFinishedProductWithBarcode(
+          companyId,
+          bc,
+          title || bc,
+        );
+        setResolving(false);
+        if (created.ok) {
+          selectProduct(created.product);
+          setScanMsg({
+            kind: "ok",
+            text: `Yeni ürün: ${created.product.code} — ${created.product.name}`,
+          });
+          lotInputRef.current?.focus();
+        } else {
+          setScanMsg({ kind: "err", text: created.error });
+        }
+        return;
+      }
+      setResolving(false);
       setScanMsg({ kind: "err", text: res.error });
     },
     [companyId, resolving, canCreateProduct, selectProduct],
@@ -297,6 +353,32 @@ export function OnboardingForm({
             muted
             playsInline
           />
+        ) : null}
+
+        {trendyolProducts.length > 0 ? (
+          <div className="space-y-1.5">
+            <Label htmlFor="ty_pick">veya Trendyol ürününden seç</Label>
+            <select
+              id="ty_pick"
+              defaultValue=""
+              disabled={resolving}
+              onChange={(e) => {
+                const p = trendyolProducts.find((x) => x.barcode === e.target.value);
+                e.currentTarget.value = "";
+                if (p) void handlePickTrendyol(p.barcode, p.title ?? "");
+              }}
+              className="flex h-9 w-full max-w-md rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">
+                — Trendyol ürünü seç (kayıtlı değilse otomatik oluşturur) —
+              </option>
+              {trendyolProducts.map((p) => (
+                <option key={p.barcode} value={p.barcode}>
+                  {(p.title ?? "—").slice(0, 60)} · {p.barcode}
+                </option>
+              ))}
+            </select>
+          </div>
         ) : null}
 
         {scanMsg ? (
