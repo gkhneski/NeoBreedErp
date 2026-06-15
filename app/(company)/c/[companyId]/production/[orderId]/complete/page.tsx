@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyRole, requireModuleAccess } from "@/lib/auth";
 import type { LocationOption } from "@/lib/locations";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { PRODUCTION_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
+import { updateLotStatus } from "../../../lots/actions";
 import { CompleteBatchForm } from "./complete-form";
 
 interface PageProps {
@@ -175,6 +177,41 @@ export default async function CompleteBatchPage({ params }: PageProps) {
 
   const allItemsHaveLots = formItems.every((i) => i.lots.length > 0);
 
+  // Missing materials + their quarantine lots, so they can be released inline.
+  let releaseCandidates: Array<{
+    material_id: string;
+    material_code: string;
+    material_name: string;
+    base_uom: string;
+    lots: Array<{ id: string; lot_number: string; quantity_on_hand: number }>;
+  }> = [];
+  if (!allItemsHaveLots) {
+    const missing = formItems.filter((i) => i.lots.length === 0);
+    const { data: quarantineLots } = await supabase
+      .from("material_lots")
+      .select("id, material_id, lot_number, quantity_on_hand")
+      .eq("company_id", companyId)
+      .eq("status", "quarantine")
+      .gt("quantity_on_hand", 0)
+      .in("material_id", missing.map((i) => i.material_id))
+      .is("deleted_at", null)
+      .order("expiry_date", { ascending: true, nullsFirst: false })
+      .returns<Array<{ id: string; material_id: string; lot_number: string; quantity_on_hand: number }>>();
+    releaseCandidates = missing.map((i) => ({
+      material_id: i.material_id,
+      material_code: i.material_code,
+      material_name: i.material_name,
+      base_uom: i.base_uom,
+      lots: (quarantineLots ?? [])
+        .filter((l) => l.material_id === i.material_id)
+        .map((l) => ({
+          id: l.id,
+          lot_number: l.lot_number,
+          quantity_on_hand: Number(l.quantity_on_hand),
+        })),
+    }));
+  }
+
   return (
     <div className="space-y-6">
       <header className="space-y-1">
@@ -214,10 +251,50 @@ export default async function CompleteBatchPage({ params }: PageProps) {
           defaultLocationId={defaultLocationId}
         />
       ) : (
-        <EmptyState
-          title="Yeterli serbest lot yok"
-          description="Her aktif reçete kalemi için en az bir 'serbest' (released) lot olmalı. Eksik lotları QC'den geçirip serbest bırakın."
-        />
+        <div className="space-y-4">
+          <EmptyState
+            title="Yeterli serbest lot yok"
+            description="Her aktif reçete kalemi için en az bir 'serbest' (released) lot olmalı. Aşağıdaki karantina lotlarını tek tıkla serbest bırakıp tekrar deneyin."
+          />
+
+          <section className="space-y-3">
+            {releaseCandidates.map((rc) => (
+              <div
+                key={rc.material_id}
+                className="rounded-xl border border-border bg-card p-4"
+              >
+                <p className="text-sm font-medium">
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {rc.material_code}
+                  </span>{" "}
+                  {rc.material_name}
+                </p>
+                {rc.lots.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {rc.lots.map((lot) => (
+                      <form key={lot.id} action={updateLotStatus}>
+                        <input type="hidden" name="company_id" value={companyId} />
+                        <input type="hidden" name="lot_id" value={lot.id} />
+                        <input type="hidden" name="status" value="released" />
+                        <Button type="submit" size="sm" variant="outline">
+                          Serbest Bırak — lot{" "}
+                          <span className="font-mono">{lot.lot_number}</span> (
+                          {lot.quantity_on_hand.toLocaleString("tr-TR")}{" "}
+                          {rc.base_uom})
+                        </Button>
+                      </form>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-destructive">
+                    QC bekleyen (karantina) lot yok. Önce mal kabul edip stok
+                    girin.
+                  </p>
+                )}
+              </div>
+            ))}
+          </section>
+        </div>
       )}
     </div>
   );
