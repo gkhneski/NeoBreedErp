@@ -315,6 +315,53 @@ export type CreateProductItem = {
   attributes: CreateProductAttribute[];
 };
 
+export type TrendyolOrder = {
+  orderNumber: string;
+  status: string;
+  customerName: string;
+  orderDate: string | null;
+  totalPrice: number;
+  lines: Array<{ name: string; quantity: number; barcode: string }>;
+};
+
+// Recent orders (shipment packages), newest first. Used to alert the depot.
+export async function getOrders(
+  conn: MarketplaceConnectionInfo,
+): Promise<TrendyolOrder[]> {
+  const data = (await trendyolFetch(
+    conn,
+    `/integration/order/sellers/${conn.sellerId}/orders?size=50&orderByField=PackageLastModifiedDate&orderByDirection=DESC`,
+  )) as {
+    content?: Array<{
+      orderNumber?: string | number;
+      id?: string | number;
+      shipmentPackageStatus?: string;
+      status?: string;
+      customerFirstName?: string;
+      customerLastName?: string;
+      orderDate?: number;
+      totalPrice?: number;
+      grossAmount?: number;
+      lines?: Array<{ productName?: string; quantity?: number; barcode?: string }>;
+    }>;
+  } | null;
+
+  return (data?.content ?? [])
+    .map((o) => ({
+      orderNumber: String(o.orderNumber ?? o.id ?? ""),
+      status: o.shipmentPackageStatus ?? o.status ?? "",
+      customerName: `${o.customerFirstName ?? ""} ${o.customerLastName ?? ""}`.trim(),
+      orderDate: o.orderDate ? new Date(Number(o.orderDate)).toISOString() : null,
+      totalPrice: Number(o.totalPrice ?? o.grossAmount ?? 0),
+      lines: (o.lines ?? []).map((l) => ({
+        name: l.productName ?? "",
+        quantity: Number(l.quantity ?? 0),
+        barcode: l.barcode ?? "",
+      })),
+    }))
+    .filter((o) => o.orderNumber);
+}
+
 // Creates (or updates by barcode) products on Trendyol. Returns the async
 // batchRequestId; approval is then polled via getBatchStatus.
 export async function createProducts(

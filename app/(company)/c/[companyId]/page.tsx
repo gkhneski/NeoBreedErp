@@ -28,6 +28,7 @@ import {
   type Tone,
   type WeeklyBar,
 } from "./dashboard-visuals";
+import { OperatorOrderNotifier } from "./order-notifier";
 
 interface CompanyStats {
   totalProducts: number;
@@ -446,6 +447,8 @@ async function ClerkDashboard({
           </Link>
         </div>
       </header>
+
+      <OperatorOrderNotifier companyId={companyId} />
 
       <DashboardVisuals
         kpis={kpis}

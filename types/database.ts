@@ -762,6 +762,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      marketplace_orders: {
+        Row: {
+          id: string;
+          company_id: string;
+          channel: MarketplaceChannel;
+          order_number: string;
+          status: string | null;
+          customer_name: string | null;
+          order_date: string | null;
+          total_price: number | null;
+          lines: Json | null;
+          seen_at: string | null;
+          created_at: string;
+          fetched_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          channel: MarketplaceChannel;
+          order_number: string;
+          status?: string | null;
+          customer_name?: string | null;
+          order_date?: string | null;
+          total_price?: number | null;
+          lines?: Json | null;
+          seen_at?: string | null;
+          created_at?: string;
+          fetched_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          channel?: MarketplaceChannel;
+          order_number?: string;
+          status?: string | null;
+          customer_name?: string | null;
+          order_date?: string | null;
+          total_price?: number | null;
+          lines?: Json | null;
+          seen_at?: string | null;
+          created_at?: string;
+          fetched_at?: string;
+        };
+        Relationships: [];
+      };
       marketplace_price_events: {
         Row: {
           id: string;
