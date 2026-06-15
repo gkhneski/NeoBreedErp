@@ -714,6 +714,54 @@ export type Database = {
         };
         Relationships: [];
       };
+      marketplace_remote_products: {
+        Row: {
+          id: string;
+          company_id: string;
+          channel: MarketplaceChannel;
+          barcode: string;
+          title: string | null;
+          image_url: string | null;
+          stock_code: string | null;
+          sale_price: number | null;
+          list_price: number | null;
+          quantity: number | null;
+          approved: boolean | null;
+          on_sale: boolean | null;
+          fetched_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          channel: MarketplaceChannel;
+          barcode: string;
+          title?: string | null;
+          image_url?: string | null;
+          stock_code?: string | null;
+          sale_price?: number | null;
+          list_price?: number | null;
+          quantity?: number | null;
+          approved?: boolean | null;
+          on_sale?: boolean | null;
+          fetched_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          channel?: MarketplaceChannel;
+          barcode?: string;
+          title?: string | null;
+          image_url?: string | null;
+          stock_code?: string | null;
+          sale_price?: number | null;
+          list_price?: number | null;
+          quantity?: number | null;
+          approved?: boolean | null;
+          on_sale?: boolean | null;
+          fetched_at?: string;
+        };
+        Relationships: [];
+      };
       marketplace_price_events: {
         Row: {
           id: string;

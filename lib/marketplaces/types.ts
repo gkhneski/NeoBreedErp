@@ -19,6 +19,7 @@ export interface RemoteListing {
   quantity: number;
   approved: boolean;
   onSale: boolean;
+  imageUrl: string | null;
 }
 
 export interface PriceStockItem {

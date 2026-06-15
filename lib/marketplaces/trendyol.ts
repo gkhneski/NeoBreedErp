@@ -95,6 +95,7 @@ type TrendyolProduct = {
   approved?: boolean;
   onSale?: boolean;
   archived?: boolean;
+  images?: Array<{ url?: string }>;
 };
 
 type TrendyolProductsPage = {
@@ -114,6 +115,7 @@ function mapProduct(p: TrendyolProduct): RemoteListing | null {
     quantity: Number(p.quantity ?? 0),
     approved: p.approved ?? false,
     onSale: p.onSale ?? false,
+    imageUrl: p.images?.[0]?.url ?? null,
   };
 }
 

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 
 import { saveListingMappings } from "../actions";
 
-type RemoteRow = {
+export type RemoteRow = {
   barcode: string;
   title: string;
   stockCode: string | null;
@@ -17,6 +17,7 @@ type RemoteRow = {
   quantity: number;
   approved: boolean;
   onSale: boolean;
+  imageUrl: string | null;
   mapped: { listing_id: string; material_label: string } | null;
 };
 
@@ -108,6 +109,7 @@ export function ImportMapper({
         <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
+              <th className="px-3 py-2 text-left font-medium">Görsel</th>
               <th className="px-3 py-2 text-left font-medium">Barkod</th>
               <th className="px-3 py-2 text-left font-medium">Trendyol Ürünü</th>
               <th className="px-3 py-2 text-right font-medium">Fiyat</th>
@@ -119,6 +121,19 @@ export function ImportMapper({
           <tbody>
             {rows.map((row) => (
               <tr key={row.barcode} className="border-t border-border align-top">
+                <td className="px-3 py-2">
+                  <div className="h-12 w-12 overflow-hidden rounded border border-border bg-secondary">
+                    {row.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={row.imageUrl}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : null}
+                  </div>
+                </td>
                 <td className="px-3 py-2 font-mono text-xs">{row.barcode}</td>
                 <td className="max-w-sm px-3 py-2 text-xs">
                   <span className="line-clamp-2">{row.title || "—"}</span>
@@ -176,10 +191,10 @@ export function ImportMapper({
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="px-3 py-8 text-center text-sm text-muted-foreground"
                 >
-                  Trendyol mağazanızda ürün bulunamadı.
+                  Henüz ürün çekilmedi. Yukarıdan &quot;Yenile&quot;ye basın.
                 </td>
               </tr>
             ) : null}
