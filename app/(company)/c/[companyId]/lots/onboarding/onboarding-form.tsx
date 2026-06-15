@@ -72,6 +72,7 @@ export function OnboardingForm({
   const [materialId, setMaterialId] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
   const [locationId, setLocationId] = useState(defaultLocationId ?? "");
+  const [pickQuery, setPickQuery] = useState("");
 
   // Tarama durumu.
   const [createdProducts, setCreatedProducts] = useState<MaterialOption[]>([]);
@@ -105,6 +106,13 @@ export function OnboardingForm({
   const raw = allMaterials.filter((m) => m.type === "raw");
   const locationGroups = groupLocations(locations);
   const selectedMaterial = allMaterials.find((m) => m.id === materialId);
+
+  const pq = pickQuery.trim().toLocaleLowerCase("tr");
+  const filteredTy = pq
+    ? trendyolProducts.filter((p) =>
+        `${p.title ?? ""} ${p.barcode}`.toLocaleLowerCase("tr").includes(pq),
+      )
+    : trendyolProducts;
 
   const selectProduct = useCallback((p: ProductOption) => {
     setCreatedProducts((prev) =>
@@ -356,28 +364,53 @@ export function OnboardingForm({
         ) : null}
 
         {trendyolProducts.length > 0 ? (
-          <div className="space-y-1.5">
-            <Label htmlFor="ty_pick">veya Trendyol ürününden seç</Label>
-            <select
-              id="ty_pick"
-              defaultValue=""
-              disabled={resolving}
-              onChange={(e) => {
-                const p = trendyolProducts.find((x) => x.barcode === e.target.value);
-                e.currentTarget.value = "";
-                if (p) void handlePickTrendyol(p.barcode, p.title ?? "");
-              }}
-              className="flex h-9 w-full max-w-md rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="">
-                — Trendyol ürünü seç (kayıtlı değilse otomatik oluşturur) —
-              </option>
-              {trendyolProducts.map((p) => (
-                <option key={p.barcode} value={p.barcode}>
-                  {(p.title ?? "—").slice(0, 60)} · {p.barcode}
-                </option>
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label htmlFor="product_pick">veya Ürün Seç</Label>
+              <Input
+                id="product_pick"
+                value={pickQuery}
+                onChange={(e) => setPickQuery(e.target.value)}
+                placeholder="Ürün ara…"
+                className="h-8 w-44 text-sm"
+              />
+            </div>
+            <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
+              {filteredTy.map((p) => (
+                <button
+                  key={p.barcode}
+                  type="button"
+                  disabled={resolving}
+                  onClick={() => void handlePickTrendyol(p.barcode, p.title ?? "")}
+                  className="group flex items-center gap-2.5 rounded-xl border border-border bg-background p-2 text-left transition-colors hover:border-emerald-500/60 hover:bg-secondary/40 disabled:opacity-50"
+                >
+                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border bg-secondary">
+                    {p.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={p.image_url}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                      />
+                    ) : null}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="line-clamp-2 text-xs font-medium leading-snug">
+                      {p.title ?? "—"}
+                    </p>
+                    <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
+                      {p.barcode}
+                    </p>
+                  </div>
+                </button>
               ))}
-            </select>
+              {filteredTy.length === 0 ? (
+                <p className="col-span-full py-4 text-center text-xs text-muted-foreground">
+                  Eşleşen ürün yok.
+                </p>
+              ) : null}
+            </div>
           </div>
         ) : null}
 
