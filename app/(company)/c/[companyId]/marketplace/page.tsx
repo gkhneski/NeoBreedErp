@@ -23,6 +23,10 @@ import { DetectionButton } from "./detection-button";
 import { DiscountLadder, type Tier } from "./discount-ladder";
 import { ListingsTable, type ListingRow } from "./listings-table";
 
+// COSMO's live competitor research (Claude web_search) can run 30-90s; give the
+// server action room so it returns instead of hitting the default function cap.
+export const maxDuration = 300;
+
 interface PageProps {
   params: Promise<{ companyId: string }>;
 }

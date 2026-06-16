@@ -253,12 +253,20 @@ export async function cosmoCompetitorResearch(
   };
 
   try {
-    const research = await researchCompetitors(input);
+    const research = await Promise.race([
+      researchCompetitors(input),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 160_000),
+      ),
+    ]);
     return { ok: true, research, listingId: listing.id, aiPowered: true };
-  } catch {
+  } catch (e) {
+    const timedOut = e instanceof Error && e.message === "timeout";
     return {
       ok: false,
-      error: "Canlı arama başarısız oldu. Birkaç saniye sonra tekrar deneyin.",
+      error: timedOut
+        ? "Araştırma çok uzun sürdü ve durduruldu. Tekrar deneyin."
+        : "Canlı arama başarısız oldu. Birkaç saniye sonra tekrar deneyin.",
     };
   }
 }

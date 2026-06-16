@@ -297,10 +297,10 @@ export async function researchCompetitors(
   const client = new Anthropic();
   const stream = client.messages.stream({
     model: MODEL,
-    max_tokens: 6000,
+    max_tokens: 4000,
     thinking: { type: "adaptive" },
-    output_config: { effort: "medium" },
-    tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 6 }],
+    output_config: { effort: "low" },
+    tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }],
     system: RESEARCH_SYSTEM,
     messages: [
       {
