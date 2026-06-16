@@ -5,7 +5,11 @@ import { z } from "zod";
 
 import { requireCompanyRole } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { ORDER_WRITE_ROLES, companyModulePath } from "@/types/roles";
+import {
+  ORDER_WRITE_ROLES,
+  SHIPMENT_WRITE_ROLES,
+  companyModulePath,
+} from "@/types/roles";
 
 export type OrderActionResult = { ok: true } | { ok: false; error: string };
 
@@ -53,6 +57,279 @@ export async function markAllSalesOrdersSeen(
   revalidatePath(companyModulePath(companyId, "sales-orders"));
   revalidatePath(companyModulePath(companyId));
   return { ok: true };
+}
+
+export type ConvertResult =
+  | { ok: true; shipmentId: string; code: string }
+  | { ok: false; error: string };
+
+async function nextShipmentCode(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  companyId: string,
+): Promise<string> {
+  const { data } = await supabase
+    .from("shipments")
+    .select("code")
+    .eq("company_id", companyId)
+    .like("code", "SVK-%");
+  const max = (data ?? []).reduce((cur, row) => {
+    const m = row.code.match(/^SVK-(\d+)$/i);
+    return m ? Math.max(cur, Number(m[1])) : cur;
+  }, 0);
+  return `SVK-${String(max + 1).padStart(6, "0")}`;
+}
+
+// F4: B2B siparisi mevcut sevkiyat akisina donusturur. Her kalem icin FEFO
+// (en yakin SKT once) sirasiyla serbest, konsinye-olmayan lotlardan tahsis yapar,
+// SVK sevkiyati + kalemlerini olusturur ve siparise baglar. Stok dusumu hala
+// Sevkiyat ekranindaki "Sevk Et" (ship_shipment) ile olur.
+export async function convertOrderToShipment(
+  companyIdInput: string,
+  orderIdInput: string,
+): Promise<ConvertResult> {
+  const parsed = z
+    .object({ company: z.string().uuid(), order: z.string().uuid() })
+    .safeParse({ company: companyIdInput, order: orderIdInput });
+  if (!parsed.success) return { ok: false, error: "Geçersiz istek." };
+
+  const { ctx, companyId } = await requireCompanyRole(
+    parsed.data.company,
+    SHIPMENT_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { data: order } = await supabase
+    .from("sales_orders")
+    .select(
+      "id, code, status, customer_id, shipment_id, " +
+        "sales_order_items(material_id, quantity)",
+    )
+    .eq("id", parsed.data.order)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .maybeSingle<{
+      id: string;
+      code: string;
+      status: string;
+      customer_id: string;
+      shipment_id: string | null;
+      sales_order_items: Array<{ material_id: string; quantity: number }> | null;
+    }>();
+
+  if (!order) return { ok: false, error: "Sipariş bulunamadı." };
+  if (order.shipment_id) {
+    return { ok: false, error: "Bu sipariş zaten sevkiyata dönüştürülmüş." };
+  }
+  if (order.status === "cancelled" || order.status === "shipped") {
+    return { ok: false, error: "Kapanmış sipariş sevkiyata dönüştürülemez." };
+  }
+  const items = order.sales_order_items ?? [];
+  if (items.length === 0) return { ok: false, error: "Siparişte kalem yok." };
+
+  // FEFO allocation per material from released, non-consignment lots.
+  const allocations: Array<{ lot_id: string; material_id: string; quantity: number }> = [];
+  for (const item of items) {
+    const { data: lots } = await supabase
+      .from("material_lots")
+      .select("id, quantity_on_hand, expiry_date, created_at")
+      .eq("company_id", companyId)
+      .eq("material_id", item.material_id)
+      .eq("status", "released")
+      .is("owner_customer_id", null)
+      .is("deleted_at", null)
+      .gt("quantity_on_hand", 0)
+      .order("expiry_date", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: true });
+
+    let remaining = Number(item.quantity);
+    for (const lot of lots ?? []) {
+      if (remaining <= 0) break;
+      const take = Math.min(remaining, Number(lot.quantity_on_hand));
+      allocations.push({
+        lot_id: lot.id,
+        material_id: item.material_id,
+        quantity: take,
+      });
+      remaining -= take;
+    }
+    if (remaining > 0) {
+      return {
+        ok: false,
+        error: `Yetersiz stok: bir ürün için ${remaining.toLocaleString("tr-TR")} adet eksik. Sevkiyata dönüştürülemedi.`,
+      };
+    }
+  }
+
+  const code = await nextShipmentCode(supabase, companyId);
+  const { data: shipment, error: shipErr } = await supabase
+    .from("shipments")
+    .insert({
+      company_id: companyId,
+      code,
+      channel: "ecza",
+      customer_id: order.customer_id,
+      notes: `${order.code} portal siparişinden oluşturuldu`,
+      created_by: ctx.userId,
+      updated_by: ctx.userId,
+    })
+    .select("id")
+    .single();
+
+  if (shipErr || !shipment) {
+    return { ok: false, error: shipErr?.message ?? "Sevkiyat oluşturulamadı." };
+  }
+
+  const { error: itemsErr } = await supabase.from("shipment_items").insert(
+    allocations.map((a) => ({
+      company_id: companyId,
+      shipment_id: shipment.id,
+      lot_id: a.lot_id,
+      material_id: a.material_id,
+      quantity: a.quantity,
+      created_by: ctx.userId,
+    })),
+  );
+  if (itemsErr) {
+    await supabase.from("shipments").delete().eq("id", shipment.id);
+    return { ok: false, error: itemsErr.message };
+  }
+
+  await supabase
+    .from("sales_orders")
+    .update({
+      shipment_id: shipment.id,
+      status: "preparing",
+      seen_at: new Date().toISOString(),
+      updated_by: ctx.userId,
+    })
+    .eq("id", order.id)
+    .eq("company_id", companyId);
+
+  revalidatePath(companyModulePath(companyId, "sales-orders"));
+  revalidatePath(companyModulePath(companyId, "shipments"));
+  revalidatePath(companyModulePath(companyId));
+  return { ok: true, shipmentId: shipment.id, code };
+}
+
+// F5: bolge muduru eczaneler adina siparis girer (source='rep'). Kalemler
+// product_catalog'a (is_listed) karsi denetlenir, fiyat snapshot alinir.
+const repItemSchema = z.object({
+  material_id: z.string().uuid(),
+  quantity: z.number().int().positive().max(1_000_000),
+});
+const repOrderSchema = z.object({
+  company: z.string().uuid(),
+  customer_id: z.string().uuid("Müşteri seçin."),
+  items: z.array(repItemSchema).min(1, "Sepet boş.").max(100),
+  notes: z.string().trim().max(2000).optional().or(z.literal("")),
+});
+
+export type PlaceRepOrderResult =
+  | { ok: true; code: string }
+  | { ok: false; error: string };
+
+export async function placeRepOrder(
+  companyIdInput: string,
+  customerIdInput: string,
+  itemsInput: Array<{ material_id: string; quantity: number }>,
+  notesInput: string,
+): Promise<PlaceRepOrderResult> {
+  const parsed = repOrderSchema.safeParse({
+    company: companyIdInput,
+    customer_id: customerIdInput,
+    items: itemsInput,
+    notes: notesInput,
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz sipariş." };
+  }
+
+  const { ctx, companyId } = await requireCompanyRole(
+    parsed.data.company,
+    ORDER_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  // Customer must belong to this company.
+  const { data: customer } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("id", parsed.data.customer_id)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (!customer) return { ok: false, error: "Müşteri bu firmaya ait değil." };
+
+  // Listed catalog + price snapshot.
+  const { data: catalog } = await supabase
+    .from("product_catalog")
+    .select("material_id, sale_price")
+    .eq("company_id", companyId)
+    .eq("is_listed", true)
+    .is("deleted_at", null);
+  const priceById = new Map(
+    (catalog ?? []).map((c) => [c.material_id, c.sale_price]),
+  );
+
+  for (const item of parsed.data.items) {
+    if (!priceById.has(item.material_id)) {
+      return { ok: false, error: "Sepette listede olmayan bir ürün var." };
+    }
+  }
+
+  const { data: order, error: orderError } = await supabase
+    .from("sales_orders")
+    .insert({
+      company_id: companyId,
+      customer_id: parsed.data.customer_id,
+      code: await nextSalesOrderCode(supabase, companyId),
+      status: "placed",
+      source: "rep",
+      placed_by: ctx.userId,
+      notes: parsed.data.notes || null,
+      created_by: ctx.userId,
+      updated_by: ctx.userId,
+    })
+    .select("id, code")
+    .single();
+  if (orderError || !order) {
+    return { ok: false, error: orderError?.message ?? "Sipariş oluşturulamadı." };
+  }
+
+  const { error: itemsError } = await supabase.from("sales_order_items").insert(
+    parsed.data.items.map((item) => ({
+      company_id: companyId,
+      order_id: order.id,
+      material_id: item.material_id,
+      quantity: item.quantity,
+      unit_price: priceById.get(item.material_id) ?? null,
+      created_by: ctx.userId,
+    })),
+  );
+  if (itemsError) {
+    await supabase.from("sales_orders").delete().eq("id", order.id);
+    return { ok: false, error: itemsError.message };
+  }
+
+  revalidatePath(companyModulePath(companyId, "sales-orders"));
+  revalidatePath(companyModulePath(companyId));
+  return { ok: true, code: order.code };
+}
+
+async function nextSalesOrderCode(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  companyId: string,
+): Promise<string> {
+  const { data } = await supabase
+    .from("sales_orders")
+    .select("code")
+    .eq("company_id", companyId)
+    .like("code", "SIP-%");
+  const max = (data ?? []).reduce((cur, row) => {
+    const m = row.code.match(/^SIP-(\d+)$/i);
+    return m ? Math.max(cur, Number(m[1])) : cur;
+  }, 0);
+  return `SIP-${String(max + 1).padStart(6, "0")}`;
 }
 
 const STATUS_VALUES = ["confirmed", "preparing", "cancelled"] as const;

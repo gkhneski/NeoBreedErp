@@ -1,12 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { SalesOrderSource, SalesOrderStatus } from "@/types/database";
+import { companyModulePath } from "@/types/roles";
 
 import {
+  convertOrderToShipment,
   markAllSalesOrdersSeen,
   setSalesOrderStatus,
 } from "./actions";
@@ -20,6 +23,8 @@ export type SalesOrderRow = {
   isNew: boolean;
   createdAt: string;
   customerName: string;
+  shipmentId: string | null;
+  shipmentCode: string | null;
   items: Array<{ name: string; quantity: number; unitPrice: number | null }>;
 };
 
@@ -43,43 +48,64 @@ function OrderActions({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   function set(status: "confirmed" | "preparing" | "cancelled") {
+    setError(null);
     start(async () => {
       await setSalesOrderStatus(companyId, row.id, status);
       router.refresh();
     });
   }
 
+  function convert() {
+    setError(null);
+    start(async () => {
+      const res = await convertOrderToShipment(companyId, row.id);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      router.push(companyModulePath(companyId, "shipments", res.shipmentId));
+    });
+  }
+
+  // Converted or closed orders: just show the linked shipment if any.
+  if (row.shipmentId) {
+    return (
+      <Link
+        href={companyModulePath(companyId, "shipments", row.shipmentId)}
+        className="inline-flex text-xs font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+      >
+        Sevkiyat: {row.shipmentCode ?? "Görüntüle"}
+      </Link>
+    );
+  }
   if (row.status === "shipped" || row.status === "cancelled") return null;
 
   return (
-    <div className="flex flex-wrap gap-2">
-      {row.status === "placed" ? (
-        <Button size="sm" disabled={pending} onClick={() => set("confirmed")}>
-          Onayla
+    <div className="space-y-1">
+      <div className="flex flex-wrap gap-2">
+        {row.status === "placed" ? (
+          <Button size="sm" disabled={pending} onClick={() => set("confirmed")}>
+            Onayla
+          </Button>
+        ) : null}
+        <Button size="sm" disabled={pending} onClick={convert}>
+          Sevkiyata Dönüştür
         </Button>
-      ) : null}
-      {row.status !== "preparing" ? (
         <Button
           size="sm"
           variant="outline"
           disabled={pending}
-          onClick={() => set("preparing")}
+          onClick={() => {
+            if (window.confirm("Sipariş iptal edilsin mi?")) set("cancelled");
+          }}
         >
-          Hazırlanıyor
+          İptal
         </Button>
-      ) : null}
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={pending}
-        onClick={() => {
-          if (window.confirm("Sipariş iptal edilsin mi?")) set("cancelled");
-        }}
-      >
-        İptal
-      </Button>
+      </div>
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   );
 }

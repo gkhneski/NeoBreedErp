@@ -1,10 +1,14 @@
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireModuleAccess } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   ORDER_WRITE_ROLES,
   canWriteCompanyData,
+  companyModulePath,
 } from "@/types/roles";
 import type { SalesOrderSource, SalesOrderStatus } from "@/types/database";
 
@@ -22,7 +26,9 @@ type Row = {
   notes: string | null;
   seen_at: string | null;
   created_at: string;
+  shipment_id: string | null;
   customers: { name: string } | null;
+  shipments: { code: string } | null;
   sales_order_items: Array<{
     quantity: number;
     unit_price: number | null;
@@ -42,8 +48,8 @@ export default async function SalesOrdersPage({ params }: PageProps) {
   const { data } = await supabase
     .from("sales_orders")
     .select(
-      "id, code, status, source, notes, seen_at, created_at, " +
-        "customers:customer_id(name), " +
+      "id, code, status, source, notes, seen_at, created_at, shipment_id, " +
+        "customers:customer_id(name), shipments:shipment_id(code), " +
         "sales_order_items(quantity, unit_price, materials:material_id(name))",
     )
     .eq("company_id", companyId)
@@ -60,6 +66,8 @@ export default async function SalesOrdersPage({ params }: PageProps) {
     isNew: o.seen_at === null,
     createdAt: o.created_at,
     customerName: o.customers?.name ?? "—",
+    shipmentId: o.shipment_id,
+    shipmentCode: o.shipments?.code ?? null,
     items: (o.sales_order_items ?? []).map((it) => ({
       name: it.materials?.name ?? "Ürün",
       quantity: Number(it.quantity),
@@ -78,7 +86,14 @@ export default async function SalesOrdersPage({ params }: PageProps) {
             Portaldan ve bölge müdürlerinden gelen B2B siparişleri.
           </p>
         </div>
-        {newCount > 0 ? <Badge variant="warning">{newCount} yeni</Badge> : null}
+        <div className="flex items-center gap-2">
+          {newCount > 0 ? <Badge variant="warning">{newCount} yeni</Badge> : null}
+          {canWrite ? (
+            <Link href={companyModulePath(companyId, "sales-orders", "new")}>
+              <Button>Yeni Sipariş</Button>
+            </Link>
+          ) : null}
+        </div>
       </header>
 
       {rows.length === 0 ? (
