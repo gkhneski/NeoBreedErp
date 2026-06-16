@@ -8,6 +8,7 @@ import {
   ROUTE_LOGIN,
   ROUTE_PLATFORM,
   companyHomePath,
+  portalHomePath,
   canAccessModule,
   canWriteCompanyData,
   type CompanyRole,
@@ -24,18 +25,24 @@ export const getSessionContext = cache(
     } = await supabase.auth.getUser();
     if (!user) return null;
 
-    const [{ data: platformRow }, { data: memberships }] = await Promise.all([
-      supabase
-        .from("platform_admins")
-        .select("user_id")
-        .eq("user_id", user.id)
-        .maybeSingle(),
-      supabase
-        .from("company_users")
-        .select("company_id, role")
-        .eq("user_id", user.id)
-        .is("deleted_at", null),
-    ]);
+    const [{ data: platformRow }, { data: memberships }, { data: buyerRows }] =
+      await Promise.all([
+        supabase
+          .from("platform_admins")
+          .select("user_id")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("company_users")
+          .select("company_id, role")
+          .eq("user_id", user.id)
+          .is("deleted_at", null),
+        supabase
+          .from("customer_users")
+          .select("company_id, customer_id")
+          .eq("user_id", user.id)
+          .is("deleted_at", null),
+      ]);
 
     return {
       userId: user.id,
@@ -44,6 +51,10 @@ export const getSessionContext = cache(
       companyMemberships: (memberships ?? []).map((m) => ({
         companyId: m.company_id,
         role: m.role as CompanyRole,
+      })),
+      buyerMemberships: (buyerRows ?? []).map((b) => ({
+        companyId: b.company_id,
+        customerId: b.customer_id,
       })),
     };
   },
@@ -102,10 +113,29 @@ export async function requireCompanyRole(
   return membership;
 }
 
+// Harici eczane alicilari icin guard: company_users degil, customer_users uzerinden
+// dogrulanir. Alici degilse 404. Boylece staff /portal'a, alici /c/...'ye giremez.
+export async function requireBuyer(companyId: string): Promise<{
+  ctx: SessionContext;
+  companyId: string;
+  customerId: string;
+}> {
+  const ctx = await getSessionContext();
+  if (!ctx) redirect(ROUTE_LOGIN);
+
+  const buyer = ctx.buyerMemberships.find((b) => b.companyId === companyId);
+  if (!buyer) notFound();
+
+  return { ctx, companyId: buyer.companyId, customerId: buyer.customerId };
+}
+
 export function postLoginRedirectFor(ctx: SessionContext): string {
   if (ctx.isPlatformAdmin) return ROUTE_PLATFORM;
   if (ctx.companyMemberships.length > 0) {
     return companyHomePath(ctx.companyMemberships[0].companyId);
+  }
+  if (ctx.buyerMemberships.length > 0) {
+    return portalHomePath(ctx.buyerMemberships[0].companyId);
   }
   return ROUTE_LOGIN + "?reason=no_role";
 }

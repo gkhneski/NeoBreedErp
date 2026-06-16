@@ -6,6 +6,7 @@ export const COMPANY_ROLE_VALUES = [
   "operator",
   "viewer",
   "company_user",
+  "regional_manager",
 ] as const;
 
 export type CompanyRole = (typeof COMPANY_ROLE_VALUES)[number];
@@ -17,6 +18,7 @@ export const COMPANY_ROLE_LABELS: Record<CompanyRole, string> = {
   operator: "Operator",
   viewer: "Salt Okuma",
   company_user: "Firma Kullanicisi",
+  regional_manager: "Bolge Muduru",
 };
 
 export const COMPANY_ROLE_BADGE_LABELS: Record<CompanyRole, string> = {
@@ -26,6 +28,7 @@ export const COMPANY_ROLE_BADGE_LABELS: Record<CompanyRole, string> = {
   operator: "OPERATOR",
   viewer: "OKUMA",
   company_user: "KULLANICI",
+  regional_manager: "BOLGE",
 };
 
 export const COMPANY_WRITE_ROLES = [
@@ -76,6 +79,17 @@ export const SHIPMENT_WRITE_ROLES = [
   "company_user",
 ] as const satisfies readonly CompanyRole[];
 
+// B2B satis siparisleri: depocu gelen siparisi yonetir; bolge muduru eczaneler
+// adina siparis girer. Eczaci (harici alici) company_users degil — portal RLS'i
+// ile ayri yetkilenir, bu listede yer almaz.
+export const ORDER_WRITE_ROLES = [
+  "company_admin",
+  "production_manager",
+  "operator",
+  "company_user",
+  "regional_manager",
+] as const satisfies readonly CompanyRole[];
+
 // Pazaryeri fiyat onay kuyrugu: depocu tek dokunusla onaylar/reddeder.
 export const MARKETPLACE_APPROVE_ROLES = [
   "company_admin",
@@ -105,6 +119,9 @@ const OPERATOR_MODULES = new Set([
   "shipments",
   "marketplace",
   "sales",
+  // Depocu gelen B2B siparisleri gorur ve sevkiyata donusturur. ("orders" anahtari
+  // uretim is listesine ait; B2B satis siparisleri ayri "sales-orders".)
+  "sales-orders",
   // Depocu urun komuta merkezini salt-okunur gorur: stok + pazaryeri durumu.
   // Yazma/duzenleme/yeni urun MASTER_DATA_WRITE_ROLES ile zaten engelli.
   "products",
@@ -113,11 +130,25 @@ const OPERATOR_MODULES = new Set([
   "lots/onboarding",
 ]);
 
+// Bolge muduru = ic personel ama satis odakli: depo stok + uretim durumunu
+// (salt-okunur) gorur, eczaneler adina siparis girer. Ana veri/kalite/kullanici
+// yonetimi YOK.
+const REGIONAL_MANAGER_MODULES = new Set([
+  "",
+  "sales-orders",
+  "products",
+  "stock",
+  "production",
+  "sales",
+  "customers",
+]);
+
 export function canAccessModule(
   role: CompanyRole,
   moduleKey: string,
 ): boolean {
   if (role === "operator") return OPERATOR_MODULES.has(moduleKey);
+  if (role === "regional_manager") return REGIONAL_MANAGER_MODULES.has(moduleKey);
   return true;
 }
 
@@ -140,14 +171,25 @@ export interface SessionContext {
     companyId: string;
     role: CompanyRole;
   }>;
+  // Harici eczane alicilari: company_users degil, bir musteriye bagli portal
+  // kullanicilari. ERP'ye giremezler; yalnizca /portal yuzeyini gorurler.
+  buyerMemberships: Array<{
+    companyId: string;
+    customerId: string;
+  }>;
 }
 
 export const ROUTE_LOGIN = "/login";
 export const ROUTE_PLATFORM = "/superadmin";
 export const ROUTE_COMPANY_PREFIX = "/c";
+export const ROUTE_PORTAL_PREFIX = "/portal";
 
 export function companyHomePath(companyId: string): string {
   return `${ROUTE_COMPANY_PREFIX}/${companyId}`;
+}
+
+export function portalHomePath(companyId: string): string {
+  return `${ROUTE_PORTAL_PREFIX}/${companyId}`;
 }
 
 export function companyModulePath(companyId: string, ...segments: string[]): string {

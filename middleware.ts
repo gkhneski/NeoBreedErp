@@ -20,7 +20,8 @@ export async function middleware(request: NextRequest) {
 
   const isPlatformRoute = pathname.startsWith("/superadmin");
   const isCompanyRoute = pathname.startsWith("/c/");
-  if (!isPlatformRoute && !isCompanyRoute) {
+  const isPortalRoute = pathname.startsWith("/portal");
+  if (!isPlatformRoute && !isCompanyRoute && !isPortalRoute) {
     return response;
   }
 

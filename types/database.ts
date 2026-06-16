@@ -5,7 +5,16 @@ export type CompanyUserRole =
   | "quality_manager"
   | "operator"
   | "viewer"
-  | "company_user";
+  | "company_user"
+  | "regional_manager";
+export type SalesOrderStatus =
+  | "placed"
+  | "confirmed"
+  | "preparing"
+  | "shipped"
+  | "cancelled";
+export type SalesOrderSource = "portal" | "rep";
+export type CatalogAvailability = "out" | "low" | "in";
 export type MaterialType = "raw" | "finished";
 export type RecipeStatus = "draft" | "published" | "archived";
 export type RecipeMode = "quantity" | "percentage";
@@ -1523,9 +1532,178 @@ export type Database = {
           },
         ];
       };
+      customer_users: {
+        Row: {
+          user_id: string;
+          company_id: string;
+          customer_id: string;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+        };
+        Insert: {
+          user_id: string;
+          company_id: string;
+          customer_id: string;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Update: {
+          user_id?: string;
+          company_id?: string;
+          customer_id?: string;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Relationships: [];
+      };
+      product_catalog: {
+        Row: {
+          id: string;
+          company_id: string;
+          material_id: string;
+          sale_price: number | null;
+          is_listed: boolean;
+          low_stock_threshold: number;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          material_id: string;
+          sale_price?: number | null;
+          is_listed?: boolean;
+          low_stock_threshold?: number;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          material_id?: string;
+          sale_price?: number | null;
+          is_listed?: boolean;
+          low_stock_threshold?: number;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      sales_orders: {
+        Row: {
+          id: string;
+          company_id: string;
+          customer_id: string;
+          code: string;
+          status: SalesOrderStatus;
+          source: SalesOrderSource;
+          placed_by: string | null;
+          seen_at: string | null;
+          shipment_id: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          customer_id: string;
+          code: string;
+          status?: SalesOrderStatus;
+          source: SalesOrderSource;
+          placed_by?: string | null;
+          seen_at?: string | null;
+          shipment_id?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          customer_id?: string;
+          code?: string;
+          status?: SalesOrderStatus;
+          source?: SalesOrderSource;
+          placed_by?: string | null;
+          seen_at?: string | null;
+          shipment_id?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      sales_order_items: {
+        Row: {
+          id: string;
+          company_id: string;
+          order_id: string;
+          material_id: string;
+          quantity: number;
+          unit_price: number | null;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          order_id: string;
+          material_id: string;
+          quantity: number;
+          unit_price?: number | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          order_id?: string;
+          material_id?: string;
+          quantity?: number;
+          unit_price?: number | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {
-      [_ in never]: never;
+      buyer_catalog: {
+        Row: {
+          company_id: string;
+          material_id: string;
+          code: string;
+          name: string;
+          barcode: string | null;
+          base_uom: string;
+          sale_price: number | null;
+          image_url: string | null;
+          availability: CatalogAvailability;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       create_lot_with_receipt: {
