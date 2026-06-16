@@ -202,6 +202,35 @@ interface PageProps {
   params: Promise<{ companyId: string }>;
 }
 
+// LTD deposu (varsayilan olmayan aktif depo) icindeki bitmis urunun toplam
+// adedi ve kac cesit oldugu. Ana Depo (fabrika, is_default) haric.
+async function loadLtdDepotTotals(
+  companyId: string,
+): Promise<{ units: number; products: number }> {
+  const supabase = await createServerSupabaseClient();
+  const { data } = await supabase
+    .from("material_lots")
+    .select(
+      "quantity_on_hand, material_id, " +
+        "materials:material_id!inner(type), " +
+        "locations:location_id!inner(is_default)",
+    )
+    .eq("company_id", companyId)
+    .eq("materials.type", "finished")
+    .eq("locations.is_default", false)
+    .is("deleted_at", null)
+    .gt("quantity_on_hand", 0)
+    .returns<Array<{ quantity_on_hand: number; material_id: string }>>();
+
+  let units = 0;
+  const products = new Set<string>();
+  for (const row of data ?? []) {
+    units += Number(row.quantity_on_hand);
+    products.add(row.material_id);
+  }
+  return { units, products: products.size };
+}
+
 type ExpiringLotRow = {
   id: string;
   lot_number: string;
@@ -289,6 +318,7 @@ async function ClerkDashboard({
     { count: shippedToday },
     { count: releasedLots },
     { count: pendingPriceApprovals },
+    ltd,
     expiry,
     weekly,
     team,
@@ -321,6 +351,7 @@ async function ClerkDashboard({
       .select("id", { count: "exact", head: true })
       .eq("company_id", companyId)
       .eq("status", "pending"),
+    loadLtdDepotTotals(companyId),
     loadExpiryCounts(companyId, thresholds),
     loadWeeklyMovements(companyId),
     loadTeam(companyId),
@@ -362,11 +393,11 @@ async function ClerkDashboard({
       icon: "send",
     },
     {
-      label: "Bekleyen Fiyat Onayı",
-      value: pendingPriceApprovals ?? 0,
-      sub: "pazaryeri indirimleri",
-      href: marketplacePath,
-      icon: "store",
+      label: "LTD Deposu — Toplam Ürün",
+      value: ltd.units,
+      sub: `${ltd.products.toLocaleString("tr-TR")} çeşit ürün`,
+      href: finishedStockPath,
+      icon: "boxes",
     },
   ];
 
@@ -509,9 +540,10 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
   }
 
   const thresholds = await getExpiryThresholds(companyId);
-  const [company, stats, expiry, weekly, team] = await Promise.all([
+  const [company, stats, ltd, expiry, weekly, team] = await Promise.all([
     getCompanySummary(companyId),
     loadCompanyStats(companyId, thresholds.criticalDays),
+    loadLtdDepotTotals(companyId),
     loadExpiryCounts(companyId, thresholds),
     loadWeeklyMovements(companyId),
     loadTeam(companyId),
@@ -550,11 +582,11 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
       icon: "send",
     },
     {
-      label: "Bekleyen Fiyat Onayı",
-      value: stats.pendingPriceApprovals,
-      sub: "pazaryeri indirimleri",
-      href: companyModulePath(companyId, "marketplace"),
-      icon: "store",
+      label: "LTD Deposu — Toplam Ürün",
+      value: ltd.units,
+      sub: `${ltd.products.toLocaleString("tr-TR")} çeşit ürün`,
+      href: finishedStockPath,
+      icon: "boxes",
     },
   ];
 

@@ -31,6 +31,7 @@ type ProductDetail = {
   code: string;
   name: string;
   base_uom: string;
+  barcode: string | null;
   density: number | null;
   allergen_flags: unknown;
   storage_conditions: string | null;
@@ -47,7 +48,12 @@ type LotRow = {
   status: "quarantine" | "released" | "blocked";
   received_at: string;
   expiry_date: string | null;
+  locations: { code: string; name: string; is_default: boolean } | null;
 };
+
+function money(n: number): string {
+  return `${Number(n).toLocaleString("tr-TR", { maximumFractionDigits: 2 })} ₺`;
+}
 
 const LOT_STATUS_LABEL: Record<LotRow["status"], string> = {
   quarantine: "Karantina",
@@ -101,7 +107,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const { data: product } = await supabase
     .from("materials")
     .select(
-      "id, code, name, base_uom, density, allergen_flags, storage_conditions, regulatory_notes, notes, created_at, updated_at",
+      "id, code, name, base_uom, barcode, density, allergen_flags, storage_conditions, regulatory_notes, notes, created_at, updated_at",
     )
     .eq("company_id", companyId)
     .eq("id", productId)
@@ -113,12 +119,42 @@ export default async function ProductDetailPage({ params }: PageProps) {
 
   const { data: lots } = await supabase
     .from("material_lots")
-    .select("id, lot_number, quantity_on_hand, status, received_at, expiry_date")
+    .select(
+      "id, lot_number, quantity_on_hand, status, received_at, expiry_date, " +
+        "locations:location_id(code, name, is_default)",
+    )
     .eq("company_id", companyId)
     .eq("material_id", product.id)
     .is("deleted_at", null)
     .order("received_at", { ascending: false })
     .returns<LotRow[]>();
+
+  // Pazaryeri durumu + (thumbnail yoksa) Trendyol katalog resmi.
+  const { data: listing } = await supabase
+    .from("marketplace_listings")
+    .select("normal_sale_price, applied_sale_price, current_price_state, sync_status")
+    .eq("company_id", companyId)
+    .eq("material_id", product.id)
+    .eq("channel", "trendyol")
+    .is("deleted_at", null)
+    .maybeSingle<{
+      normal_sale_price: number;
+      applied_sale_price: number | null;
+      current_price_state: "normal" | "discounted" | "unknown";
+      sync_status: "never" | "pending" | "ok" | "failed";
+    }>();
+
+  let remoteImage: string | null = null;
+  if (product.barcode) {
+    const { data: remote } = await supabase
+      .from("marketplace_remote_products")
+      .select("image_url")
+      .eq("company_id", companyId)
+      .eq("channel", "trendyol")
+      .eq("barcode", product.barcode)
+      .maybeSingle<{ image_url: string | null }>();
+    remoteImage = remote?.image_url ?? null;
+  }
 
   const lotIds = (lots ?? []).map((lot) => lot.id);
   const { data: certificates } =
@@ -166,6 +202,9 @@ export default async function ProductDetailPage({ params }: PageProps) {
                 className="object-cover"
                 unoptimized
               />
+            ) : remoteImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={remoteImage} alt="" className="h-full w-full object-cover" />
             ) : null}
           </div>
           <div className="space-y-1">
@@ -198,6 +237,60 @@ export default async function ProductDetailPage({ params }: PageProps) {
           </Link>
         </div>
       </header>
+
+      <section className="rounded-md border border-border p-4">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-medium">Pazaryeri (Trendyol)</h2>
+          <Link
+            href={companyModulePath(companyId, "marketplace")}
+            className="text-xs font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+          >
+            Pazaryeri&apos;nde yönet →
+          </Link>
+        </div>
+        {listing ? (
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            {listing.applied_sale_price !== null &&
+            Number(listing.applied_sale_price) <
+              Number(listing.normal_sale_price) ? (
+              <>
+                <Badge variant="warning">
+                  İndirimde {money(Number(listing.applied_sale_price))}
+                </Badge>
+                <span className="text-muted-foreground line-through">
+                  {money(Number(listing.normal_sale_price))}
+                </span>
+              </>
+            ) : (
+              <Badge variant="default">
+                Listede {money(Number(listing.normal_sale_price))}
+              </Badge>
+            )}
+            <span className="text-xs text-muted-foreground">
+              Senkron:{" "}
+              {listing.sync_status === "ok"
+                ? "güncel"
+                : listing.sync_status === "failed"
+                  ? "hata"
+                  : listing.sync_status === "pending"
+                    ? "bekliyor"
+                    : "henüz gönderilmedi"}
+            </span>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Bu ürün Trendyol&apos;da listelenmemiş.{" "}
+            {canWrite ? (
+              <Link
+                href={companyModulePath(companyId, "marketplace", "import")}
+                className="text-emerald-600 hover:underline dark:text-emerald-400"
+              >
+                Listelerden eşleştir
+              </Link>
+            ) : null}
+          </p>
+        )}
+      </section>
 
       <section className="rounded-md border border-border p-4">
         <h2 className="mb-2 text-sm font-medium">Temel Bilgiler</h2>
@@ -272,6 +365,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
               <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">Lot No</th>
+                  <th className="px-3 py-2 text-left font-medium">Konum</th>
                   <th className="px-3 py-2 text-right font-medium">Stok</th>
                   <th className="px-3 py-2 text-left font-medium">Durum</th>
                   <th className="px-3 py-2 text-left font-medium">Giriş</th>
@@ -283,6 +377,19 @@ export default async function ProductDetailPage({ params }: PageProps) {
                   <tr key={lot.id} className="border-t border-border">
                     <td className="px-3 py-2 font-mono text-xs">
                       {lot.lot_number}
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      {lot.locations ? (
+                        lot.locations.is_default ? (
+                          <span className="text-muted-foreground">
+                            {lot.locations.name}
+                          </span>
+                        ) : (
+                          <Badge variant="outline">{lot.locations.code}</Badge>
+                        )
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right font-mono text-xs">
                       {formatNumber(Number(lot.quantity_on_hand))}{" "}

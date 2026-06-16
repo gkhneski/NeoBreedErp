@@ -105,6 +105,9 @@ const OPERATOR_MODULES = new Set([
   "shipments",
   "marketplace",
   "sales",
+  // Depocu urun komuta merkezini salt-okunur gorur: stok + pazaryeri durumu.
+  // Yazma/duzenleme/yeni urun MASTER_DATA_WRITE_ROLES ile zaten engelli.
+  "products",
   // Depocu eldeki bitmis urunu barkod okutarak girer; tam "lots" modulu
   // (hammadde/fabrika lotlari) acilmaz, yalnizca onboarding ekrani.
   "lots/onboarding",

@@ -4,11 +4,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireModuleAccess } from "@/lib/auth";
+import { getExpiryThresholds } from "@/lib/company-settings";
+import {
+  EXPIRY_BADGE_CLASS,
+  EXPIRY_LABEL,
+  daysUntil,
+  expiryUrgency,
+} from "@/lib/expiry";
 import {
   SIGNED_URL_TTL_SECONDS,
   TENANT_FILES_BUCKET,
 } from "@/lib/storage/attachments";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { uomLabel } from "@/lib/uom";
 import {
   MASTER_DATA_WRITE_ROLES,
   canWriteCompanyData,
@@ -16,41 +24,55 @@ import {
 } from "@/types/roles";
 
 import { deleteMaterial } from "../materials/actions";
-import Image from "next/image";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
 }
+
+type Lot = {
+  quantity_on_hand: number;
+  status: "quarantine" | "released" | "blocked";
+  expiry_date: string | null;
+  deleted_at: string | null;
+  locations: { is_default: boolean } | null;
+};
 
 type ProductRow = {
   id: string;
   code: string;
   name: string;
   base_uom: string;
-  storage_conditions: string | null;
-  regulatory_notes: string | null;
-  material_lots: Array<{
-    quantity_on_hand: number;
-    status: "quarantine" | "released" | "blocked";
-  }> | null;
+  barcode: string | null;
+  material_lots: Lot[] | null;
 };
 
-function formatNumber(n: number): string {
-  return Number(n).toLocaleString("tr-TR", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 6,
-  });
+type ListingRow = {
+  material_id: string;
+  normal_sale_price: number;
+  applied_sale_price: number | null;
+  current_price_state: "normal" | "discounted" | "unknown";
+};
+
+function fmt(n: number): string {
+  return Number(n).toLocaleString("tr-TR", { maximumFractionDigits: 6 });
+}
+function money(n: number): string {
+  return `${Number(n).toLocaleString("tr-TR", { maximumFractionDigits: 2 })} ₺`;
 }
 
 export default async function ProductsPage({ params }: PageProps) {
   const { companyId: routeCompanyId } = await params;
   const { companyId, role } = await requireModuleAccess(routeCompanyId, "products");
   const supabase = await createServerSupabaseClient();
+  const canWrite = canWriteCompanyData(role, MASTER_DATA_WRITE_ROLES);
+  const thresholds = await getExpiryThresholds(companyId);
 
   const { data: products } = await supabase
     .from("materials")
     .select(
-      "id, code, name, base_uom, storage_conditions, regulatory_notes, material_lots(quantity_on_hand, status)",
+      "id, code, name, base_uom, barcode, " +
+        "material_lots(quantity_on_hand, status, expiry_date, deleted_at, " +
+        "locations:location_id(is_default))",
     )
     .eq("company_id", companyId)
     .eq("type", "finished")
@@ -60,8 +82,9 @@ export default async function ProductsPage({ params }: PageProps) {
 
   const rows = products ?? [];
   const newHref = companyModulePath(companyId, "products", "new");
-  const canWrite = canWriteCompanyData(role, MASTER_DATA_WRITE_ROLES);
-  const thumbnailPaths = rows.map((row) => `${companyId}/products/${row.id}/thumbnail`);
+
+  // Thumbnails (uploaded) — fall back to the Trendyol catalog image by barcode.
+  const thumbnailPaths = rows.map((r) => `${companyId}/products/${r.id}/thumbnail`);
   const { data: signedThumbnails } =
     thumbnailPaths.length > 0
       ? await supabase.storage
@@ -70,18 +93,43 @@ export default async function ProductsPage({ params }: PageProps) {
       : { data: [] };
   const thumbnailByPath = new Map<string, string>();
   for (const entry of signedThumbnails ?? []) {
-    if (entry?.path && entry.signedUrl) {
-      thumbnailByPath.set(entry.path, entry.signedUrl);
-    }
+    if (entry?.path && entry.signedUrl) thumbnailByPath.set(entry.path, entry.signedUrl);
   }
+
+  const barcodes = Array.from(
+    new Set(rows.map((r) => r.barcode).filter(Boolean) as string[]),
+  );
+  const remoteImageByBarcode = new Map<string, string | null>();
+  if (barcodes.length > 0) {
+    const { data: remotes } = await supabase
+      .from("marketplace_remote_products")
+      .select("barcode, image_url")
+      .eq("company_id", companyId)
+      .eq("channel", "trendyol")
+      .in("barcode", barcodes);
+    for (const r of remotes ?? []) remoteImageByBarcode.set(r.barcode, r.image_url);
+  }
+
+  const { data: listingRows } = await supabase
+    .from("marketplace_listings")
+    .select("material_id, normal_sale_price, applied_sale_price, current_price_state")
+    .eq("company_id", companyId)
+    .eq("channel", "trendyol")
+    .is("deleted_at", null)
+    .returns<ListingRow[]>();
+  const listingByMaterial = new Map(
+    (listingRows ?? []).map((l) => [l.material_id, l]),
+  );
+
+  const marketplaceHref = companyModulePath(companyId, "marketplace");
 
   return (
     <div className="space-y-6">
-      <header className="flex items-end justify-between gap-4">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Ürünler</h1>
           <p className="text-sm text-muted-foreground">
-            Ürün kodları URN-01 formatında otomatik verilir.
+            Stok, fabrika ve pazaryeri tek yerde. Ürüne tıklayınca tüm detay açılır.
           </p>
         </div>
         {canWrite ? (
@@ -93,16 +141,16 @@ export default async function ProductsPage({ params }: PageProps) {
 
       {rows.length > 0 ? (
         <div className="overflow-x-auto rounded-md border border-border">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full min-w-[860px] text-sm">
             <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 text-left font-medium">Kod</th>
                 <th className="px-3 py-2 text-left font-medium">Görsel</th>
-                <th className="px-3 py-2 text-left font-medium">Ad</th>
-                <th className="px-3 py-2 text-right font-medium">Serbest Stok</th>
-                <th className="px-3 py-2 text-right font-medium">Karantina</th>
-                <th className="px-3 py-2 text-left font-medium">Saklama</th>
-                <th className="px-3 py-2 text-left font-medium">Regulasyon</th>
+                <th className="px-3 py-2 text-left font-medium">Ürün</th>
+                <th className="px-3 py-2 text-right font-medium">Toplam</th>
+                <th className="px-3 py-2 text-right font-medium">LTD</th>
+                <th className="px-3 py-2 text-right font-medium">Ana Depo</th>
+                <th className="px-3 py-2 text-left font-medium">SKT</th>
+                <th className="px-3 py-2 text-left font-medium">Trendyol</th>
                 {canWrite ? (
                   <th className="px-3 py-2 text-right font-medium">İşlem</th>
                 ) : null}
@@ -110,18 +158,45 @@ export default async function ProductsPage({ params }: PageProps) {
             </thead>
             <tbody>
               {rows.map((row) => {
-                const lots = row.material_lots ?? [];
-                const released = lots
-                  .filter((lot) => lot.status === "released")
-                  .reduce((sum, lot) => sum + Number(lot.quantity_on_hand), 0);
-                const quarantine = lots
-                  .filter((lot) => lot.status === "quarantine")
-                  .reduce((sum, lot) => sum + Number(lot.quantity_on_hand), 0);
-                const detailHref = companyModulePath(companyId, "products", row.id);
-                const editHref = companyModulePath(companyId, "products", row.id, "edit");
-                const thumbnailUrl = thumbnailByPath.get(
-                  `${companyId}/products/${row.id}/thumbnail`,
+                const lots = (row.material_lots ?? []).filter(
+                  (l) => l.deleted_at === null,
                 );
+                const released = lots.filter((l) => l.status === "released");
+                const total = released.reduce(
+                  (s, l) => s + Number(l.quantity_on_hand),
+                  0,
+                );
+                const ltd = released
+                  .filter((l) => l.locations && l.locations.is_default === false)
+                  .reduce((s, l) => s + Number(l.quantity_on_hand), 0);
+                const ana = released
+                  .filter((l) => l.locations && l.locations.is_default === true)
+                  .reduce((s, l) => s + Number(l.quantity_on_hand), 0);
+
+                const nearestExpiry = released
+                  .map((l) => l.expiry_date)
+                  .filter((d): d is string => Boolean(d))
+                  .sort()[0];
+                const urgency = nearestExpiry
+                  ? expiryUrgency(nearestExpiry, thresholds)
+                  : null;
+
+                const detailHref = companyModulePath(companyId, "products", row.id);
+                const editHref = companyModulePath(
+                  companyId,
+                  "products",
+                  row.id,
+                  "edit",
+                );
+                const img =
+                  thumbnailByPath.get(`${companyId}/products/${row.id}/thumbnail`) ??
+                  (row.barcode ? remoteImageByBarcode.get(row.barcode) ?? null : null);
+                const listing = listingByMaterial.get(row.id);
+                const discounted =
+                  listing &&
+                  listing.applied_sale_price !== null &&
+                  Number(listing.applied_sale_price) < Number(listing.normal_sale_price);
+
                 const deleteAction = deleteMaterial.bind(
                   null,
                   companyId,
@@ -130,51 +205,96 @@ export default async function ProductsPage({ params }: PageProps) {
                 );
 
                 return (
-                  <tr key={row.id} className="border-t border-border">
-                    <td className="px-3 py-2 font-mono text-xs">
-                      <Link href={detailHref} className="hover:underline">
-                        {row.code}
+                  <tr key={row.id} className="border-t border-border align-top">
+                    <td className="px-3 py-2">
+                      <Link
+                        href={detailHref}
+                        className="block h-12 w-12 overflow-hidden rounded-lg border border-border bg-secondary"
+                      >
+                        {img ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={img}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : null}
                       </Link>
                     </td>
                     <td className="px-3 py-2">
-                      <div className="relative h-10 w-10 overflow-hidden rounded border border-border bg-secondary">
-                        {thumbnailUrl ? (
-                          <Image
-                            src={thumbnailUrl}
-                            alt=""
-                            fill
-                            sizes="40px"
-                            className="object-cover"
-                            unoptimized
-                          />
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">{row.name}</td>
-                    <td className="px-3 py-2 text-right font-mono text-xs">
-                      {formatNumber(released)}{" "}
-                      <span className="text-muted-foreground">{row.base_uom}</span>
+                      <Link href={detailHref} className="hover:underline">
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {row.code}
+                        </span>{" "}
+                        {row.name}
+                      </Link>
+                      {row.barcode ? (
+                        <p className="font-mono text-[10px] text-muted-foreground">
+                          {row.barcode}
+                        </p>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2 text-right font-mono text-xs">
-                      {quarantine > 0 ? (
-                        <Badge variant="warning">
-                          {formatNumber(quarantine)} {row.base_uom}
-                        </Badge>
+                      {fmt(total)}{" "}
+                      <span className="text-muted-foreground">
+                        {uomLabel(row.base_uom)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono text-xs">
+                      {ltd > 0 ? (
+                        <Badge variant="outline">{fmt(ltd)}</Badge>
                       ) : (
-                        <span className="text-muted-foreground">0</span>
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {row.storage_conditions ?? "--"}
+                    <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
+                      {ana > 0 ? fmt(ana) : "—"}
                     </td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {row.regulatory_notes ?? "--"}
+                      {nearestExpiry ? (
+                        <div className="flex flex-col gap-1">
+                          <span>{nearestExpiry}</span>
+                          {urgency && urgency !== "ok" ? (
+                            <span
+                              className={`w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold ${EXPIRY_BADGE_CLASS[urgency]}`}
+                            >
+                              {urgency === "expired"
+                                ? EXPIRY_LABEL.expired
+                                : `${EXPIRY_LABEL[urgency]} · ${daysUntil(nearestExpiry)}g`}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      {listing ? (
+                        <Link
+                          href={marketplaceHref}
+                          className="inline-flex flex-col gap-0.5 hover:underline"
+                        >
+                          {discounted ? (
+                            <Badge variant="warning">
+                              İndirimde {money(Number(listing.applied_sale_price))}
+                            </Badge>
+                          ) : (
+                            <Badge variant="default">
+                              Listede {money(Number(listing.normal_sale_price))}
+                            </Badge>
+                          )}
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground">Listede değil</span>
+                      )}
                     </td>
                     {canWrite ? (
                       <td className="px-3 py-2 text-right">
                         <div className="flex justify-end gap-1">
                           <Link href={editHref}>
-                            <Button size="sm" variant="outline">Düzenle</Button>
+                            <Button size="sm" variant="outline">
+                              Düzenle
+                            </Button>
                           </Link>
                           <form action={deleteAction}>
                             <Button size="sm" variant="destructive" type="submit">
