@@ -278,3 +278,145 @@ export async function uploadProductThumbnail(
   revalidatePath(companyModulePath(companyId, "products", productId, "edit"));
   return { ok: true };
 }
+
+// --- Pull Trendyol catalog image and persist it as the product thumbnail ------
+
+export type PullImageResult = { ok: true } | { ok: false; error: string };
+
+const PULL_MIME = /^image\/(jpeg|png|webp)/;
+const PULL_MAX_BYTES = 8 * 1024 * 1024;
+
+async function fetchAndStoreThumbnail(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  companyId: string,
+  productId: string,
+  url: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch {
+    return { ok: false, error: "Resme ulaşılamadı." };
+  }
+  if (!res.ok) return { ok: false, error: `Resim indirilemedi (HTTP ${res.status}).` };
+  const type = (res.headers.get("content-type") ?? "image/jpeg").split(";")[0];
+  if (!PULL_MIME.test(type)) return { ok: false, error: "Desteklenmeyen resim türü." };
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (bytes.byteLength === 0 || bytes.byteLength > PULL_MAX_BYTES) {
+    return { ok: false, error: "Resim boyutu geçersiz." };
+  }
+  const { error } = await supabase.storage
+    .from(TENANT_FILES_BUCKET)
+    .upload(`${companyId}/products/${productId}/thumbnail`, bytes, {
+      contentType: type,
+      upsert: true,
+    });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function pullTrendyolImage(
+  routeCompanyId: string,
+  productId: string,
+): Promise<PullImageResult> {
+  const { companyId } = await requireCompanyRole(
+    routeCompanyId,
+    MASTER_DATA_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { data: product } = await supabase
+    .from("materials")
+    .select("id, barcode")
+    .eq("id", productId)
+    .eq("company_id", companyId)
+    .eq("type", "finished")
+    .is("deleted_at", null)
+    .maybeSingle<{ id: string; barcode: string | null }>();
+
+  if (!product) return { ok: false, error: "Ürün bulunamadı." };
+  if (!product.barcode) {
+    return {
+      ok: false,
+      error: "Üründe barkod yok; önce Trendyol ürünüyle eşleştirin.",
+    };
+  }
+
+  const { data: remote } = await supabase
+    .from("marketplace_remote_products")
+    .select("image_url")
+    .eq("company_id", companyId)
+    .eq("channel", "trendyol")
+    .eq("barcode", product.barcode)
+    .maybeSingle<{ image_url: string | null }>();
+
+  if (!remote?.image_url) {
+    return { ok: false, error: "Trendyol kataloğunda bu ürün için resim yok." };
+  }
+
+  const stored = await fetchAndStoreThumbnail(
+    supabase,
+    companyId,
+    productId,
+    remote.image_url,
+  );
+  if (!stored.ok) return stored;
+
+  revalidatePath(companyModulePath(companyId, "products"));
+  revalidatePath(companyModulePath(companyId, "products", productId));
+  return { ok: true };
+}
+
+export type PullAllResult =
+  | { ok: true; saved: number; skipped: number }
+  | { ok: false; error: string };
+
+export async function pullAllTrendyolImages(
+  routeCompanyId: string,
+): Promise<PullAllResult> {
+  const { companyId } = await requireCompanyRole(
+    routeCompanyId,
+    MASTER_DATA_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { data: products } = await supabase
+    .from("materials")
+    .select("id, barcode")
+    .eq("company_id", companyId)
+    .eq("type", "finished")
+    .is("deleted_at", null)
+    .not("barcode", "is", null)
+    .returns<Array<{ id: string; barcode: string | null }>>();
+
+  const list = (products ?? []).filter(
+    (p): p is { id: string; barcode: string } => Boolean(p.barcode),
+  );
+  if (list.length === 0) return { ok: true, saved: 0, skipped: 0 };
+
+  const barcodes = Array.from(new Set(list.map((p) => p.barcode)));
+  const { data: remotes } = await supabase
+    .from("marketplace_remote_products")
+    .select("barcode, image_url")
+    .eq("company_id", companyId)
+    .eq("channel", "trendyol")
+    .in("barcode", barcodes);
+  const imageByBarcode = new Map<string, string | null>();
+  for (const r of remotes ?? []) imageByBarcode.set(r.barcode, r.image_url);
+
+  let saved = 0;
+  let skipped = 0;
+  for (const p of list) {
+    const url = imageByBarcode.get(p.barcode);
+    if (!url) {
+      skipped += 1;
+      continue;
+    }
+    const stored = await fetchAndStoreThumbnail(supabase, companyId, p.id, url);
+    if (stored.ok) saved += 1;
+    else skipped += 1;
+  }
+
+  revalidatePath(companyModulePath(companyId, "products"));
+  return { ok: true, saved, skipped };
+}

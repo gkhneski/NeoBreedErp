@@ -24,6 +24,7 @@ import {
 } from "@/types/roles";
 
 import { deleteMaterial } from "../materials/actions";
+import { PullAllImagesButton } from "./trendyol-image-buttons";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -133,9 +134,12 @@ export default async function ProductsPage({ params }: PageProps) {
           </p>
         </div>
         {canWrite ? (
-          <Link href={newHref}>
-            <Button>Yeni Ürün</Button>
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <PullAllImagesButton companyId={companyId} />
+            <Link href={newHref}>
+              <Button>Yeni Ürün</Button>
+            </Link>
+          </div>
         ) : null}
       </header>
 

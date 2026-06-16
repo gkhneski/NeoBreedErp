@@ -20,6 +20,7 @@ import {
 import { ALLERGEN_LABELS, type AllergenCode } from "../../materials/allergens";
 import { deleteMaterial } from "../../materials/actions";
 import { MaterialCertificateUploader } from "../../materials/[materialId]/certificate-uploader";
+import { PullProductImageButton } from "../trendyol-image-buttons";
 import type { FileAttachment } from "@/types/database";
 
 interface PageProps {
@@ -192,19 +193,31 @@ export default async function ProductDetailPage({ params }: PageProps) {
     <div className="max-w-3xl space-y-6">
       <header className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4">
-          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-border bg-secondary">
-            {signedThumbnail?.signedUrl ? (
-              <Image
-                src={signedThumbnail.signedUrl}
-                alt=""
-                fill
-                sizes="64px"
-                className="object-cover"
-                unoptimized
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-border bg-secondary">
+              {signedThumbnail?.signedUrl ? (
+                <Image
+                  src={signedThumbnail.signedUrl}
+                  alt=""
+                  fill
+                  sizes="64px"
+                  className="object-cover"
+                  unoptimized
+                />
+              ) : remoteImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={remoteImage}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : null}
+            </div>
+            {canWrite && product.barcode ? (
+              <PullProductImageButton
+                companyId={companyId}
+                productId={product.id}
               />
-            ) : remoteImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={remoteImage} alt="" className="h-full w-full object-cover" />
             ) : null}
           </div>
           <div className="space-y-1">
