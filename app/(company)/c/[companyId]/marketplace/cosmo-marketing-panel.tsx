@@ -7,6 +7,8 @@ import {
   ChevronDown,
   Clock,
   Copy,
+  ExternalLink,
+  Globe,
   ImageOff,
   LineChart,
   PenLine,
@@ -20,7 +22,10 @@ import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 
+import type { CompetitorResearch } from "@/lib/marketplaces/cosmo-marketing";
+
 import {
+  cosmoCompetitorResearch,
   cosmoMarketingScan,
   proposeMarketingPrice,
   type CosmoMarketingProduct,
@@ -54,6 +59,209 @@ function scoreColor(score: number): string {
   return "bg-rose-500/15 text-rose-700 dark:text-rose-400";
 }
 
+function ProposePriceButton({
+  companyId,
+  listingId,
+  salePrice,
+  label,
+}: {
+  companyId: string;
+  listingId: string;
+  salePrice: number;
+  label: string;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(
+    null,
+  );
+  function propose() {
+    setMsg(null);
+    start(async () => {
+      const res = await proposeMarketingPrice(companyId, listingId, salePrice);
+      if (!res.ok) {
+        setMsg({ kind: "err", text: res.error });
+        return;
+      }
+      setMsg({
+        kind: "ok",
+        text: "Onay kuyruğuna eklendi. Bekleyen Fiyat Onayları'ndan yayınlayın.",
+      });
+      router.refresh();
+    });
+  }
+  return (
+    <div className="space-y-1">
+      <Button size="sm" disabled={pending} onClick={propose}>
+        <Check className="mr-1 h-4 w-4" />
+        {pending ? "Ekleniyor..." : label}
+      </Button>
+      {msg ? (
+        <p
+          className={`text-xs ${
+            msg.kind === "ok"
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-destructive"
+          }`}
+        >
+          {msg.text}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function CompetitorBlock({
+  companyId,
+  product,
+  canApprove,
+}: {
+  companyId: string;
+  product: CosmoMarketingProduct;
+  canApprove: boolean;
+}) {
+  const [research, setResearch] = useState<CompetitorResearch | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  function run() {
+    setError(null);
+    start(async () => {
+      const res = await cosmoCompetitorResearch(companyId, product.listingId);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setResearch(res.research);
+    });
+  }
+
+  return (
+    <section className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <Target className="h-3.5 w-3.5" /> Canlı Rakip Araştırması
+        </h4>
+        <Button size="sm" variant="outline" disabled={pending} onClick={run}>
+          <Globe className="mr-1 h-4 w-4" />
+          {pending
+            ? "Trendyol taranıyor..."
+            : research
+              ? "Tekrar tara"
+              : "Trendyol'da rakipleri araştır"}
+        </Button>
+      </div>
+
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+
+      {pending && !research ? (
+        <p className="text-xs text-muted-foreground">
+          COSMO Trendyol&apos;da karşılaştırılabilir ürünleri arıyor, gerçek
+          fiyatları kaynaklarıyla topluyor… (10-30 sn)
+        </p>
+      ) : null}
+
+      {research ? (
+        <div className="space-y-3 rounded-xl border border-border bg-secondary/30 p-3">
+          <p className="text-xs text-muted-foreground">{research.summary}</p>
+
+          {research.findings.length > 0 ? (
+            <div className="space-y-1.5">
+              {research.findings.map((f, i) => (
+                <div
+                  key={i}
+                  className="flex items-start justify-between gap-2 rounded-lg bg-card p-2 text-xs"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium">{f.name}</p>
+                    {f.note ? (
+                      <p className="text-muted-foreground">{f.note}</p>
+                    ) : null}
+                    {f.url ? (
+                      <a
+                        href={f.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-emerald-600 hover:underline dark:text-emerald-400"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Kaynak
+                      </a>
+                    ) : null}
+                  </div>
+                  <span className="shrink-0 font-bold">
+                    {f.price !== null ? tl(f.price) : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Kaynaklı rakip fiyatı bulunamadı.
+            </p>
+          )}
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            {research.ourEdge.length > 0 ? (
+              <div className="rounded-lg bg-emerald-500/10 p-2">
+                <p className="mb-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                  Bizim avantajımız
+                </p>
+                <ul className="list-inside list-disc space-y-0.5 text-[11px] text-muted-foreground">
+                  {research.ourEdge.map((e, i) => (
+                    <li key={i}>{e}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {research.theirEdge.length > 0 ? (
+              <div className="rounded-lg bg-rose-500/10 p-2">
+                <p className="mb-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400">
+                  Rakiplerin iyi yaptığı
+                </p>
+                <ul className="list-inside list-disc space-y-0.5 text-[11px] text-muted-foreground">
+                  {research.theirEdge.map((e, i) => (
+                    <li key={i}>{e}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-2.5">
+            <div className="flex flex-wrap items-baseline gap-2 text-sm">
+              <span className="text-[11px] font-semibold uppercase text-muted-foreground">
+                Kanıta dayalı fiyat:
+              </span>
+              <span className="font-bold text-violet-700 dark:text-violet-400">
+                {tl(research.recommendedSalePrice)}
+              </span>
+              <span className="text-muted-foreground line-through">
+                {tl(research.recommendedListPrice)}
+              </span>
+            </div>
+            {research.rationale ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {research.rationale}
+              </p>
+            ) : null}
+            {canApprove ? (
+              <div className="mt-2">
+                <ProposePriceButton
+                  companyId={companyId}
+                  listingId={product.listingId}
+                  salePrice={research.recommendedSalePrice}
+                  label="Bu fiyatı onay kuyruğuna ekle"
+                />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function ProductCard({
   companyId,
   product,
@@ -63,34 +271,10 @@ function ProductCard({
   product: CosmoMarketingProduct;
   canApprove: boolean;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [pending, start] = useTransition();
-  const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(
-    null,
-  );
   const r = product.report;
-
-  function propose() {
-    setMsg(null);
-    start(async () => {
-      const res = await proposeMarketingPrice(
-        companyId,
-        product.listingId,
-        r.priceSalePrice,
-      );
-      if (!res.ok) {
-        setMsg({ kind: "err", text: res.error });
-        return;
-      }
-      setMsg({
-        kind: "ok",
-        text: "Önerilen fiyat onay kuyruğuna eklendi. Bekleyen Fiyat Onayları'ndan yayınlayın.",
-      });
-      router.refresh();
-    });
-  }
-
+  const titleChanged =
+    (product.currentTitle ?? "").trim() !== r.title.trim();
   const priceChanged = r.priceSalePrice !== product.salePrice;
 
   return (
@@ -169,33 +353,37 @@ function ProductCard({
             </div>
             <p className="text-xs text-muted-foreground">{r.priceRationale}</p>
             {canApprove ? (
-              <Button size="sm" disabled={pending} onClick={propose}>
-                <Check className="mr-1 h-4 w-4" />
-                {pending ? "Ekleniyor..." : "Önerilen fiyatı onay kuyruğuna ekle"}
-              </Button>
-            ) : null}
-            {msg ? (
-              <p
-                className={`text-xs ${
-                  msg.kind === "ok"
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-destructive"
-                }`}
-              >
-                {msg.text}
-              </p>
+              <ProposePriceButton
+                companyId={companyId}
+                listingId={product.listingId}
+                salePrice={r.priceSalePrice}
+                label="Önerilen fiyatı onay kuyruğuna ekle"
+              />
             ) : null}
           </section>
 
-          {/* Content */}
+          {/* Content: current vs suggested */}
           <section className="space-y-2">
             <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <PenLine className="h-3.5 w-3.5" /> İçerik
             </h4>
-            <div className="rounded-xl bg-secondary/50 p-2.5">
-              <div className="flex items-start justify-between gap-2">
+            <div className="space-y-2 rounded-xl bg-secondary/50 p-2.5">
+              <div>
+                <p className="text-[10px] font-semibold uppercase text-muted-foreground">
+                  Mevcut başlık
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {product.currentTitle ?? "—"}
+                </p>
+              </div>
+              <div>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[10px] font-semibold uppercase text-emerald-700 dark:text-emerald-400">
+                    Önerilen başlık {titleChanged ? "" : "(aynı)"}
+                  </p>
+                  <CopyButton text={r.title} label="Başlık" />
+                </div>
                 <p className="text-xs font-medium">{r.title}</p>
-                <CopyButton text={r.title} label="Başlık" />
               </div>
             </div>
             <div className="rounded-xl bg-secondary/50 p-2.5">
@@ -248,13 +436,12 @@ function ProductCard({
             </section>
           ) : null}
 
-          {/* Competitor */}
-          <section className="space-y-1.5">
-            <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <Target className="h-3.5 w-3.5" /> Rakip Konumu (tahmini)
-            </h4>
-            <p className="text-xs text-muted-foreground">{r.competitor}</p>
-          </section>
+          {/* Live competitor research */}
+          <CompetitorBlock
+            companyId={companyId}
+            product={product}
+            canApprove={canApprove}
+          />
         </div>
       ) : null}
     </div>
@@ -309,8 +496,8 @@ export function CosmoMarketingPanel({
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Her ürün için fiyat, içerik, satış stratejisi, listing denetimi ve
-              rakip konumu üretir.
+              Fiyat, içerik ve strateji üretir; her ürün için Trendyol&apos;da
+              canlı rakip araştırması yapar.
             </p>
           </div>
         </div>
@@ -331,7 +518,8 @@ export function CosmoMarketingPanel({
           <p className="text-sm text-muted-foreground">
             <strong>Pazarlama Analizi Üret</strong>&apos;e basın. COSMO her
             listingi gerçek verinizle (fiyat, stok, SKT, son 30 gün satış)
-            inceleyip ürün bazlı fiyat, içerik ve strateji çıkarır.
+            inceleyip ürün bazlı fiyat, içerik ve strateji çıkarır. Detayda her
+            ürün için <strong>canlı Trendyol rakip araştırması</strong> çalıştırabilirsiniz.
           </p>
         ) : products.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
@@ -360,12 +548,6 @@ export function CosmoMarketingPanel({
           <p className="text-[11px] text-muted-foreground">
             İpucu: <code>ANTHROPIC_API_KEY</code> tanımlanınca analiz Claude ile
             yazılır; şimdilik akıllı şablon kullanılıyor.
-          </p>
-        ) : null}
-        {products !== null && aiPowered ? (
-          <p className="text-[11px] text-muted-foreground">
-            Not: Rakip konumu, Trendyol satıcı API&apos;si rakip verisi vermediği
-            için COSMO&apos;nun genel piyasa bilgisine dayalı <strong>tahminidir</strong>.
           </p>
         ) : null}
       </div>

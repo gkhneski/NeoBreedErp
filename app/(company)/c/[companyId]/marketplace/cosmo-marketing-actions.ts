@@ -8,6 +8,8 @@ import { daysUntil } from "@/lib/expiry";
 import {
   cosmoKeyConfigured,
   generateMarketingReports,
+  researchCompetitors,
+  type CompetitorResearch,
   type MarketingInput,
   type MarketingReport,
 } from "@/lib/marketplaces/cosmo-marketing";
@@ -25,6 +27,7 @@ export type CosmoMarketingProduct = {
   listingId: string;
   barcode: string;
   productName: string;
+  currentTitle: string | null;
   imageUrl: string | null;
   salePrice: number;
   listPrice: number | null;
@@ -161,6 +164,7 @@ export async function cosmoMarketingScan(
       listingId: r.id,
       barcode: r.barcode,
       productName: input.productName,
+      currentTitle: r.title,
       imageUrl: imageByBarcode.get(r.barcode) ?? null,
       salePrice: input.salePrice,
       listPrice: input.listPrice,
@@ -172,6 +176,91 @@ export async function cosmoMarketingScan(
   });
 
   return { ok: true, products, aiPowered: cosmoKeyConfigured() };
+}
+
+export type CompetitorResult =
+  | { ok: true; research: CompetitorResearch; listingId: string; aiPowered: boolean }
+  | { ok: false; error: string };
+
+// Live competitor research for ONE product via Claude web_search over Trendyol.
+export async function cosmoCompetitorResearch(
+  companyIdInput: string,
+  listingIdInput: string,
+): Promise<CompetitorResult> {
+  const parsed = z
+    .object({ company: z.string().uuid(), listing: z.string().uuid() })
+    .safeParse({ company: companyIdInput, listing: listingIdInput });
+  if (!parsed.success) return { ok: false, error: "Geçersiz istek." };
+
+  if (!cosmoKeyConfigured()) {
+    return {
+      ok: false,
+      error:
+        "Canlı rakip araştırması için ANTHROPIC_API_KEY gerekli (web arama Claude ile yapılır).",
+    };
+  }
+
+  const { companyId } = await requireCompanyRole(
+    parsed.data.company,
+    MARKETPLACE_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { data: listing } = await supabase
+    .from("marketplace_listings")
+    .select(
+      "id, barcode, title, normal_sale_price, normal_list_price, material_id, " +
+        "materials:material_id(name)",
+    )
+    .eq("id", parsed.data.listing)
+    .eq("company_id", companyId)
+    .eq("channel", "trendyol")
+    .is("deleted_at", null)
+    .maybeSingle<ListingRow>();
+  if (!listing) return { ok: false, error: "Listing bulunamadı." };
+
+  // Stock + nearest expiry for context.
+  let stockUnits = 0;
+  let nearestExpiry: string | null = null;
+  const { data: lots } = await supabase
+    .from("material_lots")
+    .select("quantity_on_hand, expiry_date")
+    .eq("company_id", companyId)
+    .eq("material_id", listing.material_id)
+    .eq("status", "released")
+    .is("owner_customer_id", null)
+    .is("deleted_at", null)
+    .gt("quantity_on_hand", 0);
+  for (const lot of lots ?? []) {
+    stockUnits += Number(lot.quantity_on_hand);
+    if (lot.expiry_date && (!nearestExpiry || lot.expiry_date < nearestExpiry))
+      nearestExpiry = lot.expiry_date;
+  }
+
+  const input: MarketingInput = {
+    barcode: listing.barcode,
+    productName: listing.materials?.name ?? listing.title ?? listing.barcode,
+    currentTitle: listing.title,
+    salePrice: Number(listing.normal_sale_price),
+    listPrice:
+      listing.normal_list_price !== null
+        ? Number(listing.normal_list_price)
+        : null,
+    stockUnits,
+    daysToExpiry: nearestExpiry ? daysUntil(nearestExpiry) : null,
+    unitsSold30d: 0,
+    hasImage: true,
+  };
+
+  try {
+    const research = await researchCompetitors(input);
+    return { ok: true, research, listingId: listing.id, aiPowered: true };
+  } catch {
+    return {
+      ok: false,
+      error: "Canlı arama başarısız oldu. Birkaç saniye sonra tekrar deneyin.",
+    };
+  }
 }
 
 export type ProposeResult = { ok: true } | { ok: false; error: string };

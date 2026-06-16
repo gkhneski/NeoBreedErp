@@ -2,17 +2,21 @@ import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
 
-// COSMO Marketing — the per-product strategist. For each product COSMO writes a
-// pricing recommendation, optimized Trendyol content (title/description/bullets/
-// keywords), a sales strategy, a listing-quality audit, and a competitor read.
+// COSMO Marketing — the per-product strategist.
 //
-// Honesty note: Trendyol's seller API does NOT expose competitor prices/sales,
-// so the competitor read is COSMO's general supplement-market knowledge, clearly
-// framed as guidance — never invented live figures. Pricing and audit lean on the
-// real numbers we DO have (our price, stock, expiry, sales velocity).
+// Two layers:
+//  1) generateMarketingReport  — per product, NO web. Fast Claude pass over our
+//     real numbers (price, stock, SKT, 30-day velocity): price suggestion,
+//     optimized title/description/bullets/keywords, sales strategy, listing audit.
+//     One call PER PRODUCT (concurrency-pooled) so a long response never truncates
+//     and one failure never nukes the rest — the old single-batch call did both.
+//  2) researchCompetitors     — per product, LIVE web_search. COSMO actually
+//     looks up comparable supplements on Trendyol, pulls real prices WITH source
+//     URLs, says what rivals do well and where we stand, and recommends an
+//     evidence-based price. This is the "ispatlı" comparison, not guesswork.
 //
-// Claude (Opus 4.8) powers it when ANTHROPIC_API_KEY is set; otherwise a
-// deterministic template keeps the feature alive.
+// Claude (Opus 4.8) powers both when ANTHROPIC_API_KEY is set; layer 1 falls back
+// to a deterministic template so the panel still renders without a key.
 
 export type MarketingInput = {
   barcode: string;
@@ -37,11 +41,27 @@ export type MarketingReport = {
   strategy: string;
   auditScore: number;
   auditIssues: string[];
-  competitor: string;
+};
+
+export type CompetitorFinding = {
+  name: string;
+  price: number | null;
+  url: string | null;
+  note: string;
+};
+
+export type CompetitorResearch = {
+  summary: string;
+  findings: CompetitorFinding[];
+  ourEdge: string[];
+  theirEdge: string[];
+  recommendedSalePrice: number;
+  recommendedListPrice: number;
+  rationale: string;
 };
 
 const MODEL = "claude-opus-4-8";
-const MAX_PRODUCTS = 40;
+const POOL = 5;
 
 const tl = (n: number) =>
   `${Number(n).toLocaleString("tr-TR", { maximumFractionDigits: 2 })} ₺`;
@@ -49,6 +69,35 @@ const tl = (n: number) =>
 export function cosmoKeyConfigured(): boolean {
   return Boolean(process.env.ANTHROPIC_API_KEY);
 }
+
+async function mapPool<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    for (;;) {
+      const i = cursor++;
+      if (i >= items.length) return;
+      out[i] = await fn(items[i]);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
+
+function extractJson(text: string): string | null {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const body = fenced ? fenced[1] : text;
+  const obj = body.match(/\{[\s\S]*\}/);
+  return obj ? obj[0] : null;
+}
+
+// ---------------------------------------------------------------------------
+// Layer 1 — per-product report (no web search)
+// ---------------------------------------------------------------------------
 
 function templateReport(p: MarketingInput): MarketingReport {
   const issues: string[] = [];
@@ -60,59 +109,42 @@ function templateReport(p: MarketingInput): MarketingReport {
   if (p.unitsSold30d === 0)
     issues.push("Son 30 günde satış yok — fiyat/görünürlük gözden geçirilmeli.");
 
-  const list = p.listPrice && p.listPrice > p.salePrice
-    ? p.listPrice
-    : Math.round(p.salePrice * 1.25);
+  const list =
+    p.listPrice && p.listPrice > p.salePrice
+      ? p.listPrice
+      : Math.round(p.salePrice * 1.25);
 
   return {
     priceSalePrice: p.salePrice,
     priceListPrice: list,
     priceRationale:
       `Mevcut satış fiyatı ${tl(p.salePrice)}. Üstü çizili liste fiyatını ` +
-      `${tl(list)} yaparak indirim algısı oluşturulabilir. ` +
-      (p.unitsSold30d === 0
-        ? "Satış olmadığı için önce görünürlük/fiyat testi önerilir."
-        : `Son 30 günde ${p.unitsSold30d} adet satış var, fiyat dengeli görünüyor.`),
+      `${tl(list)} yaparak indirim algısı oluşturulabilir.`,
     title: p.currentTitle ?? p.productName,
-    description:
-      `${p.productName} — Trendyol ürün açıklaması burada optimize edilir ` +
-      `(içerik, kullanım, paket bilgisi). ANTHROPIC_API_KEY tanımlanınca COSMO ` +
-      `tam metni yazar.`,
-    bullets: [
-      "Kaliteli içerik ve net miktar bilgisi",
-      "Güvenilir üretim ve takviye standardı",
-      "Hızlı kargo ile stoktan teslim",
-    ],
+    description: `${p.productName} için optimize açıklama (ANTHROPIC_API_KEY ile yazılır).`,
+    bullets: ["Kaliteli içerik ve net miktar bilgisi", "Hızlı kargo ile stoktan teslim"],
     keywords: p.productName
       .toLowerCase()
       .split(/[^a-zçğıöşü0-9]+/i)
       .filter((w) => w.length > 2)
       .slice(0, 8),
     strategy:
-      "Görsel + başlık + üstü çizili fiyat üçlüsünü güçlendir; ilk yorumlar için " +
-      "kampanya kur. Detaylı strateji için COSMO'yu Claude ile çalıştırın.",
+      "Görsel + başlık + üstü çizili fiyat üçlüsünü güçlendir. Detaylı strateji için COSMO'yu Claude ile çalıştırın.",
     auditScore: Math.max(20, 100 - issues.length * 20),
     auditIssues: issues.length ? issues : ["Belirgin bir eksik görünmüyor."],
-    competitor:
-      "Rakip karşılaştırması için COSMO'nun Claude ile çalışması gerekir " +
-      "(Trendyol satıcı API'si rakip fiyatı vermez; bu kısım piyasa bilgisine dayanır).",
   };
 }
 
-type RawReport = Partial<Record<keyof MarketingReport, unknown>> & {
-  barcode?: string;
-};
+type RawReport = Partial<Record<keyof MarketingReport, unknown>>;
 
-function coerce(p: MarketingInput, raw: RawReport): MarketingReport {
+function coerceReport(p: MarketingInput, raw: RawReport): MarketingReport {
   const fb = templateReport(p);
   const str = (v: unknown, d: string) =>
     typeof v === "string" && v.trim() ? v.trim() : d;
   const num = (v: unknown, d: number) =>
     typeof v === "number" && Number.isFinite(v) && v > 0 ? v : d;
   const arr = (v: unknown, d: string[]) =>
-    Array.isArray(v)
-      ? v.map((x) => String(x)).filter(Boolean).slice(0, 10)
-      : d;
+    Array.isArray(v) ? v.map((x) => String(x)).filter(Boolean).slice(0, 10) : d;
 
   const sale = num(raw.priceSalePrice, fb.priceSalePrice);
   let list = num(raw.priceListPrice, fb.priceListPrice);
@@ -127,107 +159,179 @@ function coerce(p: MarketingInput, raw: RawReport): MarketingReport {
     bullets: arr(raw.bullets, fb.bullets),
     keywords: arr(raw.keywords, fb.keywords),
     strategy: str(raw.strategy, fb.strategy).slice(0, 800),
-    auditScore: Math.min(
-      100,
-      Math.max(0, Math.round(num(raw.auditScore, fb.auditScore))),
-    ),
+    auditScore: Math.min(100, Math.max(0, Math.round(num(raw.auditScore, fb.auditScore)))),
     auditIssues: arr(raw.auditIssues, fb.auditIssues),
-    competitor: str(raw.competitor, fb.competitor).slice(0, 800),
   };
 }
 
-const SYSTEM =
-  "Sen COSMO'sun: bir gıda takviyesi (food supplement) markasının Trendyol " +
-  "mağazasını yöneten kıdemli bir pazaryeri ve dijital pazarlama stratejistisin. " +
-  "Türkiye e-ticaret ve Trendyol algoritması (başlık SEO, görsel, üstü çizili " +
-  "fiyat, kampanya, yorum/puan) konusunda uzmansın. Görevin: verilen her ürün için " +
-  "fiyatlama, içerik ve satış stratejisi üretmek.\n\n" +
+const REPORT_SYSTEM =
+  "Sen COSMO'sun: bir gıda takviyesi markasının Trendyol mağazasını yöneten kıdemli " +
+  "pazaryeri ve dijital pazarlama stratejistisin. Trendyol başlık SEO, görsel, üstü " +
+  "çizili fiyat, kampanya ve yorum dinamiklerini bilirsin.\n\n" +
   "KURALLAR:\n" +
-  "- Sağlık vaadi YASAK: 'tedavi eder', 'iyileştirir', 'mucize', 'hastalık' gibi " +
-  "ifadeler kullanma. Takviye gıda mevzuatına uygun, abartısız dil kullan.\n" +
-  "- Rakip bilgisi: Trendyol satıcı API'si rakip fiyatı/satışı vermez. Rakip " +
-  "karşılaştırmasını GENEL piyasa bilgine dayandır ve 'tahmini/genel eğilim' olarak " +
-  "çerçevele. ASLA uydurma kesin rakip fiyatı veya marka iddiası verme.\n" +
-  "- Fiyat önerini bizim gerçek verimize (mevcut fiyat, stok, SKT, son 30 gün satış) " +
-  "dayandır. SKT yaklaşıyorsa erime stratejisi, satış yoksa görünürlük/fiyat testi öner.\n" +
-  "- Başlık en fazla 100 karakter, Trendyol SEO'ya uygun: marka + ürün + form + miktar.\n" +
-  "- Türkçe yaz. SADECE istenen JSON'u döndür, başka metin yok.";
+  "- Sağlık vaadi YASAK: 'tedavi', 'iyileştirir', 'mucize', 'hastalık' gibi ifadeler kullanma. " +
+  "Takviye gıda mevzuatına uygun, abartısız dil.\n" +
+  "- Önerini ürünün gerçek verisine (fiyat, stok, SKT, son 30 gün satış) dayandır; SKT yakınsa " +
+  "erime, satış yoksa görünürlük/fiyat testi öner.\n" +
+  "- Başlık <=100 karakter, Trendyol SEO: marka + ürün + form + miktar.\n" +
+  "- Türkçe yaz. SADECE istenen JSON nesnesini döndür.";
 
-/**
- * Returns a map barcode -> MarketingReport. Uses Claude when configured,
- * falling back to a template per product on any error or missing key.
- */
+async function callReport(p: MarketingInput): Promise<MarketingReport> {
+  const client = new Anthropic();
+  const stream = client.messages.stream({
+    model: MODEL,
+    max_tokens: 2000,
+    thinking: { type: "adaptive" },
+    output_config: { effort: "low" },
+    system: REPORT_SYSTEM,
+    messages: [
+      {
+        role: "user",
+        content:
+          "Şu ürünümüz için analiz üret ve SADECE şu alanlara sahip bir JSON nesnesi döndür: " +
+          '{"priceSalePrice": sayı, "priceListPrice": sayı (satıştan büyük), ' +
+          '"priceRationale": "1-2 cümle", "title": "<=100 char Trendyol başlığı", ' +
+          '"description": "1 paragraf açıklama", "bullets": ["3-5 fayda"], ' +
+          '"keywords": ["5-10 arama kelimesi"], "strategy": "2-4 cümle somut aksiyon", ' +
+          '"auditScore": 0-100 sayı, "auditIssues": ["mevcut listingdeki eksikler"]}.\n\n' +
+          "ÜRÜN:\n" +
+          JSON.stringify({
+            urun: p.productName,
+            mevcut_baslik: p.currentTitle,
+            satis_fiyati: p.salePrice,
+            liste_fiyati: p.listPrice,
+            stok_adet: p.stockUnits,
+            skt_kalan_gun: p.daysToExpiry,
+            son_30gun_satis: p.unitsSold30d,
+            gorsel_var: p.hasImage,
+          }),
+      },
+    ],
+  });
+
+  const message = await stream.finalMessage();
+  const text = message.content
+    .map((b) => (b.type === "text" ? b.text : ""))
+    .join("")
+    .trim();
+  const json = extractJson(text);
+  if (!json) return templateReport(p);
+  return coerceReport(p, JSON.parse(json) as RawReport);
+}
+
 export async function generateMarketingReports(
-  inputsAll: MarketingInput[],
+  inputs: MarketingInput[],
 ): Promise<Map<string, MarketingReport>> {
-  const inputs = inputsAll.slice(0, MAX_PRODUCTS);
   const out = new Map<string, MarketingReport>();
   for (const p of inputs) out.set(p.barcode, templateReport(p));
   if (inputs.length === 0 || !process.env.ANTHROPIC_API_KEY) return out;
 
-  try {
-    const client = new Anthropic();
-    const stream = client.messages.stream({
-      model: MODEL,
-      max_tokens: 8000,
-      thinking: { type: "adaptive" },
-      output_config: { effort: "medium" },
-      system: SYSTEM,
-      messages: [
-        {
-          role: "user",
-          content:
-            "Aşağıdaki ürünlerimiz için her biri hakkında bir analiz üret. Her ürün " +
-            "için şu alanları içeren bir nesne döndür:\n" +
-            '- "barcode": ürünün barkodu (aynen geri ver)\n' +
-            '- "priceSalePrice": önerilen satış fiyatı (sayı, TL)\n' +
-            '- "priceListPrice": önerilen üstü çizili liste fiyatı (sayı, satıştan büyük)\n' +
-            '- "priceRationale": fiyat gerekçesi (1-2 cümle)\n' +
-            '- "title": optimize Trendyol başlığı (<=100 karakter)\n' +
-            '- "description": optimize ürün açıklaması (1 paragraf)\n' +
-            '- "bullets": 3-5 maddelik fayda listesi (dizi)\n' +
-            '- "keywords": 5-10 arama anahtar kelimesi (dizi)\n' +
-            '- "strategy": bu ürünü nasıl daha çok satarız (2-4 cümle somut aksiyon)\n' +
-            '- "auditScore": mevcut listingimizin kalite puanı 0-100 (sayı)\n' +
-            '- "auditIssues": mevcut listingdeki eksikler (dizi)\n' +
-            '- "competitor": rakiplere göre konumumuz ve onların iyi yaptıkları ' +
-            "(genel piyasa bilgisine dayalı, tahmini olduğunu belirt)\n\n" +
-            "Yalnızca şu biçimde bir JSON dizisi döndür: [{...}, {...}].\n\n" +
-            "ÜRÜNLER:\n" +
-            JSON.stringify(
-              inputs.map((p) => ({
-                barcode: p.barcode,
-                urun: p.productName,
-                mevcut_baslik: p.currentTitle,
-                satis_fiyati: p.salePrice,
-                liste_fiyati: p.listPrice,
-                stok_adet: p.stockUnits,
-                skt_kalan_gun: p.daysToExpiry,
-                son_30gun_satis: p.unitsSold30d,
-                gorsel_var: p.hasImage,
-              })),
-            ),
-        },
-      ],
-    });
-
-    const message = await stream.finalMessage();
-    const text = message.content
-      .map((b) => (b.type === "text" ? b.text : ""))
-      .join("")
-      .trim();
-    const json = text.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
-    const parsed = JSON.parse(json) as RawReport[];
-    const byBarcode = new Map(
-      parsed.filter((r) => r.barcode).map((r) => [String(r.barcode), r]),
-    );
-    for (const p of inputs) {
-      const raw = byBarcode.get(p.barcode);
-      if (raw) out.set(p.barcode, coerce(p, raw));
+  const results = await mapPool(inputs, POOL, async (p) => {
+    try {
+      return [p.barcode, await callReport(p)] as const;
+    } catch {
+      return [p.barcode, templateReport(p)] as const;
     }
-  } catch {
-    // Network/parse/auth issue — templates already populated.
-  }
-
+  });
+  for (const [barcode, report] of results) out.set(barcode, report);
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Layer 2 — live competitor research (web_search)
+// ---------------------------------------------------------------------------
+
+type RawResearch = Partial<Record<keyof CompetitorResearch, unknown>>;
+
+function coerceResearch(p: MarketingInput, raw: RawResearch): CompetitorResearch {
+  const str = (v: unknown, d: string) =>
+    typeof v === "string" && v.trim() ? v.trim() : d;
+  const numOrNull = (v: unknown): number | null =>
+    typeof v === "number" && Number.isFinite(v) ? v : null;
+  const strArr = (v: unknown) =>
+    Array.isArray(v) ? v.map((x) => String(x)).filter(Boolean).slice(0, 8) : [];
+
+  const findings: CompetitorFinding[] = Array.isArray(raw.findings)
+    ? (raw.findings as unknown[]).slice(0, 8).map((f) => {
+        const o = (f ?? {}) as Record<string, unknown>;
+        return {
+          name: str(o.name, "Rakip ürün"),
+          price: numOrNull(o.price),
+          url: typeof o.url === "string" && /^https?:\/\//.test(o.url) ? o.url : null,
+          note: str(o.note, "").slice(0, 300),
+        };
+      })
+    : [];
+
+  const sale = numOrNull(raw.recommendedSalePrice) ?? p.salePrice;
+  let list = numOrNull(raw.recommendedListPrice) ?? Math.round(sale * 1.2);
+  if (list < sale) list = Math.round(sale * 1.2);
+
+  return {
+    summary: str(raw.summary, "Rakip taraması için yeterli sonuç bulunamadı.").slice(0, 800),
+    findings,
+    ourEdge: strArr(raw.ourEdge),
+    theirEdge: strArr(raw.theirEdge),
+    recommendedSalePrice: sale,
+    recommendedListPrice: list,
+    rationale: str(raw.rationale, "").slice(0, 600),
+  };
+}
+
+const RESEARCH_SYSTEM =
+  "Sen COSMO'sun: bir gıda takviyesi markasının Trendyol mağazası için canlı rakip ve " +
+  "fiyat araştırması yapan kıdemli pazaryeri analistisin. web_search aracını kullanarak " +
+  "Trendyol'da (trendyol.com) bu ürünle KARŞILAŞTIRILABİLİR takviye ürünlerini ara: aynı " +
+  "etken madde/form/miktar. Gerçek satış fiyatlarını ve ürün/satıcı adını KAYNAK URL'siyle " +
+  "topla. En az 3-6 rakip bulmaya çalış.\n\n" +
+  "KURALLAR:\n" +
+  "- Sadece gerçekten bulduğun, kaynağı olan fiyatları yaz. Fiyat bulamazsan price=null bırak, UYDURMA.\n" +
+  "- Sağlık vaadi kullanma.\n" +
+  "- Rakiplerin iyi yaptıkları (fiyat, başlık, görsel, yorum sayısı) ile bizim avantaj/eksiğimizi ayır.\n" +
+  "- Fiyat önerini bulduğun rakip aralığına ve bizim mevcut fiyatımıza dayandır, gerekçelendir.\n" +
+  "- Türkçe yaz. Aramalardan sonra CEVABINI SADECE tek bir JSON nesnesiyle bitir.";
+
+export async function researchCompetitors(
+  p: MarketingInput,
+): Promise<CompetitorResearch> {
+  const client = new Anthropic();
+  const stream = client.messages.stream({
+    model: MODEL,
+    max_tokens: 6000,
+    thinking: { type: "adaptive" },
+    output_config: { effort: "medium" },
+    tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 6 }],
+    system: RESEARCH_SYSTEM,
+    messages: [
+      {
+        role: "user",
+        content:
+          `Ürünümüz: "${p.productName}". Mevcut Trendyol başlığımız: ` +
+          `"${p.currentTitle ?? "-"}". Bizim satış fiyatımız: ${tl(p.salePrice)}. ` +
+          "Trendyol'da bu ürünle karşılaştırılabilir takviyeleri araştır, gerçek " +
+          "fiyatlarını kaynak linkiyle bul, bizimkiyle kıyasla ve kanıta dayalı bir " +
+          "fiyat öner.\n\n" +
+          "Araştırmayı bitirince SADECE şu biçimde tek bir JSON nesnesi döndür: " +
+          '{"summary": "genel durum 2-3 cümle", "findings": [{"name": "rakip ürün/satıcı", ' +
+          '"price": sayı veya null, "url": "kaynak link", "note": "kısa not"}], ' +
+          '"ourEdge": ["bizim avantajlarımız"], "theirEdge": ["rakiplerin iyi yaptıkları"], ' +
+          '"recommendedSalePrice": sayı, "recommendedListPrice": sayı, ' +
+          '"rationale": "fiyat gerekçesi rakip aralığına dayalı"}.',
+      },
+    ],
+  });
+
+  const message = await stream.finalMessage();
+  const text = message.content
+    .map((b) => (b.type === "text" ? b.text : ""))
+    .join("")
+    .trim();
+  const json = extractJson(text);
+  if (!json) {
+    return coerceResearch(p, {
+      summary:
+        "Canlı arama sonuç döndürmedi veya işlenemedi. Tekrar deneyin ya da ürün adını netleştirin.",
+    });
+  }
+  return coerceResearch(p, JSON.parse(json) as RawResearch);
 }
