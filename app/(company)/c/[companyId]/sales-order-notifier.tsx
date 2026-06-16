@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/button";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { companyModulePath } from "@/types/roles";
 
 import {
@@ -46,26 +47,32 @@ export function SalesOrderNotifier({ companyId }: { companyId: string }) {
     }
   }, []);
 
+  // Belirgin, yuksek bir zil: yukselen 3 nota + tekrar. Triangle dalga sine'den
+  // daha "parlak" ve duyulur.
   const beep = useCallback(() => {
     const ctx = ensureAudio();
     if (!ctx) return;
     try {
-      [
-        [0, 880],
-        [0.18, 1175],
-      ].forEach(([offset, freq]) => {
+      const notes: Array<[number, number]> = [
+        [0.0, 784], // G5
+        [0.16, 988], // B5
+        [0.32, 1319], // E6
+        [0.62, 988],
+        [0.78, 1319],
+      ];
+      for (const [offset, freq] of notes) {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = "sine";
+        osc.type = "triangle";
         osc.frequency.value = freq;
         const t = ctx.currentTime + offset;
         gain.gain.setValueAtTime(0.0001, t);
-        gain.gain.exponentialRampToValueAtTime(0.3, t + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+        gain.gain.exponentialRampToValueAtTime(0.6, t + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
         osc.connect(gain).connect(ctx.destination);
         osc.start(t);
-        osc.stop(t + 0.18);
-      });
+        osc.stop(t + 0.24);
+      }
     } catch {
       // audio blocked/unsupported — desktop notification still fires
     }
@@ -126,14 +133,39 @@ export function SalesOrderNotifier({ companyId }: { companyId: string }) {
     document.addEventListener("visibilitychange", onVisible);
 
     void poll();
+    // Fallback yoklama (realtime koparsa); asil tetik realtime push.
     const id = setInterval(() => void poll(), POLL_MS);
+
+    // Anlik push: yeni sales_orders INSERT'inde sayfayi yenilemeden tetiklenir,
+    // arka sekmede bile (WebSocket mesaji zamanlayici kisitlamasindan etkilenmez).
+    const supabase = createBrowserSupabaseClient();
+    void supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.access_token) {
+        supabase.realtime.setAuth(data.session.access_token);
+      }
+    });
+    const channel = supabase
+      .channel(`sales-orders-${companyId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "sales_orders",
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => void poll(),
+      )
+      .subscribe();
+
     return () => {
       clearInterval(id);
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", unlock);
       document.removeEventListener("visibilitychange", onVisible);
+      void supabase.removeChannel(channel);
     };
-  }, [poll, ensureAudio]);
+  }, [poll, ensureAudio, companyId]);
 
   function enableSound() {
     const ctx = ensureAudio();
