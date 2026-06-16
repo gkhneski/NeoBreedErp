@@ -17,6 +17,7 @@ import {
 } from "@/types/roles";
 
 import { ApprovalQueue, type PendingEventRow } from "./approval-queue";
+import { CosmoPanel } from "./cosmo-panel";
 import { DetectionButton } from "./detection-button";
 import { DiscountLadder, type Tier } from "./discount-ladder";
 import { ListingsTable, type ListingRow } from "./listings-table";
@@ -154,6 +155,8 @@ export default async function MarketplacePage({ params }: PageProps) {
               gönderim yapılamaz.
             </p>
           ) : null}
+
+          <CosmoPanel companyId={companyId} canApprove={canApprove} />
 
           <DiscountLadder
             companyId={companyId}
