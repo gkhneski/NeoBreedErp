@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, ShoppingCart, X } from "lucide-react";
+import { Bell, ShoppingCart, Volume2, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
@@ -23,38 +23,53 @@ export function SalesOrderNotifier({ companyId }: { companyId: string }) {
   const [orders, setOrders] = useState<UnseenOrder[]>([]);
   const [, startTransition] = useTransition();
   const [mounted, setMounted] = useState(false);
+  const [soundOn, setSoundOn] = useState(false);
   const shown = useRef<Set<string>>(new Set());
   const initialized = useRef(false);
   const audioCtx = useRef<AudioContext | null>(null);
   const [perm, setPerm] = useState<NotificationPermission | "unsupported">("default");
 
-  const beep = useCallback(() => {
+  // Tarayici otomatik ses calmayi engeller; ses baglami ancak kullanici
+  // etkilesiminde olusturulup acilirsa sonradan zamanlayicidan calabilir.
+  const ensureAudio = useCallback((): AudioContext | null => {
     try {
       const Ctor =
         window.AudioContext ||
         (window as unknown as { webkitAudioContext?: typeof AudioContext })
           .webkitAudioContext;
-      if (!Ctor) return;
+      if (!Ctor) return null;
       if (!audioCtx.current) audioCtx.current = new Ctor();
-      const ctx = audioCtx.current;
-      if (ctx.state === "suspended") void ctx.resume();
-      // Two short rising tones — a clear "ding-ding".
-      [0, 0.18].forEach((offset, i) => {
+      if (audioCtx.current.state === "suspended") void audioCtx.current.resume();
+      return audioCtx.current;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const beep = useCallback(() => {
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    try {
+      [
+        [0, 880],
+        [0.18, 1175],
+      ].forEach(([offset, freq]) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = "sine";
-        osc.frequency.value = i === 0 ? 880 : 1175;
-        gain.gain.setValueAtTime(0.0001, ctx.currentTime + offset);
-        gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + offset + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + offset + 0.16);
+        osc.frequency.value = freq;
+        const t = ctx.currentTime + offset;
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.3, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
         osc.connect(gain).connect(ctx.destination);
-        osc.start(ctx.currentTime + offset);
-        osc.stop(ctx.currentTime + offset + 0.18);
+        osc.start(t);
+        osc.stop(t + 0.18);
       });
     } catch {
       // audio blocked/unsupported — desktop notification still fires
     }
-  }, []);
+  }, [ensureAudio]);
 
   const notify = useCallback((o: UnseenOrder) => {
     if (typeof window === "undefined" || !("Notification" in window)) return;
@@ -96,19 +111,35 @@ export function SalesOrderNotifier({ companyId }: { companyId: string }) {
         ? Notification.permission
         : "unsupported",
     );
-    // Resume audio on the first user gesture so later beeps are audible.
+
+    // İlk kullanıcı etkileşiminde ses bağlamını oluştur+aç (sessizce).
     const unlock = () => {
-      if (audioCtx.current?.state === "suspended") void audioCtx.current.resume();
+      const ctx = ensureAudio();
+      if (ctx) setSoundOn(true);
     };
-    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") ensureAudio();
+    };
+    document.addEventListener("visibilitychange", onVisible);
 
     void poll();
     const id = setInterval(() => void poll(), POLL_MS);
     return () => {
       clearInterval(id);
       window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+      document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [poll]);
+  }, [poll, ensureAudio]);
+
+  function enableSound() {
+    const ctx = ensureAudio();
+    setSoundOn(!!ctx);
+    beep(); // test sesi
+  }
 
   function enableDesktop() {
     if (!("Notification" in window)) return;
@@ -124,7 +155,41 @@ export function SalesOrderNotifier({ companyId }: { companyId: string }) {
     startTransition(() => void markAllSalesOrdersSeen(companyId));
   }
 
-  if (!mounted || orders.length === 0) return null;
+  if (!mounted) return null;
+
+  const needsSound = !soundOn;
+  const needsDesktop = perm !== "granted" && perm !== "unsupported";
+
+  // Ses/bildirim kapalıysa, sipariş yokken bile küçük bir "etkinleştir" çubuğu
+  // göster — böylece kullanıcı önceden açabilir ve ilk sipariş sessiz kalmaz.
+  if (orders.length === 0) {
+    if (!needsSound && !needsDesktop) return null;
+    return createPortal(
+      <div className="fixed bottom-4 right-4 z-[100] flex items-center gap-2 rounded-full border border-border bg-card/95 px-3 py-2 shadow-lg backdrop-blur">
+        {needsSound ? (
+          <button
+            type="button"
+            onClick={enableSound}
+            className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-xs font-medium text-white"
+          >
+            <Volume2 className="h-3.5 w-3.5" />
+            Sipariş sesini aç
+          </button>
+        ) : null}
+        {needsDesktop ? (
+          <button
+            type="button"
+            onClick={enableDesktop}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium"
+          >
+            <Bell className="h-3.5 w-3.5" />
+            Masaüstü bildirimi
+          </button>
+        ) : null}
+      </div>,
+      document.body,
+    );
+  }
 
   return createPortal(
     <div className="fixed bottom-4 right-4 z-[100] w-[min(92vw,360px)]">
@@ -171,14 +236,20 @@ export function SalesOrderNotifier({ companyId }: { companyId: string }) {
           ))}
         </ul>
 
-        <div className="flex items-center justify-between gap-2 border-t border-amber-200 px-3 py-2 dark:border-amber-800">
-          {perm !== "granted" && perm !== "unsupported" ? (
-            <Button size="sm" variant="outline" onClick={enableDesktop}>
-              Masaüstü bildirimi aç
-            </Button>
-          ) : (
-            <span />
-          )}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-amber-200 px-3 py-2 dark:border-amber-800">
+          <div className="flex items-center gap-2">
+            {needsSound ? (
+              <Button size="sm" variant="outline" onClick={enableSound}>
+                <Volume2 className="mr-1 h-4 w-4" />
+                Sesi aç
+              </Button>
+            ) : null}
+            {needsDesktop ? (
+              <Button size="sm" variant="outline" onClick={enableDesktop}>
+                Masaüstü bildirimi aç
+              </Button>
+            ) : null}
+          </div>
           <Link href={companyModulePath(companyId, "sales-orders")}>
             <Button size="sm">
               <ShoppingCart className="mr-1 h-4 w-4" />
