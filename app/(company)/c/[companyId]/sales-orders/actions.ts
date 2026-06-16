@@ -3,13 +3,71 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireCompanyRole } from "@/lib/auth";
+import { requireCompanyRole, requireCompanyUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   ORDER_WRITE_ROLES,
   SHIPMENT_WRITE_ROLES,
   companyModulePath,
 } from "@/types/roles";
+
+export type UnseenOrder = {
+  id: string;
+  code: string;
+  customerName: string;
+  summary: string;
+  createdAt: string;
+};
+export type PollResult =
+  | { ok: true; orders: UnseenOrder[] }
+  | { ok: false };
+
+type UnseenRow = {
+  id: string;
+  code: string;
+  created_at: string;
+  customers: { name: string } | null;
+  sales_order_items: Array<{
+    quantity: number;
+    materials: { name: string } | null;
+  }> | null;
+};
+
+// Her ERP ekraninda calisan bildirim icin: gorulmemis B2B siparisleri dondurur.
+// Staff RLS firma kapsamli; herhangi bir firma uyesi cagirabilir.
+export async function pollNewSalesOrders(
+  companyIdInput: string,
+): Promise<PollResult> {
+  if (!z.string().uuid().safeParse(companyIdInput).success) return { ok: false };
+  const { companyId } = await requireCompanyUser(companyIdInput);
+  const supabase = await createServerSupabaseClient();
+
+  const { data } = await supabase
+    .from("sales_orders")
+    .select(
+      "id, code, created_at, customers:customer_id(name), " +
+        "sales_order_items(quantity, materials:material_id(name))",
+    )
+    .eq("company_id", companyId)
+    .is("seen_at", null)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(20)
+    .returns<UnseenRow[]>();
+
+  const orders: UnseenOrder[] = (data ?? []).map((o) => ({
+    id: o.id,
+    code: o.code,
+    customerName: o.customers?.name ?? "—",
+    summary: (o.sales_order_items ?? [])
+      .map((it) => `${it.materials?.name ?? "Ürün"} ×${Number(it.quantity)}`)
+      .join(", ")
+      .slice(0, 140),
+    createdAt: o.created_at,
+  }));
+
+  return { ok: true, orders };
+}
 
 export type OrderActionResult = { ok: true } | { ok: false; error: string };
 

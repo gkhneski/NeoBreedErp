@@ -5,8 +5,10 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { FlashToast } from "@/components/ui/flash-toast";
 import { requireCompanyUser } from "@/lib/auth";
 import { getCompanySummary } from "@/lib/company";
+import { canAccessModule } from "@/types/roles";
 
 import { GlobalSearch } from "./global-search";
+import { SalesOrderNotifier } from "./sales-order-notifier";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -48,6 +50,10 @@ export default async function CompanyAppLayout({ children, params }: LayoutProps
           <div className="mx-auto w-full max-w-6xl">{children}</div>
         </main>
       </div>
+
+      {canAccessModule(role, "sales-orders") ? (
+        <SalesOrderNotifier companyId={companyId} />
+      ) : null}
 
       <Suspense fallback={null}>
         <FlashToast />
