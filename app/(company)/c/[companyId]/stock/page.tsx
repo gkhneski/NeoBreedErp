@@ -520,11 +520,20 @@ export default async function StockPage({ params, searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Stok</h1>
-        <p className="text-sm text-muted-foreground">
-          Malzeme bazında eldeki stok ve hareket defteri.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Stok</h1>
+          <p className="text-sm text-muted-foreground">
+            Malzeme bazında eldeki stok ve hareket defteri.
+          </p>
+        </div>
+        {canWrite ? (
+          <Link href={companyModulePath(companyId, "stock", "boxes")}>
+            <Button variant="outline" size="sm">
+              Kutu Birimine Geçiş
+            </Button>
+          </Link>
+        ) : null}
       </header>
 
       <div className="flex gap-1 border-b border-border">

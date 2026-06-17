@@ -257,6 +257,7 @@ export type Database = {
           name: string;
           type: MaterialType;
           base_uom: string;
+          units_per_pack: number;
           barcode: string | null;
           density: number | null;
           default_supplier_id: string | null;
@@ -277,6 +278,7 @@ export type Database = {
           name: string;
           type: MaterialType;
           base_uom: string;
+          units_per_pack?: number;
           barcode?: string | null;
           density?: number | null;
           default_supplier_id?: string | null;
@@ -297,6 +299,7 @@ export type Database = {
           name?: string;
           type?: MaterialType;
           base_uom?: string;
+          units_per_pack?: number;
           barcode?: string | null;
           density?: number | null;
           default_supplier_id?: string | null;

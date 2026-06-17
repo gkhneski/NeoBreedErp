@@ -66,6 +66,14 @@ export function boxBreakdown(
   return `= ${boxesStr} kutu (${pack.packSize}'li)`;
 }
 
+// Çıkış lotu / stok dönüşümü için kutu içi adet (katı → paket boyu, diğer → 1).
+export function unitsPerPack(name: string): number {
+  const pack = parsePack(name);
+  return pack.kind === "solid" && pack.packSize && pack.packSize > 1
+    ? pack.packSize
+    : 1;
+}
+
 // "unit" jenerik etiketini "adet" gibi okunur hale getirir.
 export function unitLabelForDisplay(uom: string): string {
   return uom === "unit" ? "adet" : uom;
