@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireModuleAccess } from "@/lib/auth";
+import { boxBreakdown, unitLabelForDisplay } from "@/lib/production/pack";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   PRODUCTION_WRITE_ROLES,
@@ -216,10 +217,25 @@ export default async function ProductionOrdersListPage({
                     )}
                   </td>
                   <td className="px-3 py-2 text-right font-mono text-xs">
-                    {formatNumber(Number(order.planned_quantity))}{" "}
-                    <span className="text-muted-foreground">
-                      {order.planned_uom}
-                    </span>
+                    <div>
+                      {formatNumber(Number(order.planned_quantity))}{" "}
+                      <span className="text-muted-foreground">
+                        {unitLabelForDisplay(order.planned_uom)}
+                      </span>
+                    </div>
+                    {order.materials
+                      ? (() => {
+                          const bd = boxBreakdown(
+                            Number(order.planned_quantity),
+                            order.materials.name,
+                          );
+                          return bd ? (
+                            <div className="font-sans text-[11px] font-semibold text-emerald-600">
+                              {bd}
+                            </div>
+                          ) : null;
+                        })()
+                      : null}
                   </td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">
                     {formatDate(order.planned_start_at)}

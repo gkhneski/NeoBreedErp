@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requireModuleAccess } from "@/lib/auth";
+import { boxBreakdown, unitLabelForDisplay } from "@/lib/production/pack";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { companyModulePath } from "@/types/roles";
 import type {
@@ -299,8 +300,20 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
             Hedef Miktar
           </p>
           <p className="font-mono">
-            {formatNumber(Number(order.planned_quantity))} {order.planned_uom}
+            {formatNumber(Number(order.planned_quantity))}{" "}
+            {unitLabelForDisplay(order.planned_uom)}
           </p>
+          {order.materials
+            ? (() => {
+                const bd = boxBreakdown(
+                  Number(order.planned_quantity),
+                  order.materials.name,
+                );
+                return bd ? (
+                  <p className="text-xs font-semibold text-emerald-600">{bd}</p>
+                ) : null;
+              })()
+            : null}
         </div>
         <div>
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
