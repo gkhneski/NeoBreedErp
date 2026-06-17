@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/marketplace-discounts",
       "schedule": "10 4 * * *"
+    },
+    {
+      "path": "/api/cron/sync-trendyol-orders",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
