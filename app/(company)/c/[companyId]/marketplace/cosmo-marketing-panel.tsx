@@ -14,6 +14,7 @@ import {
   Megaphone,
   PenLine,
   Search,
+  Send,
   Sparkles,
   Tag,
   Target,
@@ -32,6 +33,8 @@ import {
   cosmoMarketingScan,
   cosmoVisibility,
   proposeMarketingPrice,
+  pushListingContent,
+  refreshContentStatus,
   type CosmoMarketingProduct,
   type VisibilityCheck,
 } from "./cosmo-marketing-actions";
@@ -102,6 +105,94 @@ function ProposePriceButton({
         <Check className="mr-1 h-4 w-4" />
         {pending ? "Ekleniyor..." : label}
       </Button>
+      {msg ? (
+        <p
+          className={`text-xs ${
+            msg.kind === "ok"
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-destructive"
+          }`}
+        >
+          {msg.text}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function SendContentButton({
+  companyId,
+  listingId,
+  title,
+  description,
+}: {
+  companyId: string;
+  listingId: string;
+  title: string;
+  description: string;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [refreshing, startRefresh] = useTransition();
+  const [batchId, setBatchId] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  function send() {
+    if (
+      !window.confirm(
+        "COSMO'nun önerdiği BAŞLIK ve AÇIKLAMA Trendyol'a gönderilecek.\n\n" +
+          "• Trendyol içeriği YENİDEN ONAYA alır (anında yayına girmez).\n" +
+          "• Fiyat ve stok DEĞİŞMEZ.\n\nDevam edilsin mi?",
+      )
+    ) {
+      return;
+    }
+    setMsg(null);
+    start(async () => {
+      const res = await pushListingContent(companyId, listingId, title, description);
+      if (!res.ok) {
+        setMsg({ kind: "err", text: res.error });
+        return;
+      }
+      setBatchId(res.batchRequestId);
+      setMsg({
+        kind: "ok",
+        text: `Trendyol'a gönderildi (takip: ${res.batchRequestId}). Onaydan sonra yayına girer.`,
+      });
+      router.refresh();
+    });
+  }
+
+  function refresh() {
+    startRefresh(async () => {
+      const res = await refreshContentStatus(companyId, listingId);
+      if (!res.ok) {
+        setMsg({ kind: "err", text: res.error });
+        return;
+      }
+      if (res.status === "pending") {
+        setMsg({ kind: "ok", text: "Trendyol hâlâ işliyor (onayda). Biraz sonra tekrar bakın." });
+      } else if (res.status === "approved") {
+        setMsg({ kind: "ok", text: "Trendyol kabul etti ✓ (içerik onay sürecine girdi)." });
+      } else {
+        setMsg({ kind: "err", text: `Trendyol reddetti: ${res.error ?? "bilinmeyen hata"}` });
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-1">
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" disabled={pending} onClick={send}>
+          <Send className="mr-1 h-4 w-4" />
+          {pending ? "Gönderiliyor..." : "Başlık + açıklamayı Trendyol'a gönder"}
+        </Button>
+        {batchId ? (
+          <Button size="sm" variant="outline" disabled={refreshing} onClick={refresh}>
+            {refreshing ? "..." : "Durumu yenile"}
+          </Button>
+        ) : null}
+      </div>
       {msg ? (
         <p
           className={`text-xs ${
@@ -552,6 +643,19 @@ function ProductCard({
                   </span>
                 ))}
                 <CopyButton text={r.keywords.join(", ")} label="Kelimeler" />
+              </div>
+            ) : null}
+            {canApprove ? (
+              <div className="border-t border-border pt-2">
+                <SendContentButton
+                  companyId={companyId}
+                  listingId={product.listingId}
+                  title={r.title}
+                  description={r.description}
+                />
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Trendyol içeriği yeniden onaya alır; fiyat/stok değişmez.
+                </p>
               </div>
             ) : null}
           </section>

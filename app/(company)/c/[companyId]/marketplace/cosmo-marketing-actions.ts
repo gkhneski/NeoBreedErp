@@ -5,6 +5,14 @@ import { z } from "zod";
 
 import { requireCompanyRole } from "@/lib/auth";
 import { daysUntil } from "@/lib/expiry";
+import { getAdapter } from "@/lib/marketplaces/adapters";
+import { getMarketplaceConnection } from "@/lib/marketplaces/connections";
+import {
+  buildContentUpdateItem,
+  getRawProductByBarcode,
+  updateProductContent,
+} from "@/lib/marketplaces/trendyol";
+import { MarketplaceError } from "@/lib/marketplaces/types";
 import {
   analyzeVisibility,
   cosmoKeyConfigured,
@@ -481,4 +489,164 @@ export async function proposeMarketingPrice(
   revalidatePath(companyModulePath(companyId, "marketplace"));
   revalidatePath(companyModulePath(companyId));
   return { ok: true };
+}
+
+// =============================================================================
+// COSMO içerik (başlık/açıklama) → Trendyol. Fiyat gibi: onayla & gönder.
+// =============================================================================
+
+export type ContentPushResult =
+  | { ok: true; batchRequestId: string }
+  | { ok: false; error: string };
+export type ContentStatusResult =
+  | { ok: true; status: "pending" | "approved" | "failed"; error?: string }
+  | { ok: false; error: string };
+
+const contentSchema = z.object({
+  company: z.string().uuid(),
+  listing: z.string().uuid(),
+  title: z.string().trim().min(5).max(100),
+  description: z.string().trim().min(10).max(8000),
+});
+
+// COSMO'nun önerdiği başlık + açıklamayı mevcut Trendyol listingine gönderir.
+// Ürünün kategori/marka/attribute/görselini Trendyol'dan çekip korur; yalnızca
+// içerik değişir. Trendyol içeriği yeniden onaya alır; fiyat/stok'a dokunulmaz.
+export async function pushListingContent(
+  companyIdInput: string,
+  listingIdInput: string,
+  titleInput: string,
+  descriptionInput: string,
+): Promise<ContentPushResult> {
+  const parsed = contentSchema.safeParse({
+    company: companyIdInput,
+    listing: listingIdInput,
+    title: titleInput,
+    description: descriptionInput,
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Başlık/açıklama geçersiz.",
+    };
+  }
+
+  const { companyId } = await requireCompanyRole(
+    parsed.data.company,
+    MARKETPLACE_APPROVE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { data: listing } = await supabase
+    .from("marketplace_listings")
+    .select("id, barcode, stock_code")
+    .eq("id", parsed.data.listing)
+    .eq("company_id", companyId)
+    .eq("channel", "trendyol")
+    .is("deleted_at", null)
+    .maybeSingle<{ id: string; barcode: string; stock_code: string | null }>();
+  if (!listing) return { ok: false, error: "Listing bulunamadı." };
+
+  const connection = await getMarketplaceConnection(companyId, "trendyol");
+  if (!connection) {
+    return { ok: false, error: "Trendyol bağlantısı yok veya devre dışı." };
+  }
+
+  try {
+    const raw = await getRawProductByBarcode(connection, listing.barcode);
+    if (!raw) {
+      return { ok: false, error: "Trendyol'da bu barkodla ürün bulunamadı." };
+    }
+    const item = buildContentUpdateItem(raw, {
+      title: parsed.data.title,
+      description: parsed.data.description,
+      stockCodeFallback: listing.stock_code ?? listing.barcode,
+    });
+    const { batchRequestId } = await updateProductContent(connection, [item]);
+
+    await supabase
+      .from("marketplace_listings")
+      .update({
+        title: parsed.data.title,
+        content_batch_id: batchRequestId,
+        publish_status: "pending",
+        publish_error: null,
+      })
+      .eq("id", listing.id)
+      .eq("company_id", companyId);
+
+    revalidatePath(companyModulePath(companyId, "marketplace"));
+    return { ok: true, batchRequestId };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof MarketplaceError
+          ? error.message
+          : "Trendyol'a içerik gönderiminde beklenmeyen bir hata oluştu.",
+    };
+  }
+}
+
+// Gönderilen içeriğin Trendyol batch durumunu yoklar.
+export async function refreshContentStatus(
+  companyIdInput: string,
+  listingIdInput: string,
+): Promise<ContentStatusResult> {
+  const parsed = z
+    .object({ company: z.string().uuid(), listing: z.string().uuid() })
+    .safeParse({ company: companyIdInput, listing: listingIdInput });
+  if (!parsed.success) return { ok: false, error: "Geçersiz istek." };
+
+  const { companyId } = await requireCompanyRole(
+    parsed.data.company,
+    MARKETPLACE_APPROVE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { data: listing } = await supabase
+    .from("marketplace_listings")
+    .select("id, content_batch_id")
+    .eq("id", parsed.data.listing)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .maybeSingle<{ id: string; content_batch_id: string | null }>();
+  if (!listing?.content_batch_id) {
+    return { ok: false, error: "Bu listing için gönderilmiş içerik yok." };
+  }
+
+  const connection = await getMarketplaceConnection(companyId, "trendyol");
+  if (!connection) return { ok: false, error: "Trendyol bağlantısı yok." };
+
+  try {
+    const res = await getAdapter("trendyol").getBatchStatus(
+      connection,
+      listing.content_batch_id,
+    );
+    if (!res.complete) return { ok: true, status: "pending" };
+
+    const item = res.items[0];
+    const ok = item?.ok ?? false;
+    await supabase
+      .from("marketplace_listings")
+      .update({
+        publish_status: ok ? "approved" : "rejected",
+        publish_error: ok ? null : item?.error ?? "Bilinmeyen hata",
+      })
+      .eq("id", listing.id)
+      .eq("company_id", companyId);
+
+    revalidatePath(companyModulePath(companyId, "marketplace"));
+    return ok
+      ? { ok: true, status: "approved" }
+      : { ok: true, status: "failed", error: item?.error };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof MarketplaceError
+          ? error.message
+          : "Durum sorgulanamadı, tekrar deneyin.",
+    };
+  }
 }

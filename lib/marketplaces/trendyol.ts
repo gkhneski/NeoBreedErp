@@ -315,6 +315,119 @@ export type CreateProductItem = {
   attributes: CreateProductAttribute[];
 };
 
+// Trendyol'un ürün GET'inden dönen ham kayıt (içerik güncellemesi için meta).
+export type TrendyolRawProduct = {
+  barcode?: string;
+  title?: string;
+  description?: string;
+  productMainId?: string | number;
+  brandId?: number;
+  categoryId?: number;
+  pimCategoryId?: number;
+  stockCode?: string | null;
+  dimensionalWeight?: number;
+  vatRate?: number;
+  images?: Array<{ url?: string }>;
+  attributes?: Array<{
+    attributeId?: number;
+    attributeValueId?: number;
+    customAttributeValue?: string;
+  }>;
+  salePrice?: number;
+  listPrice?: number;
+  quantity?: number;
+};
+
+// Tek ürünün tam Trendyol kaydını barkoddan çek (içerik güncellemesi öncesi).
+export async function getRawProductByBarcode(
+  conn: MarketplaceConnectionInfo,
+  barcode: string,
+): Promise<TrendyolRawProduct | null> {
+  const data = (await trendyolFetch(
+    conn,
+    `/integration/product/sellers/${conn.sellerId}/products?barcode=${encodeURIComponent(
+      barcode,
+    )}&size=1`,
+  )) as { content?: TrendyolRawProduct[]; items?: TrendyolRawProduct[] } | null;
+  const rows = data?.content ?? data?.items ?? [];
+  return rows[0] ?? null;
+}
+
+// Ham kayıt + yeni başlık/açıklama → updateProducts için tam item. Meta'yı OLDUĞU
+// GİBİ korur (kategori/marka/attribute uydurmaz); eksikse net hata fırlatır.
+export function buildContentUpdateItem(
+  raw: TrendyolRawProduct,
+  opts: { title: string; description: string; stockCodeFallback: string },
+): CreateProductItem {
+  const barcode = raw.barcode;
+  if (!barcode) throw new MarketplaceError("Trendyol ürün barkodu okunamadı.");
+  const categoryId = raw.pimCategoryId ?? raw.categoryId;
+  if (!categoryId) throw new MarketplaceError("Trendyol kategori bilgisi alınamadı.");
+  if (!raw.brandId) throw new MarketplaceError("Trendyol marka bilgisi alınamadı.");
+
+  const images = (raw.images ?? [])
+    .filter((i): i is { url: string } => Boolean(i.url))
+    .map((i) => ({ url: i.url }));
+  if (images.length === 0) {
+    throw new MarketplaceError("Trendyol ürün görseli bulunamadı; içerik güncellenemiyor.");
+  }
+
+  const attributes: CreateProductAttribute[] = [];
+  for (const a of raw.attributes ?? []) {
+    if (a.attributeId == null) continue;
+    if (a.attributeValueId != null) {
+      attributes.push({ attributeId: a.attributeId, attributeValueId: a.attributeValueId });
+    } else if (a.customAttributeValue) {
+      attributes.push({ attributeId: a.attributeId, customAttributeValue: a.customAttributeValue });
+    }
+  }
+
+  // Fiyat/stoğu OLDUĞU GİBİ koru (içerik endpoint'i yönetmese de geçerli kalsın).
+  const salePrice = Number(raw.salePrice ?? 0);
+  const listPrice = Math.max(Number(raw.listPrice ?? 0), salePrice);
+  return {
+    barcode,
+    title: opts.title,
+    productMainId: String(raw.productMainId ?? barcode),
+    brandId: raw.brandId,
+    categoryId,
+    quantity: Number(raw.quantity ?? 0),
+    stockCode: raw.stockCode ?? opts.stockCodeFallback,
+    dimensionalWeight: raw.dimensionalWeight ?? 0,
+    description: opts.description,
+    currencyType: "TRY",
+    listPrice,
+    salePrice,
+    vatRate: raw.vatRate ?? 0,
+    cargoCompanyId: 0,
+    images,
+    attributes,
+  };
+}
+
+// Mevcut ürünün İÇERİĞİNİ (başlık/açıklama/attribute/görsel) günceller — PUT.
+// Fiyat/stok'a dokunmaz (o ayrı endpoint). Trendyol içeriği yeniden onaya alır.
+export async function updateProductContent(
+  conn: MarketplaceConnectionInfo,
+  items: CreateProductItem[],
+): Promise<{ batchRequestId: string }> {
+  if (items.length === 0) {
+    throw new MarketplaceError("Güncellenecek ürün yok.");
+  }
+  const data = (await trendyolFetch(
+    conn,
+    `/integration/product/sellers/${conn.sellerId}/products`,
+    { method: "PUT", body: JSON.stringify({ items }) },
+  )) as { batchRequestId?: string } | null;
+
+  if (!data?.batchRequestId) {
+    throw new MarketplaceError(
+      "Trendyol içerik güncellemesi bir takip numarası (batchRequestId) döndürmedi.",
+    );
+  }
+  return { batchRequestId: data.batchRequestId };
+}
+
 export type TrendyolOrder = {
   orderNumber: string;
   status: string;
