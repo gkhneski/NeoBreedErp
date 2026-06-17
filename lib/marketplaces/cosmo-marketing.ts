@@ -436,3 +436,98 @@ export async function analyzeVisibility(
   }
   return coerceVisibility(JSON.parse(json) as RawVisibility);
 }
+
+// ---------------------------------------------------------------------------
+// Layer 4 — long-tail guide article (for the public marketing site)
+// ---------------------------------------------------------------------------
+
+export type ArticleInput = {
+  topic: string;
+  brand: string;
+  productNames: string[];
+};
+
+export type ArticleDraft = {
+  title: string;
+  excerpt: string;
+  bodyMd: string;
+  keywords: string[];
+  faq: Array<{ q: string; a: string }>;
+  relatedProductNames: string[];
+};
+
+const ARTICLE_SYSTEM =
+  "Sen COSMO'sun: bir gıda takviyesi markasının içerik editörüsün. Long-tail SEO " +
+  "için Türkçe, güvenilir, sade bilgilendirici rehber yazıları yazarsın.\n\n" +
+  "KURALLAR:\n" +
+  "- Sağlık vaadi YASAK: 'tedavi eder', 'iyileştirir', 'hastalığı geçirir', 'mucize' " +
+  "kullanma. Mevzuata uygun, dengeli, 'destekleyebilir/katkı sağlayabilir' dili.\n" +
+  "- Gerçekçi ve bilgilendirici ol; uydurma istatistik verme. Gerektiğinde 'hekiminize " +
+  "danışın' uyarısı ekle.\n" +
+  "- Gövde markdown: yalnızca '## ', '### ' başlıklar, '- ' madde, **kalın**, [metin](url). " +
+  "800-1200 kelime, akıcı paragraflar.\n" +
+  "- Türkçe yaz. SADECE istenen JSON nesnesini döndür.";
+
+type RawArticle = Partial<Record<keyof ArticleDraft, unknown>>;
+
+export async function generateArticle(input: ArticleInput): Promise<ArticleDraft> {
+  const client = new Anthropic();
+  const stream = client.messages.stream({
+    model: MODEL,
+    max_tokens: 6000,
+    thinking: { type: "adaptive" },
+    output_config: { effort: "medium" },
+    system: ARTICLE_SYSTEM,
+    messages: [
+      {
+        role: "user",
+        content:
+          `Marka: ${input.brand}. Konu/anahtar kelime: "${input.topic}".\n` +
+          `Markanın ilgili ürünleri: ${
+            input.productNames.length ? input.productNames.join(", ") : "(belirtilmedi)"
+          }.\n\n` +
+          "Bu konuda long-tail SEO için bilgilendirici bir rehber yazısı yaz. İçinde " +
+          "konuyla ilgili ürün(ler)e doğal şekilde değin. SADECE şu JSON nesnesini döndür: " +
+          '{"title": "<=70 char SEO başlığı", "excerpt": "1-2 cümle özet (<=200 char)", ' +
+          '"bodyMd": "markdown gövde", "keywords": ["6-10 long-tail arama kelimesi"], ' +
+          '"faq": [{"q": "soru", "a": "kısa cevap"}] (3-5 adet), ' +
+          '"relatedProductNames": ["yukarıdaki listeden konuyla ilgili ürün adları"]}.',
+      },
+    ],
+  });
+
+  const message = await stream.finalMessage();
+  const text = message.content
+    .map((b) => (b.type === "text" ? b.text : ""))
+    .join("")
+    .trim();
+  const json = extractJson(text);
+  if (!json) {
+    throw new Error("COSMO makale üretemedi — tekrar deneyin.");
+  }
+  const raw = JSON.parse(json) as RawArticle;
+
+  const str = (v: unknown, d: string) =>
+    typeof v === "string" && v.trim() ? v.trim() : d;
+  const arr = (v: unknown) =>
+    Array.isArray(v) ? v.map((x) => String(x)).filter(Boolean) : [];
+
+  const faq = Array.isArray(raw.faq)
+    ? (raw.faq as unknown[])
+        .map((f) => {
+          const o = (f ?? {}) as Record<string, unknown>;
+          return { q: str(o.q, ""), a: str(o.a, "") };
+        })
+        .filter((f) => f.q && f.a)
+        .slice(0, 8)
+    : [];
+
+  return {
+    title: str(raw.title, input.topic).slice(0, 120),
+    excerpt: str(raw.excerpt, "").slice(0, 280),
+    bodyMd: str(raw.bodyMd, ""),
+    keywords: arr(raw.keywords).slice(0, 12),
+    faq,
+    relatedProductNames: arr(raw.relatedProductNames).slice(0, 8),
+  };
+}

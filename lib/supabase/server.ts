@@ -2,6 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/types/database";
 
@@ -35,6 +36,16 @@ export async function createServerSupabaseClient() {
         }
       },
     },
+  });
+}
+
+// Cookie-less anon client for the PUBLIC marketing site. Carries no session, so it
+// acts as the `anon` role and only reads rows allowed by public RLS policies
+// (status='published'). No cookies → pages stay static/ISR-friendly.
+export function createPublicSupabaseClient() {
+  const { url, anonKey } = readEnv();
+  return createClient<Database>(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
   });
 }
 

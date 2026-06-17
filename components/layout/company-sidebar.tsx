@@ -10,6 +10,7 @@ import {
   Contact,
   Factory,
   FlaskConical,
+  Globe,
   LayoutDashboard,
   Layers,
   Leaf,
@@ -92,6 +93,7 @@ const SECTIONS: NavSection[] = [
       { key: "portal-catalog", label: "Portal Kataloğu", icon: Tags },
       { key: "shipments", label: "Siparişler", icon: Send },
       { key: "marketplace", label: "Pazaryeri", icon: Store },
+      { key: "site", label: "Web Sitesi", icon: Globe },
     ],
   },
   {
