@@ -60,6 +60,27 @@ export type CompetitorResearch = {
   rationale: string;
 };
 
+// Arama görünürlüğü: "magnezyum/b12 yazınca neden çıkmıyorum" sorusunu yanıtlar.
+export type VisibilityInput = {
+  productName: string;
+  currentTitle: string | null;
+  salePrice: number;
+  approved: boolean | null;
+  onSale: boolean | null;
+  stockUnits: number;
+  unitsSold30d: number;
+  hasImage: boolean;
+};
+
+export type VisibilityReport = {
+  diagnosis: string;
+  optimizedTitle: string;
+  longTailKeywords: string[];
+  headKeywords: string[];
+  adsPlan: string;
+  rankNote: string;
+};
+
 const MODEL = "claude-opus-4-8";
 const POOL = 5;
 
@@ -334,4 +355,84 @@ export async function researchCompetitors(
     });
   }
   return coerceResearch(p, JSON.parse(json) as RawResearch);
+}
+
+// ---------------------------------------------------------------------------
+// Layer 3 — search visibility ("aramada neden çıkmıyorum") with web_search
+// ---------------------------------------------------------------------------
+
+type RawVisibility = Partial<Record<keyof VisibilityReport, unknown>>;
+
+function coerceVisibility(raw: RawVisibility): VisibilityReport {
+  const str = (v: unknown, d: string) =>
+    typeof v === "string" && v.trim() ? v.trim() : d;
+  const strArr = (v: unknown) =>
+    Array.isArray(v) ? v.map((x) => String(x)).filter(Boolean).slice(0, 12) : [];
+  return {
+    diagnosis: str(raw.diagnosis, "Görünürlük analizi üretilemedi; tekrar deneyin.").slice(0, 900),
+    optimizedTitle: str(raw.optimizedTitle, "").slice(0, 100),
+    longTailKeywords: strArr(raw.longTailKeywords),
+    headKeywords: strArr(raw.headKeywords),
+    adsPlan: str(raw.adsPlan, "").slice(0, 800),
+    rankNote: str(raw.rankNote, "").slice(0, 600),
+  };
+}
+
+const VISIBILITY_SYSTEM =
+  "Sen COSMO'sun: Trendyol arama görünürlüğü (SEO) uzmanısın. Trendyol sırası = Ürün " +
+  "Skoru (satış adedi, görüntülenme, yorum/puan, stok, kargo, fiyat) × Benzerlik Skoru " +
+  "(başlık/içerik TF-IDF eşleşmesi). DÜRÜST OL:\n" +
+  "- 0 satış/0 yorumlu yeni bir ürün, 'magnezyum' gibi rekabetçi bir KAFA kelimede kısa " +
+  "vadede organik ilk sayfaya ÇIKAMAZ; bunu açıkça söyle. Tek hızlı kaldıraç Sponsorlu " +
+  "Ürün (reklam) + uzun-kuyruk + ilk yorumları toplamaktır.\n" +
+  "- web_search ile Trendyol'da hedef kelimeleri ara; rekabetin yoğunluğunu ve (mümkünse) " +
+  "markamızın görünüp görünmediğini gözlemle. Kesin sıra uydurma; 'tahmini' de.\n" +
+  "- Başlık <=100 karakter, kök kelimelerle: marka + ürün + form + mg + adet.\n" +
+  "- Sağlık vaadi yok. Türkçe yaz. Aramalardan sonra SADECE tek JSON nesnesiyle bitir.";
+
+export async function analyzeVisibility(
+  p: VisibilityInput,
+): Promise<VisibilityReport> {
+  const client = new Anthropic();
+  const stream = client.messages.stream({
+    model: MODEL,
+    max_tokens: 4000,
+    thinking: { type: "adaptive" },
+    output_config: { effort: "low" },
+    tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }],
+    system: VISIBILITY_SYSTEM,
+    messages: [
+      {
+        role: "user",
+        content:
+          `Ürünümüz: "${p.productName}". Mevcut başlık: "${p.currentTitle ?? "-"}". ` +
+          `Fiyat: ${tl(p.salePrice)}. Trendyol durumu: onaylı=${p.approved}, ` +
+          `satışta=${p.onSale}, stok=${p.stockUnits}, son30günsatış=${p.unitsSold30d}, ` +
+          `görsel=${p.hasImage}.\n\n` +
+          "Bu ürün Trendyol aramasında (örn. ana etken madde adı) neden üst sıralarda " +
+          "çıkmıyor olabilir? Trendyol'da hedef kelimeleri araştır, rekabeti gözle ve " +
+          "uygulanabilir bir plan ver. SADECE şu JSON: " +
+          '{"diagnosis": "dürüst neden 2-4 cümle", ' +
+          '"optimizedTitle": "<=100 char arama-odaklı başlık", ' +
+          '"longTailKeywords": ["şimdi kazanılabilir spesifik aramalar"], ' +
+          '"headKeywords": ["reklam gerektiren rekabetçi kafa kelimeler"], ' +
+          '"adsPlan": "Sponsorlu Ürün planı: hangi kelime, neden, bütçe mantığı 2-3 cümle", ' +
+          '"rankNote": "aramada görünürlük gözlemi (tahmini)"}.',
+      },
+    ],
+  });
+
+  const message = await stream.finalMessage();
+  const text = message.content
+    .map((b) => (b.type === "text" ? b.text : ""))
+    .join("")
+    .trim();
+  const json = extractJson(text);
+  if (!json) {
+    return coerceVisibility({
+      diagnosis:
+        "Canlı arama sonuç döndürmedi. Birkaç saniye sonra tekrar deneyin.",
+    });
+  }
+  return coerceVisibility(JSON.parse(json) as RawVisibility);
 }

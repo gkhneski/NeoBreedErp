@@ -6,12 +6,14 @@ import { z } from "zod";
 import { requireCompanyRole } from "@/lib/auth";
 import { daysUntil } from "@/lib/expiry";
 import {
+  analyzeVisibility,
   cosmoKeyConfigured,
   generateMarketingReports,
   researchCompetitors,
   type CompetitorResearch,
   type MarketingInput,
   type MarketingReport,
+  type VisibilityReport,
 } from "@/lib/marketplaces/cosmo-marketing";
 import {
   createServerSupabaseClient,
@@ -268,6 +270,153 @@ export async function cosmoCompetitorResearch(
         ? "Araştırma çok uzun sürdü ve durduruldu. Tekrar deneyin."
         : "Canlı arama başarısız oldu. Birkaç saniye sonra tekrar deneyin.",
     };
+  }
+}
+
+export type VisibilityCheck = { label: string; ok: boolean; detail: string };
+export type CosmoVisibilityResult =
+  | { ok: true; report: VisibilityReport; checks: VisibilityCheck[] }
+  | { ok: false; error: string };
+
+// "Aramada neden çıkmıyorum": bizim satıcı verimizden kesin teşhis (checks) +
+// Claude'un canlı Trendyol aramasıyla strateji (report).
+export async function cosmoVisibility(
+  companyIdInput: string,
+  listingIdInput: string,
+): Promise<CosmoVisibilityResult> {
+  const parsed = z
+    .object({ company: z.string().uuid(), listing: z.string().uuid() })
+    .safeParse({ company: companyIdInput, listing: listingIdInput });
+  if (!parsed.success) return { ok: false, error: "Geçersiz istek." };
+
+  if (!cosmoKeyConfigured()) {
+    return {
+      ok: false,
+      error: "Görünürlük analizi için ANTHROPIC_API_KEY gerekli (canlı arama Claude ile yapılır).",
+    };
+  }
+
+  const { companyId } = await requireCompanyRole(
+    parsed.data.company,
+    MARKETPLACE_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { data: listing } = await supabase
+    .from("marketplace_listings")
+    .select(
+      "id, barcode, title, normal_sale_price, material_id, materials:material_id(name)",
+    )
+    .eq("id", parsed.data.listing)
+    .eq("company_id", companyId)
+    .eq("channel", "trendyol")
+    .is("deleted_at", null)
+    .maybeSingle<ListingRow>();
+  if (!listing) return { ok: false, error: "Listing bulunamadı." };
+
+  // Trendyol katalog durumu (onaylı/satışta/stok/görsel) — bizim çektiğimiz cache.
+  const { data: remote } = await supabase
+    .from("marketplace_remote_products")
+    .select("approved, on_sale, quantity, image_url")
+    .eq("company_id", companyId)
+    .eq("channel", "trendyol")
+    .eq("barcode", listing.barcode)
+    .maybeSingle();
+
+  // Bizim satılabilir stok.
+  let stockUnits = 0;
+  const { data: lots } = await supabase
+    .from("material_lots")
+    .select("quantity_on_hand")
+    .eq("company_id", companyId)
+    .eq("material_id", listing.material_id)
+    .eq("status", "released")
+    .is("owner_customer_id", null)
+    .is("deleted_at", null)
+    .gt("quantity_on_hand", 0);
+  for (const l of lots ?? []) stockUnits += Number(l.quantity_on_hand);
+
+  // Son 30 gün satış (cache'li siparişlerden).
+  const since = new Date();
+  since.setDate(since.getDate() - 30);
+  let sold30d = 0;
+  const { data: orders } = await supabase
+    .from("marketplace_orders")
+    .select("lines, order_date")
+    .eq("company_id", companyId)
+    .eq("channel", "trendyol")
+    .gte("order_date", since.toISOString())
+    .limit(1000);
+  for (const o of orders ?? []) {
+    const lines = (o.lines as Array<{ barcode?: string; quantity?: number }> | null) ?? [];
+    for (const l of lines) {
+      if (l.barcode === listing.barcode) sold30d += Number(l.quantity ?? 0);
+    }
+  }
+
+  const title = listing.title ?? "";
+  const hasImage = Boolean(remote?.image_url);
+  const approved = remote?.approved ?? null;
+  const onSale = remote?.on_sale ?? null;
+
+  const checks: VisibilityCheck[] = [
+    {
+      label: "Trendyol'da onaylı",
+      ok: approved === true,
+      detail:
+        approved === true
+          ? "Ürün onaylı."
+          : approved === false
+            ? "Ürün ONAYSIZ — onaysız ürün aramada hiç çıkmaz."
+            : "Trendyol kataloğunda bulunamadı; önce 'Listeleri Çek' ile eşleştirin.",
+    },
+    {
+      label: "Satışta ve stok var",
+      ok: onSale !== false && stockUnits > 0,
+      detail:
+        stockUnits > 0
+          ? onSale === false
+            ? "Trendyol'da satışta görünmüyor."
+            : `Satılabilir stok: ${stockUnits.toLocaleString("tr-TR")}.`
+          : "Satılabilir stok 0 — stoğu biten ürün aramada düşer.",
+    },
+    {
+      label: "Başlık arama için yeterli",
+      ok: title.length >= 30,
+      detail:
+        title.length >= 30
+          ? "Başlık makul uzunlukta."
+          : "Başlık kısa/zayıf — marka + ürün + form + mg + adet içermeli.",
+    },
+    {
+      label: "Ürün görseli var",
+      ok: hasImage,
+      detail: hasImage ? "Görsel mevcut." : "Görsel eksik — tıklanmayı ve sırayı düşürür.",
+    },
+    {
+      label: "Satış ivmesi (son 30 gün)",
+      ok: sold30d > 0,
+      detail:
+        sold30d > 0
+          ? `${sold30d} adet satış var.`
+          : "Son 30 günde satış yok — sıralamanın en belirleyici eksiği bu (cold start).",
+    },
+  ];
+
+  try {
+    const report = await analyzeVisibility({
+      productName: listing.materials?.name ?? (title || listing.barcode),
+      currentTitle: listing.title,
+      salePrice: Number(listing.normal_sale_price),
+      approved,
+      onSale,
+      stockUnits,
+      unitsSold30d: sold30d,
+      hasImage,
+    });
+    return { ok: true, report, checks };
+  } catch {
+    return { ok: false, error: "Canlı analiz başarısız oldu. Tekrar deneyin." };
   }
 }
 

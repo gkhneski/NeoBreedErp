@@ -11,11 +11,14 @@ import {
   Globe,
   ImageOff,
   LineChart,
+  Megaphone,
   PenLine,
+  Search,
   Sparkles,
   Tag,
   Target,
   TrendingUp,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -27,9 +30,12 @@ import type { CompetitorResearch } from "@/lib/marketplaces/cosmo-marketing";
 import {
   cosmoCompetitorResearch,
   cosmoMarketingScan,
+  cosmoVisibility,
   proposeMarketingPrice,
   type CosmoMarketingProduct,
+  type VisibilityCheck,
 } from "./cosmo-marketing-actions";
+import type { VisibilityReport } from "@/lib/marketplaces/cosmo-marketing";
 
 const tl = (n: number) =>
   `${Number(n).toLocaleString("tr-TR", { maximumFractionDigits: 2 })} ₺`;
@@ -262,6 +268,142 @@ function CompetitorBlock({
   );
 }
 
+function VisibilityBlock({
+  companyId,
+  product,
+}: {
+  companyId: string;
+  product: CosmoMarketingProduct;
+}) {
+  const [report, setReport] = useState<VisibilityReport | null>(null);
+  const [checks, setChecks] = useState<VisibilityCheck[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  function run() {
+    setError(null);
+    start(async () => {
+      const res = await cosmoVisibility(companyId, product.listingId);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setReport(res.report);
+      setChecks(res.checks);
+    });
+  }
+
+  return (
+    <section className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <Search className="h-3.5 w-3.5" /> Aramada Görünürlük
+        </h4>
+        <Button size="sm" variant="outline" disabled={pending} onClick={run}>
+          <Search className="mr-1 h-4 w-4" />
+          {pending
+            ? "İnceleniyor..."
+            : report
+              ? "Tekrar incele"
+              : "Aramada neden çıkmıyorum?"}
+        </Button>
+      </div>
+
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {pending && !report ? (
+        <p className="text-xs text-muted-foreground">
+          COSMO listingini denetliyor ve Trendyol&apos;da hedef kelimeleri arıyor… (10-30 sn)
+        </p>
+      ) : null}
+
+      {report ? (
+        <div className="space-y-3 rounded-xl border border-border bg-secondary/30 p-3">
+          {/* Deterministik teşhis (bizim verimiz) */}
+          <ul className="space-y-1">
+            {checks.map((c, i) => (
+              <li key={i} className="flex items-start gap-2 text-xs">
+                {c.ok ? (
+                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                ) : (
+                  <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-600" />
+                )}
+                <span>
+                  <span className="font-medium">{c.label}:</span>{" "}
+                  <span className="text-muted-foreground">{c.detail}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          <p className="rounded-lg bg-card p-2 text-xs text-muted-foreground">
+            {report.diagnosis}
+          </p>
+
+          {report.optimizedTitle ? (
+            <div className="rounded-lg bg-card p-2">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase text-emerald-700 dark:text-emerald-400">
+                    Arama-odaklı başlık önerisi
+                  </p>
+                  <p className="text-xs font-medium">{report.optimizedTitle}</p>
+                </div>
+                <CopyButton text={report.optimizedTitle} label="Başlık" />
+              </div>
+            </div>
+          ) : null}
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            {report.longTailKeywords.length > 0 ? (
+              <div className="rounded-lg bg-emerald-500/10 p-2">
+                <p className="mb-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                  Şimdi kazanılabilir kelimeler
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {report.longTailKeywords.map((k, i) => (
+                    <span key={i} className="rounded-full bg-card px-2 py-0.5 text-[10px]">
+                      {k}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {report.headKeywords.length > 0 ? (
+              <div className="rounded-lg bg-amber-500/10 p-2">
+                <p className="mb-1 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                  Reklam gerektiren kelimeler
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {report.headKeywords.map((k, i) => (
+                    <span key={i} className="rounded-full bg-card px-2 py-0.5 text-[10px]">
+                      {k}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          {report.adsPlan ? (
+            <div className="rounded-lg bg-card p-2">
+              <p className="mb-0.5 flex items-center gap-1 text-[11px] font-semibold">
+                <Megaphone className="h-3.5 w-3.5" /> Reklam (Sponsorlu Ürün) planı
+              </p>
+              <p className="text-xs text-muted-foreground">{report.adsPlan}</p>
+            </div>
+          ) : null}
+
+          {report.rankNote ? (
+            <p className="text-[11px] text-muted-foreground">
+              Sıra gözlemi (tahmini): {report.rankNote}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function ProductCard({
   companyId,
   product,
@@ -435,6 +577,9 @@ function ProductCard({
               </ul>
             </section>
           ) : null}
+
+          {/* Search visibility */}
+          <VisibilityBlock companyId={companyId} product={product} />
 
           {/* Live competitor research */}
           <CompetitorBlock
