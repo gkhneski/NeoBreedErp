@@ -23,12 +23,12 @@ export function siteBaseUrl(): string {
   return "http://localhost:3000";
 }
 
-// Index only once a real branded domain is attached. On *.vercel.app we keep the
-// site noindex so the preview never competes with / penalizes the real domain.
+// Index only once a real branded domain is attached. Gated by an explicit flag so
+// it never turns on by accident — AND hard-blocked on any *.vercel.app host so a
+// preview/temporary deployment can never be indexed even if the flag is left on.
 export function siteIsIndexable(): boolean {
-  if (process.env.NEXT_PUBLIC_SITE_INDEXABLE === "true") return true;
-  const explicit = process.env.NEXT_PUBLIC_SITE_URL;
-  return Boolean(explicit) && !/vercel\.app$/i.test(explicit ?? "");
+  if (process.env.NEXT_PUBLIC_SITE_INDEXABLE !== "true") return false;
+  return !/vercel\.app/i.test(siteBaseUrl());
 }
 
 const TR_MAP: Record<string, string> = {
