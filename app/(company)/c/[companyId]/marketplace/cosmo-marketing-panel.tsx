@@ -619,83 +619,61 @@ export function CosmoMarketingPanel({
   }
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-violet-500/30 bg-gradient-to-br from-violet-50 to-card shadow-[0_2px_16px_-8px_rgba(124,58,237,0.4)] dark:from-violet-950/30">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-violet-500/20 p-4 sm:p-5">
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-700 text-white shadow-sm">
-            <Sparkles className="h-6 w-6" />
-          </span>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold tracking-tight">
-                COSMO Pazarlama
-              </h2>
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                  aiPowered
-                    ? "bg-violet-500/15 text-violet-700 dark:text-violet-400"
-                    : "bg-secondary text-muted-foreground"
-                }`}
-              >
-                {aiPowered ? "Claude destekli" : "Pazarlama ajanı"}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Fiyat, içerik ve strateji üretir; her ürün için Trendyol&apos;da
-              canlı rakip araştırması yapar.
-            </p>
-          </div>
-        </div>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          Fiyat, içerik, satış stratejisi, <strong>aramada görünürlük</strong> ve
+          canlı Trendyol rakip analizi — ürün bazında.
+        </p>
         <Button disabled={scanning} onClick={scan}>
           <Sparkles className="mr-1.5 h-4 w-4" />
           {scanning ? "Analiz ediliyor..." : "Pazarlama Analizi Üret"}
         </Button>
       </div>
 
-      <div className="space-y-3 p-4 sm:p-5">
-        {error ? (
-          <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-            {error}
-          </p>
-        ) : null}
+      {error ? (
+        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
 
-        {products === null ? (
-          <p className="text-sm text-muted-foreground">
-            <strong>Pazarlama Analizi Üret</strong>&apos;e basın. COSMO her
-            listingi gerçek verinizle (fiyat, stok, SKT, son 30 gün satış)
-            inceleyip ürün bazlı fiyat, içerik ve strateji çıkarır. Detayda her
-            ürün için <strong>canlı Trendyol rakip araştırması</strong> çalıştırabilirsiniz.
+      {products === null ? (
+        <p className="text-sm text-muted-foreground">
+          <strong>Pazarlama Analizi Üret</strong>&apos;e basın. COSMO her listingi
+          gerçek verinizle (fiyat, stok, SKT, son 30 gün satış) inceleyip ürün
+          bazlı fiyat, içerik ve strateji çıkarır. Detayda her ürün için{" "}
+          <strong>&quot;Aramada neden çıkmıyorum?&quot;</strong> ve{" "}
+          <strong>canlı rakip araştırması</strong> çalıştırabilirsiniz.
+        </p>
+      ) : products.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+          Henüz eşleştirilmiş Trendyol listingi yok. Önce
+          &quot;Trendyol&apos;dan Listeleri Çek&quot; ile ürünleri eşleştirin.
+        </p>
+      ) : (
+        <>
+          <p className="text-xs text-muted-foreground">
+            COSMO {products.length} ürünü analiz etti — detay için ürüne tıklayın.
           </p>
-        ) : products.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
-            Henüz eşleştirilmiş Trendyol listingi yok. Önce
-            &quot;Trendyol&apos;dan Listeleri Çek&quot; ile ürünleri eşleştirin.
-          </p>
-        ) : (
-          <>
-            <p className="text-xs text-muted-foreground">
-              COSMO {products.length} ürünü analiz etti — detay için ürüne tıklayın.
-            </p>
-            <div className="space-y-2.5">
-              {products.map((p) => (
-                <ProductCard
-                  key={p.listingId}
-                  companyId={companyId}
-                  product={p}
-                  canApprove={canApprove}
-                />
-              ))}
-            </div>
-          </>
-        )}
+          <div className="space-y-2.5">
+            {products.map((p) => (
+              <ProductCard
+                key={p.listingId}
+                companyId={companyId}
+                product={p}
+                canApprove={canApprove}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
-        {products !== null && !aiPowered ? (
-          <p className="text-[11px] text-muted-foreground">
-            İpucu: <code>ANTHROPIC_API_KEY</code> tanımlanınca analiz Claude ile
-            yazılır; şimdilik akıllı şablon kullanılıyor.
-          </p>
-        ) : null}
-      </div>
-    </section>
+      {products !== null && !aiPowered ? (
+        <p className="text-[11px] text-muted-foreground">
+          İpucu: <code>ANTHROPIC_API_KEY</code> tanımlanınca analiz Claude ile
+          yazılır; şimdilik akıllı şablon kullanılıyor.
+        </p>
+      ) : null}
+    </div>
   );
 }

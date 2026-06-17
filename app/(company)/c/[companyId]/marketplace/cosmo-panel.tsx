@@ -212,31 +212,12 @@ export function CosmoPanel({
   const busy = scanning || autoBusy;
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-emerald-50 to-card shadow-[0_2px_16px_-8px_rgba(5,150,105,0.4)] dark:from-emerald-950/30">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-500/20 p-4 sm:p-5">
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-green-700 text-white shadow-sm">
-            <Sparkles className="h-6 w-6" />
-          </span>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold tracking-tight">COSMO</h2>
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                  aiPowered
-                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                    : "bg-secondary text-muted-foreground"
-                }`}
-              >
-                {aiPowered ? "Claude destekli" : "Pazaryeri ajanı"}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              SKT yaklaşan ürünleri bulur, indirimi ve metni hazırlar, tek tıkla
-              yayınlar.
-            </p>
-          </div>
-        </div>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          SKT yaklaşan ürünleri bulur, indirimi ve kampanya metnini hazırlar, tek
+          tıkla yayınlar.
+        </p>
         <div className="flex flex-wrap gap-2">
           <Button disabled={busy} onClick={scan}>
             <Sparkles className="mr-1.5 h-4 w-4" />
@@ -251,7 +232,7 @@ export function CosmoPanel({
         </div>
       </div>
 
-      <div className="space-y-3 p-4 sm:p-5">
+      <div className="space-y-3">
         {error ? (
           <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
             {error}
@@ -303,6 +284,6 @@ export function CosmoPanel({
           </p>
         ) : null}
       </div>
-    </section>
+    </div>
   );
 }
