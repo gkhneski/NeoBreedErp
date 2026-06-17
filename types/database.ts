@@ -17,6 +17,15 @@ export type SalesOrderSource = "portal" | "rep";
 export type CatalogAvailability = "out" | "low" | "in";
 export type SiteContentStatus = "draft" | "published";
 export type SiteFaqItem = { q: string; a: string };
+export type AgentSessionStatus = "running" | "done" | "error";
+export type AgentMessageKind = "briefing" | "agent" | "synthesis";
+export type AgentActionKind =
+  | "price"
+  | "site_product"
+  | "site_article"
+  | "image"
+  | "visibility";
+export type AgentActionStatus = "proposed" | "applied" | "dismissed";
 export type MaterialType = "raw" | "finished";
 export type RecipeStatus = "draft" | "published" | "archived";
 export type RecipeMode = "quantity" | "percentage";
@@ -1810,6 +1819,120 @@ export type Database = {
           deleted_at?: string | null;
           created_by?: string | null;
           updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      agent_sessions: {
+        Row: {
+          id: string;
+          company_id: string;
+          status: AgentSessionStatus;
+          focus: string | null;
+          error: string | null;
+          created_at: string;
+          finished_at: string | null;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          status?: AgentSessionStatus;
+          focus?: string | null;
+          error?: string | null;
+          created_at?: string;
+          finished_at?: string | null;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          status?: AgentSessionStatus;
+          focus?: string | null;
+          error?: string | null;
+          created_at?: string;
+          finished_at?: string | null;
+          created_by?: string | null;
+        };
+        Relationships: [];
+      };
+      agent_messages: {
+        Row: {
+          id: string;
+          company_id: string;
+          session_id: string;
+          seq: number;
+          agent: string;
+          model: string | null;
+          kind: AgentMessageKind;
+          content: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          session_id: string;
+          seq: number;
+          agent: string;
+          model?: string | null;
+          kind?: AgentMessageKind;
+          content: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          session_id?: string;
+          seq?: number;
+          agent?: string;
+          model?: string | null;
+          kind?: AgentMessageKind;
+          content?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      agent_actions: {
+        Row: {
+          id: string;
+          company_id: string;
+          session_id: string;
+          kind: AgentActionKind;
+          ref: string | null;
+          title: string;
+          payload: Record<string, unknown>;
+          status: AgentActionStatus;
+          result: string | null;
+          created_at: string;
+          applied_at: string | null;
+          applied_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          session_id: string;
+          kind: AgentActionKind;
+          ref?: string | null;
+          title: string;
+          payload?: Record<string, unknown>;
+          status?: AgentActionStatus;
+          result?: string | null;
+          created_at?: string;
+          applied_at?: string | null;
+          applied_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          session_id?: string;
+          kind?: AgentActionKind;
+          ref?: string | null;
+          title?: string;
+          payload?: Record<string, unknown>;
+          status?: AgentActionStatus;
+          result?: string | null;
+          created_at?: string;
+          applied_at?: string | null;
+          applied_by?: string | null;
         };
         Relationships: [];
       };

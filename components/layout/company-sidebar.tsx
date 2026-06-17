@@ -15,6 +15,7 @@ import {
   Layers,
   Leaf,
   LineChart,
+  MessagesSquare,
   LogOut,
   type LucideIcon,
   Package,
@@ -99,6 +100,7 @@ const SECTIONS: NavSection[] = [
   {
     title: "Yönetim",
     items: [
+      { key: "boardroom", label: "Ajan Kurulu", icon: MessagesSquare },
       { key: "reports", label: "Raporlar", icon: BarChart3 },
       { key: "buyers", label: "Eczane Hesapları", icon: Contact },
       { key: "users", label: "Kullanıcılar", icon: Users },

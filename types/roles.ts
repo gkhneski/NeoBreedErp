@@ -90,6 +90,15 @@ export const ORDER_WRITE_ROLES = [
   "regional_manager",
 ] as const satisfies readonly CompanyRole[];
 
+// Ajan Kurulu (AI Boardroom): kurulu calistirma + onerilen aksiyonlari uygulama.
+// Yonetim katmani; operator/bolge muduru disinda. Maliyet ve stratejik karar
+// iceren bir owner aracidir.
+export const BOARDROOM_ROLES = [
+  "company_admin",
+  "production_manager",
+  "company_user",
+] as const satisfies readonly CompanyRole[];
+
 // Pazaryeri fiyat onay kuyrugu: depocu tek dokunusla onaylar/reddeder.
 export const MARKETPLACE_APPROVE_ROLES = [
   "company_admin",
