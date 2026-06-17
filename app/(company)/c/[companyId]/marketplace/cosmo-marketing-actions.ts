@@ -57,9 +57,21 @@ type ListingRow = {
   title: string | null;
   normal_sale_price: number;
   normal_list_price: number | null;
+  applied_sale_price: number | null;
   material_id: string;
   materials: { name: string } | null;
 };
+
+// Pazaryerinde şu an canlı olan fiyat: onaylanıp uygulanan indirim/fiyat varsa o,
+// yoksa normal (baz) satış fiyatı. COSMO "mevcut fiyat"ı buradan okumalı.
+function effectiveSalePrice(r: {
+  normal_sale_price: number;
+  applied_sale_price: number | null;
+}): number {
+  return r.applied_sale_price !== null
+    ? Number(r.applied_sale_price)
+    : Number(r.normal_sale_price);
+}
 
 // COSMO marketing scan: per-product pricing, content, strategy, audit & competitor
 // read — grounded on our real numbers (price, stock, SKT, last-30-day sales).
@@ -78,8 +90,8 @@ export async function cosmoMarketingScan(
   const { data: listings } = await supabase
     .from("marketplace_listings")
     .select(
-      "id, barcode, title, normal_sale_price, normal_list_price, material_id, " +
-        "materials:material_id(name)",
+      "id, barcode, title, normal_sale_price, normal_list_price, applied_sale_price, " +
+        "material_id, materials:material_id(name)",
     )
     .eq("company_id", companyId)
     .eq("channel", "trendyol")
@@ -155,7 +167,7 @@ export async function cosmoMarketingScan(
     barcode: r.barcode,
     productName: r.materials?.name ?? r.title ?? r.barcode,
     currentTitle: r.title,
-    salePrice: Number(r.normal_sale_price),
+    salePrice: effectiveSalePrice(r),
     listPrice:
       r.normal_list_price !== null ? Number(r.normal_list_price) : null,
     stockUnits: stockByMaterial.get(r.material_id) ?? 0,
@@ -219,8 +231,8 @@ export async function cosmoCompetitorResearch(
   const { data: listing } = await supabase
     .from("marketplace_listings")
     .select(
-      "id, barcode, title, normal_sale_price, normal_list_price, material_id, " +
-        "materials:material_id(name)",
+      "id, barcode, title, normal_sale_price, normal_list_price, applied_sale_price, " +
+        "material_id, materials:material_id(name)",
     )
     .eq("id", parsed.data.listing)
     .eq("company_id", companyId)
@@ -251,7 +263,7 @@ export async function cosmoCompetitorResearch(
     barcode: listing.barcode,
     productName: listing.materials?.name ?? listing.title ?? listing.barcode,
     currentTitle: listing.title,
-    salePrice: Number(listing.normal_sale_price),
+    salePrice: effectiveSalePrice(listing),
     listPrice:
       listing.normal_list_price !== null
         ? Number(listing.normal_list_price)
@@ -313,7 +325,8 @@ export async function cosmoVisibility(
   const { data: listing } = await supabase
     .from("marketplace_listings")
     .select(
-      "id, barcode, title, normal_sale_price, material_id, materials:material_id(name)",
+      "id, barcode, title, normal_sale_price, applied_sale_price, " +
+        "material_id, materials:material_id(name)",
     )
     .eq("id", parsed.data.listing)
     .eq("company_id", companyId)
@@ -415,7 +428,7 @@ export async function cosmoVisibility(
     const report = await analyzeVisibility({
       productName: listing.materials?.name ?? (title || listing.barcode),
       currentTitle: listing.title,
-      salePrice: Number(listing.normal_sale_price),
+      salePrice: effectiveSalePrice(listing),
       approved,
       onSale,
       stockUnits,
