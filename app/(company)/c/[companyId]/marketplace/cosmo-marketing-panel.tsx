@@ -81,13 +81,20 @@ function ProposePriceButton({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const [price, setPrice] = useState<string>(String(salePrice));
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(
     null,
   );
+  const edited = price.trim() !== String(salePrice);
   function propose() {
+    const value = Number(price.replace(",", ".").trim());
+    if (!Number.isFinite(value) || value <= 0) {
+      setMsg({ kind: "err", text: "Geçerli bir satış fiyatı girin." });
+      return;
+    }
     setMsg(null);
     start(async () => {
-      const res = await proposeMarketingPrice(companyId, listingId, salePrice);
+      const res = await proposeMarketingPrice(companyId, listingId, value);
       if (!res.ok) {
         setMsg({ kind: "err", text: res.error });
         return;
@@ -101,10 +108,37 @@ function ProposePriceButton({
   }
   return (
     <div className="space-y-1">
-      <Button size="sm" disabled={pending} onClick={propose}>
-        <Check className="mr-1 h-4 w-4" />
-        {pending ? "Ekleniyor..." : label}
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <input
+            type="text"
+            inputMode="decimal"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            className="w-28 rounded-md border border-border bg-card py-1.5 pl-2.5 pr-6 text-sm font-semibold tabular-nums focus:border-emerald-500 focus:outline-none"
+            aria-label="Satış fiyatı"
+          />
+          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+            ₺
+          </span>
+        </div>
+        <Button size="sm" disabled={pending} onClick={propose}>
+          <Check className="mr-1 h-4 w-4" />
+          {pending ? "Ekleniyor..." : label}
+        </Button>
+        {edited ? (
+          <button
+            type="button"
+            onClick={() => setPrice(String(salePrice))}
+            className="text-[11px] text-muted-foreground hover:underline"
+          >
+            ↺ COSMO önerisi
+          </button>
+        ) : null}
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Fiyatı dilediğin gibi değiştirip onay kuyruğuna ekleyebilirsin.
+      </p>
       {msg ? (
         <p
           className={`text-xs ${
@@ -135,12 +169,29 @@ function SendContentButton({
   const [pending, start] = useTransition();
   const [refreshing, startRefresh] = useTransition();
   const [batchId, setBatchId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState(title);
+  const [editDesc, setEditDesc] = useState(description);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const dirty = editTitle !== title || editDesc !== description;
 
   function send() {
+    const t = editTitle.trim();
+    const d = editDesc.trim();
+    if (t.length < 5) {
+      setMsg({ kind: "err", text: "Başlık en az 5 karakter olmalı." });
+      return;
+    }
+    if (t.length > 100) {
+      setMsg({ kind: "err", text: "Başlık en fazla 100 karakter olabilir." });
+      return;
+    }
+    if (d.length < 10) {
+      setMsg({ kind: "err", text: "Açıklama en az 10 karakter olmalı." });
+      return;
+    }
     if (
       !window.confirm(
-        "COSMO'nun önerdiği BAŞLIK ve AÇIKLAMA Trendyol'a gönderilecek.\n\n" +
+        "Düzenlediğin BAŞLIK ve AÇIKLAMA Trendyol'a gönderilecek.\n\n" +
           "• Trendyol içeriği YENİDEN ONAYA alır (anında yayına girmez).\n" +
           "• Fiyat ve stok DEĞİŞMEZ.\n\nDevam edilsin mi?",
       )
@@ -149,7 +200,7 @@ function SendContentButton({
     }
     setMsg(null);
     start(async () => {
-      const res = await pushListingContent(companyId, listingId, title, description);
+      const res = await pushListingContent(companyId, listingId, t, d);
       if (!res.ok) {
         setMsg({ kind: "err", text: res.error });
         return;
@@ -181,12 +232,56 @@ function SendContentButton({
   }
 
   return (
-    <div className="space-y-1">
-      <div className="flex flex-wrap gap-2">
+    <div className="space-y-2">
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <label className="text-[10px] font-semibold uppercase text-emerald-700 dark:text-emerald-400">
+            Trendyol&apos;a gidecek başlık (düzenlenebilir)
+          </label>
+          <span
+            className={`text-[10px] tabular-nums ${
+              editTitle.length > 100 ? "text-destructive" : "text-muted-foreground"
+            }`}
+          >
+            {editTitle.length}/100
+          </span>
+        </div>
+        <input
+          type="text"
+          value={editTitle}
+          maxLength={120}
+          onChange={(e) => setEditTitle(e.target.value)}
+          className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium focus:border-emerald-500 focus:outline-none"
+        />
+      </div>
+      <div className="space-y-1">
+        <label className="text-[10px] font-semibold uppercase text-emerald-700 dark:text-emerald-400">
+          Trendyol&apos;a gidecek açıklama (düzenlenebilir)
+        </label>
+        <textarea
+          value={editDesc}
+          rows={5}
+          onChange={(e) => setEditDesc(e.target.value)}
+          className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-xs leading-relaxed focus:border-emerald-500 focus:outline-none"
+        />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" disabled={pending} onClick={send}>
           <Send className="mr-1 h-4 w-4" />
           {pending ? "Gönderiliyor..." : "Başlık + açıklamayı Trendyol'a gönder"}
         </Button>
+        {dirty ? (
+          <button
+            type="button"
+            onClick={() => {
+              setEditTitle(title);
+              setEditDesc(description);
+            }}
+            className="text-[11px] text-muted-foreground hover:underline"
+          >
+            ↺ COSMO önerisi
+          </button>
+        ) : null}
         {batchId ? (
           <Button size="sm" variant="outline" disabled={refreshing} onClick={refresh}>
             {refreshing ? "..." : "Durumu yenile"}
@@ -603,28 +698,32 @@ function ProductCard({
             <div className="space-y-2 rounded-xl bg-secondary/50 p-2.5">
               <div>
                 <p className="text-[10px] font-semibold uppercase text-muted-foreground">
-                  Mevcut başlık
+                  Mevcut başlık (Trendyol&apos;da yayında)
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {product.currentTitle ?? "—"}
                 </p>
               </div>
-              <div>
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-[10px] font-semibold uppercase text-emerald-700 dark:text-emerald-400">
-                    Önerilen başlık {titleChanged ? "" : "(aynı)"}
-                  </p>
-                  <CopyButton text={r.title} label="Başlık" />
+              {!canApprove ? (
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-[10px] font-semibold uppercase text-emerald-700 dark:text-emerald-400">
+                      Önerilen başlık {titleChanged ? "" : "(aynı)"}
+                    </p>
+                    <CopyButton text={r.title} label="Başlık" />
+                  </div>
+                  <p className="text-xs font-medium">{r.title}</p>
                 </div>
-                <p className="text-xs font-medium">{r.title}</p>
-              </div>
+              ) : null}
             </div>
-            <div className="rounded-xl bg-secondary/50 p-2.5">
-              <p className="text-xs text-muted-foreground">{r.description}</p>
-              <div className="mt-1.5">
-                <CopyButton text={r.description} label="Açıklama" />
+            {!canApprove ? (
+              <div className="rounded-xl bg-secondary/50 p-2.5">
+                <p className="text-xs text-muted-foreground">{r.description}</p>
+                <div className="mt-1.5">
+                  <CopyButton text={r.description} label="Açıklama" />
+                </div>
               </div>
-            </div>
+            ) : null}
             {r.bullets.length > 0 ? (
               <ul className="list-inside list-disc space-y-0.5 text-xs text-muted-foreground">
                 {r.bullets.map((b, i) => (
