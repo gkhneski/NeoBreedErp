@@ -62,7 +62,7 @@ export default async function RecipeDetailPage({ params }: PageProps) {
         .from("materials")
         .select("id, code, name, type")
         .eq("company_id", companyId)
-        .eq("type", "raw")
+        .in("type", ["raw", "semi"])
         .is("deleted_at", null)
         .order("name", { ascending: true }),
     ]);

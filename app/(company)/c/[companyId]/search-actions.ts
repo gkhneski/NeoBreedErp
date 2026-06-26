@@ -72,11 +72,11 @@ export async function globalSearch(
     id: string;
     code: string;
     name: string;
-    type: "raw" | "finished";
+    type: "raw" | "semi" | "finished";
   }>) {
     const finished = m.type === "finished";
     results.push({
-      type: finished ? "Ürün" : "Hammadde",
+      type: finished ? "Ürün" : m.type === "semi" ? "Yarımamül" : "Hammadde",
       label: `${m.code} — ${m.name}`,
       sub: finished ? "Bitmiş ürün" : "Hammadde",
       href: finished

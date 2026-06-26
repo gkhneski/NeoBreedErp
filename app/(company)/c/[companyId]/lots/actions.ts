@@ -279,7 +279,7 @@ export type ProductOption = {
   id: string;
   code: string;
   name: string;
-  type: "raw" | "finished";
+  type: "raw" | "semi" | "finished";
   base_uom: string;
 };
 

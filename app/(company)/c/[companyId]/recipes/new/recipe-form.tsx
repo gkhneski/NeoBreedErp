@@ -69,7 +69,7 @@ export function RecipeForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="finished_material_id">Bitmiş Ürün *</Label>
+          <Label htmlFor="finished_material_id">Çıktı Ürün (Mamül / YM) *</Label>
           <select
             id="finished_material_id"
             name="finished_material_id"

@@ -27,7 +27,7 @@ export type AgentActionKind =
   | "visibility"
   | "content";
 export type AgentActionStatus = "proposed" | "applied" | "dismissed";
-export type MaterialType = "raw" | "finished";
+export type MaterialType = "raw" | "semi" | "finished";
 export type RecipeStatus = "draft" | "published" | "archived";
 export type RecipeMode = "quantity" | "percentage";
 export type LotStatus = "quarantine" | "released" | "blocked";

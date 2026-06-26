@@ -18,7 +18,7 @@ const materialSchema = z.object({
   material_id: z.string().uuid().optional().or(z.literal("")),
   preset: z.enum(["packaging"]).optional().or(z.literal("")),
   name: z.string().trim().min(2, "Ad en az 2 karakter olmalı.").max(200),
-  type: z.enum(["raw", "finished"], { message: "Tip seçiniz." }),
+  type: z.enum(["raw", "semi", "finished"], { message: "Tip seçiniz." }),
   base_uom: z.enum(ALLOWED_UOM, { message: "Geçerli bir birim seçiniz." }),
   barcode: z
     .string()
@@ -143,7 +143,9 @@ export async function createMaterial(
       ? "AMB"
       : parsed.data.type === "finished"
         ? "URN"
-        : "HAM";
+        : parsed.data.type === "semi"
+          ? "YM"
+          : "HAM";
   const code = await nextMaterialCode(supabase, companyId, prefix);
 
   const { error } = await supabase.from("materials").insert({

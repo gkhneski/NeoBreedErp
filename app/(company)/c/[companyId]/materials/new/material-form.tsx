@@ -41,7 +41,7 @@ type MaterialInitial = {
   id: string;
   code: string;
   name: string;
-  type: "raw" | "finished";
+  type: "raw" | "semi" | "finished";
   base_uom: string;
   barcode: string | null;
   density: number | null;
@@ -55,7 +55,7 @@ type MaterialInitial = {
 interface MaterialFormProps {
   companyId: string;
   suppliers: Array<{ id: string; code: string; name: string }>;
-  defaultType?: "raw" | "finished";
+  defaultType?: "raw" | "semi" | "finished";
   preset?: "packaging";
   returnTo?: string;
   initial?: MaterialInitial;
@@ -88,7 +88,9 @@ export function MaterialForm({
       ? "AMB-01 otomatik"
       : defaultType === "finished"
         ? "URN-01 otomatik"
-        : "HAM-01 otomatik");
+        : defaultType === "semi"
+          ? "YM-01 otomatik"
+          : "HAM-01 otomatik");
 
   return (
     <form action={formAction} className="space-y-5">
@@ -122,7 +124,8 @@ export function MaterialForm({
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="raw">Hammadde</option>
-            <option value="finished">Bitmiş Ürün</option>
+            <option value="semi">Yarımamül (YM)</option>
+            <option value="finished">Bitmiş Ürün (Mamül)</option>
           </select>
           <FieldError message={state.fieldErrors?.type} />
         </div>
@@ -132,7 +135,7 @@ export function MaterialForm({
             id="base_uom"
             name="base_uom"
             required
-            defaultValue={initial?.base_uom ?? ""}
+            defaultValue={initial?.base_uom ?? "g"}
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="" disabled>

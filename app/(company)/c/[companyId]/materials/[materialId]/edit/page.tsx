@@ -14,7 +14,7 @@ type MaterialInitial = {
   id: string;
   code: string;
   name: string;
-  type: "raw" | "finished";
+  type: "raw" | "semi" | "finished";
   base_uom: string;
   barcode: string | null;
   density: number | null;
