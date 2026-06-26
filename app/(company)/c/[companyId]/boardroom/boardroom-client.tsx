@@ -6,6 +6,7 @@ import {
   Image as ImageIcon,
   Megaphone,
   MessagesSquare,
+  PenLine,
   Play,
   Sparkles,
   Tag,
@@ -108,18 +109,23 @@ function agentKey(agent: string): string {
 
 const ACTION_ICON: Record<AgentActionKind, typeof Tag> = {
   price: Tag,
+  content: PenLine,
   site_product: Sparkles,
   site_article: Megaphone,
   image: ImageIcon,
   visibility: MessagesSquare,
 };
 const ACTION_LABEL: Record<AgentActionKind, string> = {
-  price: "Fiyat önerisi → onay kuyruğu",
+  price: "İndirim → onayda Trendyol fiyatı anında değişir",
+  content: "Başlık/açıklama → onayda Trendyol içeriği değişir",
   site_product: "Web sayfası taslağı",
   site_article: "Rehber yazısı",
   image: "Trendyol görseli çek",
   visibility: "Görünürlük notu",
 };
+
+const tl = (n: number) =>
+  `${Number(n).toLocaleString("tr-TR", { maximumFractionDigits: 2 })} ₺`;
 
 // Typewriter reveal for freshly-arrived messages; historical messages render whole.
 function TypingText({ text, animate }: { text: string; animate: boolean }) {
@@ -512,11 +518,15 @@ function ActionItem({
   }
 
   const done = action.status !== "proposed";
+  const p = action.payload;
+  const salePrice = typeof p.salePrice === "number" ? p.salePrice : Number(p.salePrice);
+  const newTitle = typeof p.newTitle === "string" ? p.newTitle : null;
+  const description = typeof p.description === "string" ? p.description : null;
 
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 rounded-2xl border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4",
+        "flex flex-col gap-2 rounded-2xl border border-border bg-card p-3 sm:flex-row sm:items-start sm:justify-between sm:p-4",
         done && "opacity-70",
       )}
     >
@@ -524,7 +534,7 @@ function ActionItem({
         <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
           <Icon className="h-4 w-4" />
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 space-y-1.5">
           <p className="text-sm font-semibold">{action.title}</p>
           <p className="text-xs text-muted-foreground">
             {ACTION_LABEL[action.kind]}
@@ -532,6 +542,25 @@ function ActionItem({
             {action.status === "applied" && action.result ? ` — ${action.result}` : ""}
             {action.status === "dismissed" ? " — geçildi" : ""}
           </p>
+
+          {action.kind === "price" && Number.isFinite(salePrice) ? (
+            <p className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+              Yeni fiyat: {tl(salePrice)}
+            </p>
+          ) : null}
+
+          {action.kind === "content" && (newTitle || description) ? (
+            <div className="space-y-1 rounded-lg bg-secondary/60 p-2 text-xs">
+              {newTitle ? (
+                <p>
+                  <span className="font-semibold">Yeni başlık:</span> {newTitle}
+                </p>
+              ) : null}
+              {description ? (
+                <p className="text-muted-foreground">{description}</p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
       {canManage && !done ? (

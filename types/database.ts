@@ -24,7 +24,8 @@ export type AgentActionKind =
   | "site_product"
   | "site_article"
   | "image"
-  | "visibility";
+  | "visibility"
+  | "content";
 export type AgentActionStatus = "proposed" | "applied" | "dismissed";
 export type MaterialType = "raw" | "finished";
 export type RecipeStatus = "draft" | "published" | "archived";

@@ -172,14 +172,21 @@ function buildSynthPrompt(briefing: string, transcript: Turn[]): string {
   return (
     `BRİFİNG:\n${briefing}\n\n` +
     `KURUL TARTIŞMASI:\n${convo}\n\n` +
-    "Bu tartışmayı bağla. ÖNCE 2-4 cümlelik kısa bir özet yaz. SONRA bir JSON bloğu " +
-    "ver: önceliklendirilmiş aksiyonlar. Her aksiyon brifingdeki bir ref'e bağlı " +
-    "olmalı (site_article hariç). Geçerli kind'ler:\n" +
-    '- "price": ürün fiyat önerisi → {"ref","kind":"price","title","salePrice": sayı}\n' +
+    "Bu tartışmayı bağla. ÖNCE owner için 2-4 cümlelik NET bir KARAR ÖZETİ yaz " +
+    "(ne yapılacak, neden). SONRA bir JSON bloğu ver: önceliklendirilmiş, owner " +
+    "onaylayınca DOĞRUDAN uygulanacak aksiyonlar. Her aksiyon brifingdeki bir ref'e " +
+    "bağlı olmalı (site_article hariç). Geçerli kind'ler:\n" +
+    '- "price": indirim/fiyat → onayda Trendyol fiyatı anında değişir → ' +
+    '{"ref","kind":"price","title","salePrice": sayı}\n' +
+    '- "content": Trendyol başlık+açıklama değişikliği → onayda Trendyol içeriği ' +
+    "güncellenir. Başlığı SEO için optimize et (marka+ürün+form+mg+adet, ≤100 " +
+    "karakter). Açıklama 200-500 karakter, mevzuata uygun, sağlık vaadi YOK → " +
+    '{"ref","kind":"content","title":"<yeni başlık>","description":"<yeni açıklama>"}\n' +
     '- "site_product": o ürün için web sayfası taslağı → {"ref","kind":"site_product","title"}\n' +
     '- "image": eksik Trendyol görselini çek → {"ref","kind":"image","title"}\n' +
     '- "visibility": Trendyol görünürlük notu → {"ref","kind":"visibility","title","note"}\n' +
     '- "site_article": long-tail rehber yazısı → {"kind":"site_article","title","topic"}\n\n' +
+    "Başlığı/içeriği zayıf olan ürünler için MUTLAKA 'content' aksiyonu öner. " +
     'Format: {"summary":"...","actions":[ ... ]}. En fazla 8 aksiyon. SADECE bu JSON.'
   );
 }
@@ -247,6 +254,21 @@ function parseSynthesis(
         ref,
         title,
         payload: { listingId: item.listingId, materialName: item.name, salePrice },
+      });
+    } else if (kind === "content") {
+      const newTitle = typeof o.title === "string" ? o.title.trim() : "";
+      const description = typeof o.description === "string" ? o.description.trim() : "";
+      if (!item.listingId || newTitle.length < 5 || description.length < 10) continue;
+      actions.push({
+        kind,
+        ref,
+        title,
+        payload: {
+          listingId: item.listingId,
+          materialName: item.name,
+          newTitle: newTitle.slice(0, 100),
+          description: description.slice(0, 4000),
+        },
       });
     } else if (kind === "site_product") {
       actions.push({

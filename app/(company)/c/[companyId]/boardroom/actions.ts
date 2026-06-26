@@ -9,7 +9,8 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { BOARDROOM_ROLES, companyModulePath } from "@/types/roles";
 
 import { pullTrendyolImage } from "../products/actions";
-import { proposeMarketingPrice } from "../marketplace/cosmo-marketing-actions";
+import { pushNewListingPrice } from "../marketplace/actions";
+import { pushListingContent } from "../marketplace/cosmo-marketing-actions";
 import { generateArticleDraft, generateProductPageDraft } from "../site/actions";
 
 export type StartResult = { ok: true; sessionId: string } | { ok: false; error: string };
@@ -60,7 +61,13 @@ export async function applyAgentAction(
     .eq("company_id", companyId)
     .maybeSingle<{
       id: string;
-      kind: "price" | "site_product" | "site_article" | "image" | "visibility";
+      kind:
+        | "price"
+        | "site_product"
+        | "site_article"
+        | "image"
+        | "visibility"
+        | "content";
       payload: Record<string, unknown>;
       status: string;
     }>();
@@ -73,13 +80,26 @@ export async function applyAgentAction(
 
   switch (action.kind) {
     case "price": {
-      const r = await proposeMarketingPrice(
+      // Onay = doğrudan Trendyol'a yeni fiyat (anında).
+      const r = await pushNewListingPrice(
         companyId,
         String(p.listingId),
         Number(p.salePrice),
       );
       result = r;
-      note = "Fiyat önerisi onay kuyruğuna eklendi.";
+      note = "Yeni fiyat Trendyol'a gönderildi.";
+      break;
+    }
+    case "content": {
+      // Onay = başlık + açıklama doğrudan Trendyol'a (yeniden onaya alır).
+      const r = await pushListingContent(
+        companyId,
+        String(p.listingId),
+        String(p.newTitle ?? ""),
+        String(p.description ?? ""),
+      );
+      result = r.ok ? { ok: true } : { ok: false, error: r.error };
+      note = "Yeni başlık/açıklama Trendyol'a gönderildi (yeniden onaya alındı).";
       break;
     }
     case "site_product": {

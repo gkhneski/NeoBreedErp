@@ -366,6 +366,74 @@ async function loadListingForPush(
   };
 }
 
+// Onayda doğrudan Trendyol'a yeni (indirim) fiyatı gönderir. Bekleyen öneri
+// kuyruğuna eklemez — anında push. Ajan Kurulu onayı bunu kullanır.
+export async function pushNewListingPrice(
+  companyIdInput: string,
+  listingIdInput: string,
+  newPriceInput: number,
+): Promise<SimpleActionResult> {
+  const inputs = z
+    .object({
+      company: z.string().uuid(),
+      listing: z.string().uuid(),
+      price: z.number().positive(),
+    })
+    .safeParse({
+      company: companyIdInput,
+      listing: listingIdInput,
+      price: newPriceInput,
+    });
+  if (!inputs.success) return { ok: false, error: "Geçersiz istek." };
+
+  const { ctx, companyId } = await requireCompanyRole(
+    inputs.data.company,
+    MARKETPLACE_APPROVE_ROLES,
+  );
+
+  const loaded = await loadListingForPush(companyId, inputs.data.listing);
+  if (!loaded.ok) return loaded;
+  const listing = loaded.listing;
+
+  const service = createServiceRoleClient();
+  // Aynı listing için bekleyen öneri varsa direkt push'u engellemesin diye temizle.
+  await service
+    .from("marketplace_price_events")
+    .update({ status: "dismissed" })
+    .eq("company_id", companyId)
+    .eq("listing_id", listing.id)
+    .eq("status", "pending");
+
+  const { data: event, error: insertError } = await service
+    .from("marketplace_price_events")
+    .insert({
+      company_id: companyId,
+      listing_id: listing.id,
+      kind: "manual",
+      old_price: listing.normal_sale_price,
+      new_price: inputs.data.price,
+      created_by: ctx.userId,
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !event) {
+    return { ok: false, error: insertError?.message ?? "Kayıt oluşturulamadı." };
+  }
+
+  const result = await pushApprovedEvent(
+    service,
+    event.id,
+    companyId,
+    listing,
+    inputs.data.price,
+    ctx.userId,
+  );
+
+  revalidatePath(marketplacePath(companyId));
+  return result;
+}
+
 export async function pushListingPrice(
   companyIdInput: string,
   listingIdInput: string,
