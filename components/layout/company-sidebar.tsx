@@ -5,6 +5,7 @@ import {
   BarChart3,
   BookOpenText,
   Box,
+  Boxes,
   Building2,
   ClipboardList,
   Contact,
@@ -74,6 +75,8 @@ const SECTIONS: NavSection[] = [
     items: [
       { key: "suppliers", label: "Tedarikçiler", icon: Truck },
       { key: "customers", label: "Müşteriler", icon: Building2 },
+      { key: "mrp", label: "MRP (İhtiyaç Planlama)", icon: Boxes },
+      { key: "purchase-orders", label: "Satınalma Siparişleri", icon: ClipboardList },
       { key: "purchases", label: "Fatura / İrsaliye", icon: ReceiptText },
     ],
   },

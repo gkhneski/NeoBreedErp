@@ -13,7 +13,8 @@ export type SalesOrderStatus =
   | "preparing"
   | "shipped"
   | "cancelled";
-export type SalesOrderSource = "portal" | "rep";
+export type SalesOrderSource = "portal" | "rep" | "manual";
+export type PurchaseOrderStatus = "draft" | "sent" | "received" | "cancelled";
 export type CatalogAvailability = "out" | "low" | "in";
 export type SiteContentStatus = "draft" | "published";
 export type SiteFaqItem = { q: string; a: string };
@@ -1937,6 +1938,96 @@ export type Database = {
           created_at?: string;
           applied_at?: string | null;
           applied_by?: string | null;
+        };
+        Relationships: [];
+      };
+      purchase_orders: {
+        Row: {
+          id: string;
+          company_id: string;
+          code: string;
+          supplier_id: string | null;
+          status: PurchaseOrderStatus;
+          currency: string | null;
+          notes: string | null;
+          sent_at: string | null;
+          received_at: string | null;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          code: string;
+          supplier_id?: string | null;
+          status?: PurchaseOrderStatus;
+          currency?: string | null;
+          notes?: string | null;
+          sent_at?: string | null;
+          received_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          code?: string;
+          supplier_id?: string | null;
+          status?: PurchaseOrderStatus;
+          currency?: string | null;
+          notes?: string | null;
+          sent_at?: string | null;
+          received_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      purchase_order_lines: {
+        Row: {
+          id: string;
+          company_id: string;
+          purchase_order_id: string;
+          material_id: string;
+          quantity: number;
+          uom: string;
+          unit_cost: number | null;
+          received_quantity: number;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          purchase_order_id: string;
+          material_id: string;
+          quantity: number;
+          uom: string;
+          unit_cost?: number | null;
+          received_quantity?: number;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          purchase_order_id?: string;
+          material_id?: string;
+          quantity?: number;
+          uom?: string;
+          unit_cost?: number | null;
+          received_quantity?: number;
+          created_at?: string;
+          created_by?: string | null;
         };
         Relationships: [];
       };

@@ -374,6 +374,119 @@ export async function placeRepOrder(
   return { ok: true, code: order.code };
 }
 
+// Manuel iç müşteri siparişi (fason/toptan): herhangi bir BİTMİŞ ürün kabul eder
+// (portal kataloğuyla sınırlı değil), source='manual'. MRP bu açık talebi patlatır.
+const manualOrderSchema = z.object({
+  company: z.string().uuid(),
+  customer_id: z.string().uuid("Müşteri seçin."),
+  items: z
+    .array(
+      z.object({
+        material_id: z.string().uuid(),
+        quantity: z.number().positive().max(10_000_000),
+      }),
+    )
+    .min(1, "En az bir ürün girin.")
+    .max(100),
+  notes: z.string().trim().max(2000).optional().or(z.literal("")),
+});
+
+export async function placeManualOrder(
+  companyIdInput: string,
+  customerIdInput: string,
+  itemsInput: Array<{ material_id: string; quantity: number }>,
+  notesInput: string,
+): Promise<PlaceRepOrderResult> {
+  const parsed = manualOrderSchema.safeParse({
+    company: companyIdInput,
+    customer_id: customerIdInput,
+    items: itemsInput,
+    notes: notesInput,
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz sipariş." };
+  }
+
+  const { ctx, companyId } = await requireCompanyRole(
+    parsed.data.company,
+    ORDER_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { data: customer } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("id", parsed.data.customer_id)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (!customer) return { ok: false, error: "Müşteri bu firmaya ait değil." };
+
+  // Validate materials are finished goods of this company.
+  const ids = [...new Set(parsed.data.items.map((i) => i.material_id))];
+  const { data: mats } = await supabase
+    .from("materials")
+    .select("id, type")
+    .eq("company_id", companyId)
+    .in("id", ids)
+    .is("deleted_at", null);
+  const finishedIds = new Set(
+    (mats ?? []).filter((m) => m.type === "finished").map((m) => m.id),
+  );
+  for (const item of parsed.data.items) {
+    if (!finishedIds.has(item.material_id)) {
+      return { ok: false, error: "Sipariş yalnızca bitmiş ürün içerebilir." };
+    }
+  }
+
+  // Optional price snapshot from catalog.
+  const { data: catalog } = await supabase
+    .from("product_catalog")
+    .select("material_id, sale_price")
+    .eq("company_id", companyId)
+    .is("deleted_at", null);
+  const priceById = new Map((catalog ?? []).map((c) => [c.material_id, c.sale_price]));
+
+  const { data: order, error: orderError } = await supabase
+    .from("sales_orders")
+    .insert({
+      company_id: companyId,
+      customer_id: parsed.data.customer_id,
+      code: await nextSalesOrderCode(supabase, companyId),
+      status: "placed",
+      source: "manual",
+      placed_by: ctx.userId,
+      notes: parsed.data.notes || null,
+      created_by: ctx.userId,
+      updated_by: ctx.userId,
+    })
+    .select("id, code")
+    .single();
+  if (orderError || !order) {
+    return { ok: false, error: orderError?.message ?? "Sipariş oluşturulamadı." };
+  }
+
+  const { error: itemsError } = await supabase.from("sales_order_items").insert(
+    parsed.data.items.map((item) => ({
+      company_id: companyId,
+      order_id: order.id,
+      material_id: item.material_id,
+      quantity: item.quantity,
+      unit_price: priceById.get(item.material_id) ?? null,
+      created_by: ctx.userId,
+    })),
+  );
+  if (itemsError) {
+    await supabase.from("sales_orders").delete().eq("id", order.id);
+    return { ok: false, error: itemsError.message };
+  }
+
+  revalidatePath(companyModulePath(companyId, "sales-orders"));
+  revalidatePath(companyModulePath(companyId, "mrp"));
+  revalidatePath(companyModulePath(companyId));
+  return { ok: true, code: order.code };
+}
+
 async function nextSalesOrderCode(
   supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
   companyId: string,

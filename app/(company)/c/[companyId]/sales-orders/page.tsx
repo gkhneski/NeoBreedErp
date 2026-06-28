@@ -89,9 +89,14 @@ export default async function SalesOrdersPage({ params }: PageProps) {
         <div className="flex items-center gap-2">
           {newCount > 0 ? <Badge variant="warning">{newCount} yeni</Badge> : null}
           {canWrite ? (
-            <Link href={companyModulePath(companyId, "sales-orders", "new")}>
-              <Button>Yeni Sipariş</Button>
-            </Link>
+            <>
+              <Link href={companyModulePath(companyId, "sales-orders", "manual")}>
+                <Button variant="outline">Manuel Sipariş (Fason)</Button>
+              </Link>
+              <Link href={companyModulePath(companyId, "sales-orders", "new")}>
+                <Button>Yeni Sipariş</Button>
+              </Link>
+            </>
           ) : null}
         </div>
       </header>

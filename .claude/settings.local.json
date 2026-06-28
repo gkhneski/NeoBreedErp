@@ -35,7 +35,8 @@
       "Bash(cd C:\\\\Users\\\\geski\\\\Desktop\\\\projekte\\\\NeoBreed-ERP *)",
       "Bash(powershell -Command \"ls -la 'app/\\(company\\)' | head -20\")",
       "Bash(sed 's/.*public\\\\.//')",
-      "Bash(sed 's/ .*//')"
+      "Bash(sed 's/ .*//')",
+      "PowerShell(npm run typecheck 2>&1)"
     ]
   }
 }
