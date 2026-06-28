@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireCompanyRole } from "@/lib/auth";
+import { postAccountTransaction } from "@/lib/accounts/post";
 import { normalizeSupportedCurrency } from "@/lib/currencies";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { MASTER_DATA_WRITE_ROLES, STOCK_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
 export type PoActionResult = { ok: true; note?: string } | { ok: false; error: string };
@@ -138,6 +139,31 @@ export async function receivePurchaseOrder(
     .eq("id", po.id)
     .eq("company_id", companyId);
 
+  // Tedarikçi carisine borç (verecek): satır maliyetleri toplamı.
+  if (po.supplier_id) {
+    const payable = lines.reduce(
+      (s, l) => s + Number(l.quantity) * Number(l.unit_cost ?? 0),
+      0,
+    );
+    if (payable > 0) {
+      const service = createServiceRoleClient();
+      await postAccountTransaction(service, {
+        companyId,
+        partyType: "supplier",
+        partyId: po.supplier_id,
+        kind: "purchase",
+        amount: payable,
+        currency: po.currency ?? "TRY",
+        docNo: po.code,
+        referenceKind: "purchase_order",
+        referenceId: po.id,
+        notes: `${po.code} mal kabulü`,
+        createdBy: ctx.userId,
+      });
+    }
+  }
+
+  revalidatePath(companyModulePath(companyId, "accounts"));
   revalidatePath(companyModulePath(companyId, "purchase-orders"));
   revalidatePath(companyModulePath(companyId, "purchase-orders", po.id));
   revalidatePath(companyModulePath(companyId, "lots"));

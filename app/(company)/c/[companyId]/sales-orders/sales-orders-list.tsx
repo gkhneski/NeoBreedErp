@@ -8,11 +8,43 @@ import { Button } from "@/components/ui/button";
 import type { SalesOrderSource, SalesOrderStatus } from "@/types/database";
 import { companyModulePath } from "@/types/roles";
 
+import { postSaleToAccount } from "../accounts/actions";
 import {
   convertOrderToShipment,
   markAllSalesOrdersSeen,
   setSalesOrderStatus,
 } from "./actions";
+
+const SOURCE_LABEL: Record<SalesOrderSource, string> = {
+  portal: "Portal",
+  rep: "Bölge müdürü",
+  manual: "Manuel / Fason",
+};
+
+function PostSaleButton({ companyId, orderId }: { companyId: string; orderId: string }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<string | null>(null);
+  return (
+    <div className="space-y-1">
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={pending}
+        onClick={() =>
+          start(async () => {
+            const res = await postSaleToAccount(companyId, orderId);
+            setMsg(res.ok ? (res.note ?? "İşlendi.") : res.error);
+            if (res.ok) router.refresh();
+          })
+        }
+      >
+        Cariye İşle (Satış)
+      </Button>
+      {msg ? <p className="text-xs text-muted-foreground">{msg}</p> : null}
+    </div>
+  );
+}
 
 export type SalesOrderRow = {
   id: string;
@@ -168,7 +200,7 @@ export function SalesOrdersList({
                   </span>
                 ) : null}
                 <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
-                  {row.source === "portal" ? "Portal" : "Bölge müdürü"}
+                  {SOURCE_LABEL[row.source]}
                 </span>
               </div>
               <span className="text-xs text-muted-foreground">
@@ -202,8 +234,11 @@ export function SalesOrdersList({
             ) : null}
 
             {canWrite ? (
-              <div className="mt-3">
+              <div className="mt-3 space-y-2">
                 <OrderActions companyId={companyId} row={row} />
+                {row.status !== "cancelled" ? (
+                  <PostSaleButton companyId={companyId} orderId={row.id} />
+                ) : null}
               </div>
             ) : null}
           </div>
