@@ -7,6 +7,7 @@ import {
   Box,
   Boxes,
   Building2,
+  ChevronDown,
   ClipboardList,
   Contact,
   Factory,
@@ -34,6 +35,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { signOut } from "@/app/login/actions";
 import { cn } from "@/lib/utils";
@@ -57,59 +59,101 @@ interface NavSection {
   items: NavItem[];
 }
 
-const SECTIONS: NavSection[] = [
+interface NavGroup {
+  key: string;
+  // TODO(owner): replace with the real legal-entity trade names.
+  title: string;
+  icon: LucideIcon;
+  sections: NavSection[];
+}
+
+const GROUPS: NavGroup[] = [
   {
-    title: "Ürün & Stok",
-    items: [
-      { key: "products", label: "Ürünler", icon: Package },
-      { key: "materials", label: "Hammaddeler", icon: FlaskConical },
-      { key: "packaging", label: "Ambalaj Malzemeleri", icon: Box },
-      { key: "lots", label: "Lotlar", icon: Layers },
-      { key: "lots/onboarding", label: "Stok Girişi (Barkod)", icon: ScanBarcode },
-      { key: "stock", label: "Stok", icon: Warehouse },
-      { key: "warehouse", label: "Depo Hareketleri", icon: ArrowLeftRight },
+    key: "manufacturer",
+    title: "İmalat A.Ş.",
+    icon: Factory,
+    sections: [
+      {
+        title: "Ürün & Stok",
+        items: [
+          { key: "materials", label: "Hammaddeler", icon: FlaskConical },
+          { key: "packaging", label: "Ambalaj Malzemeleri", icon: Box },
+          { key: "lots", label: "Lotlar", icon: Layers },
+          { key: "lots/onboarding", label: "Stok Girişi (Barkod)", icon: ScanBarcode },
+          { key: "stock", label: "Stok", icon: Warehouse },
+          { key: "warehouse", label: "Depo Hareketleri", icon: ArrowLeftRight },
+        ],
+      },
+      {
+        title: "Üretim",
+        items: [
+          { key: "recipes", label: "Reçeteler", icon: BookOpenText },
+          { key: "production", label: "Üretim", icon: Factory },
+          { key: "quality", label: "Kalite Kontrol", icon: ShieldCheck },
+          { key: "orders", label: "Üretim İş Listesi", icon: ClipboardList },
+        ],
+      },
+      {
+        title: "Tedarik & Satınalma",
+        items: [
+          { key: "suppliers", label: "Tedarikçiler", icon: Truck },
+          { key: "mrp", label: "MRP (İhtiyaç Planlama)", icon: Boxes },
+          { key: "purchase-orders", label: "Satınalma Siparişleri", icon: ClipboardList },
+          { key: "purchases", label: "Fatura / İrsaliye", icon: ReceiptText },
+        ],
+      },
+      {
+        title: "Finans",
+        items: [{ key: "expenses", label: "Genel Giderler", icon: ReceiptText }],
+      },
     ],
   },
   {
-    title: "Tedarik & Müşteriler",
-    items: [
-      { key: "suppliers", label: "Tedarikçiler", icon: Truck },
-      { key: "customers", label: "Müşteriler", icon: Building2 },
-      { key: "mrp", label: "MRP (İhtiyaç Planlama)", icon: Boxes },
-      { key: "purchase-orders", label: "Satınalma Siparişleri", icon: ClipboardList },
-      { key: "purchases", label: "Fatura / İrsaliye", icon: ReceiptText },
+    key: "sales",
+    title: "Satış Ltd. Şti.",
+    icon: Store,
+    sections: [
+      {
+        title: "Ürünler & Müşteriler",
+        items: [
+          { key: "products", label: "Ürünler", icon: Package },
+          { key: "customers", label: "Müşteriler", icon: Building2 },
+        ],
+      },
+      {
+        title: "Sipariş & Sevkiyat",
+        items: [
+          { key: "sales", label: "Satış & Ürünler", icon: LineChart },
+          { key: "sales-orders", label: "Eczane Siparişleri", icon: ShoppingCart },
+          { key: "portal-catalog", label: "Portal Kataloğu", icon: Tags },
+          { key: "shipments", label: "Siparişler", icon: Send },
+          { key: "buyers", label: "Eczane Hesapları", icon: Contact },
+        ],
+      },
+      {
+        title: "Kanallar",
+        items: [
+          { key: "marketplace", label: "Pazaryeri", icon: Store },
+          { key: "site", label: "Web Sitesi", icon: Globe },
+        ],
+      },
     ],
   },
   {
-    title: "Üretim",
-    items: [
-      { key: "recipes", label: "Reçeteler", icon: BookOpenText },
-      { key: "production", label: "Üretim", icon: Factory },
-      { key: "quality", label: "Kalite Kontrol", icon: ShieldCheck },
-      { key: "orders", label: "Üretim İş Listesi", icon: ClipboardList },
-    ],
-  },
-  {
-    title: "Sevkiyat",
-    items: [
-      { key: "sales", label: "Satış & Ürünler", icon: LineChart },
-      { key: "sales-orders", label: "Eczane Siparişleri", icon: ShoppingCart },
-      { key: "portal-catalog", label: "Portal Kataloğu", icon: Tags },
-      { key: "shipments", label: "Siparişler", icon: Send },
-      { key: "marketplace", label: "Pazaryeri", icon: Store },
-      { key: "site", label: "Web Sitesi", icon: Globe },
-    ],
-  },
-  {
-    title: "Yönetim",
-    items: [
-      { key: "boardroom", label: "Ajan Kurulu", icon: MessagesSquare },
-      { key: "accounts", label: "Cari Hesaplar", icon: ReceiptText },
-      { key: "expenses", label: "Genel Giderler", icon: ReceiptText },
-      { key: "reports", label: "Raporlar", icon: BarChart3 },
-      { key: "buyers", label: "Eczane Hesapları", icon: Contact },
-      { key: "users", label: "Kullanıcılar", icon: Users },
-      { key: "settings", label: "Ayarlar", icon: Settings },
+    key: "shared",
+    title: "Ortak",
+    icon: Building2,
+    sections: [
+      {
+        title: "Yönetim",
+        items: [
+          { key: "boardroom", label: "Ajan Kurulu", icon: MessagesSquare },
+          { key: "accounts", label: "Cari Hesaplar", icon: ReceiptText },
+          { key: "reports", label: "Raporlar", icon: BarChart3 },
+          { key: "users", label: "Kullanıcılar", icon: Users },
+          { key: "settings", label: "Ayarlar", icon: Settings },
+        ],
+      },
     ],
   },
 ];
@@ -144,10 +188,42 @@ export function CompanySidebar({
   const home = companyHomePath(companyId);
   const homeActive = pathname === home;
 
-  const sections = SECTIONS.map((s) => ({
-    ...s,
-    items: s.items.filter((item) => canAccessModule(role, item.key)),
-  })).filter((s) => s.items.length > 0);
+  const groups = GROUPS.map((g) => ({
+    ...g,
+    sections: g.sections
+      .map((s) => ({
+        ...s,
+        items: s.items.filter((item) => canAccessModule(role, item.key)),
+      }))
+      .filter((s) => s.items.length > 0),
+  })).filter((g) => g.sections.length > 0);
+
+  const activeGroupKey = groups.find((g) =>
+    g.sections.some((s) =>
+      s.items.some((item) =>
+        isItemActive(pathname, companyModulePath(companyId, item.key), item.exact),
+      ),
+    ),
+  )?.key;
+
+  const [openGroups, setOpenGroups] = useState<Set<string>>(
+    () => new Set(activeGroupKey ? [activeGroupKey] : groups.map((g) => g.key)),
+  );
+
+  useEffect(() => {
+    if (!activeGroupKey) return;
+    setOpenGroups((prev) =>
+      prev.has(activeGroupKey) ? prev : new Set(prev).add(activeGroupKey),
+    );
+  }, [activeGroupKey]);
+
+  const toggleGroup = (key: string) =>
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   const emailName = email.split("@")[0] || email;
   const initials = emailName.slice(0, 2).toUpperCase() || "?";
@@ -177,26 +253,57 @@ export function CompanySidebar({
           <span>Panel</span>
         </Link>
 
-        {sections.map((section) => (
-          <div key={section.title} className="mt-5">
-            <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-sidebar-muted">
-              {section.title}
-            </p>
-            <div className="space-y-0.5">
-              {section.items.map((item) => {
-                const href = companyModulePath(companyId, item.key);
-                const active = isItemActive(pathname, href, item.exact);
-                const Icon = item.icon;
-                return (
-                  <Link key={item.key} href={href} className={itemClass(active)}>
-                    <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
-                    <span className="truncate">{item.label}</span>
-                  </Link>
-                );
-              })}
+        {groups.map((group) => {
+          const open = openGroups.has(group.key);
+          const GroupIcon = group.icon;
+          return (
+            <div key={group.key} className="mt-4">
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.key)}
+                aria-expanded={open}
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left font-bold text-foreground transition-colors hover:bg-sidebar-active/50"
+              >
+                <GroupIcon className="h-[18px] w-[18px] shrink-0 text-sidebar-accent" aria-hidden="true" />
+                <span className="flex-1 truncate text-[13px] tracking-tight">
+                  {group.title}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 shrink-0 text-sidebar-muted transition-transform",
+                    open ? "" : "-rotate-90",
+                  )}
+                  aria-hidden="true"
+                />
+              </button>
+
+              {open ? (
+                <div className="mt-1 space-y-3 pl-2">
+                  {group.sections.map((section) => (
+                    <div key={section.title}>
+                      <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-sidebar-muted">
+                        {section.title}
+                      </p>
+                      <div className="space-y-0.5">
+                        {section.items.map((item) => {
+                          const href = companyModulePath(companyId, item.key);
+                          const active = isItemActive(pathname, href, item.exact);
+                          const Icon = item.icon;
+                          return (
+                            <Link key={item.key} href={href} className={itemClass(active)}>
+                              <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+                              <span className="truncate">{item.label}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </nav>
 
       <div className="border-t border-sidebar-border p-3">
