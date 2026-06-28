@@ -201,9 +201,15 @@ export default async function ReportsPage({ params }: PageProps) {
             Firma operasyonlarının anlık ERP özeti.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Link href={companyModulePath(companyId, "reports", "profitability")}>
+            <Button>Karlılık</Button>
+          </Link>
+          <Link href={companyModulePath(companyId, "reports", "material-costs")}>
+            <Button variant="outline">Hammadde Maliyeti</Button>
+          </Link>
           <Link href={companyModulePath(companyId, "reports", "costs")}>
-            <Button>Maliyet Detayı</Button>
+            <Button variant="outline">Maliyet Detayı</Button>
           </Link>
           <Link href={companyModulePath(companyId)}>
             <Button variant="outline">Panele Dön</Button>

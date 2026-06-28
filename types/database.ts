@@ -17,6 +17,13 @@ export type SalesOrderSource = "portal" | "rep" | "manual";
 export type PurchaseOrderStatus = "draft" | "sent" | "received" | "cancelled";
 export type AccountPartyType = "customer" | "supplier";
 export type AccountTxnKind = "sale" | "purchase" | "payment" | "adjustment";
+export type ExpenseCategory =
+  | "salary"
+  | "electricity"
+  | "water"
+  | "fuel"
+  | "rent"
+  | "other";
 export type CatalogAvailability = "out" | "low" | "in";
 export type SiteContentStatus = "draft" | "published";
 export type SiteFaqItem = { q: string; a: string };
@@ -2084,6 +2091,54 @@ export type Database = {
           notes?: string | null;
           created_at?: string;
           created_by?: string | null;
+        };
+        Relationships: [];
+      };
+      company_expenses: {
+        Row: {
+          id: string;
+          company_id: string;
+          category: ExpenseCategory;
+          amount: number;
+          currency: string;
+          period_month: string;
+          occurred_at: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          category: ExpenseCategory;
+          amount: number;
+          currency?: string;
+          period_month: string;
+          occurred_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          category?: ExpenseCategory;
+          amount?: number;
+          currency?: string;
+          period_month?: string;
+          occurred_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
         };
         Relationships: [];
       };

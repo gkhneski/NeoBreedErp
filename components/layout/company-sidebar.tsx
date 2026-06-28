@@ -105,6 +105,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { key: "boardroom", label: "Ajan Kurulu", icon: MessagesSquare },
       { key: "accounts", label: "Cari Hesaplar", icon: ReceiptText },
+      { key: "expenses", label: "Genel Giderler", icon: ReceiptText },
       { key: "reports", label: "Raporlar", icon: BarChart3 },
       { key: "buyers", label: "Eczane Hesapları", icon: Contact },
       { key: "users", label: "Kullanıcılar", icon: Users },
