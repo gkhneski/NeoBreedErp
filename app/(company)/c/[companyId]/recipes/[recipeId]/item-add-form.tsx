@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 import { addRecipeItem, type RecipeItemFormState } from "../actions";
 
@@ -55,22 +56,12 @@ export function RecipeItemAddForm({
       <div className="grid gap-3 sm:grid-cols-12">
         <div className="space-y-1.5 sm:col-span-5">
           <Label htmlFor="material_id">Hammadde *</Label>
-          <select
+          <SearchableSelect
             id="material_id"
             name="material_id"
-            required
-            defaultValue=""
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="" disabled>
-              — Seçiniz —
-            </option>
-            {rawMaterials.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
-              </option>
-            ))}
-          </select>
+            options={rawMaterials.map((m) => ({ value: m.id, label: m.label }))}
+            placeholder="Hammadde / YM ara — ad veya kod…"
+          />
           <FieldError message={state.fieldErrors?.material_id} />
         </div>
         <div className="space-y-1.5 sm:col-span-2">

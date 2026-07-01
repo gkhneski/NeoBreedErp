@@ -36,7 +36,8 @@
       "Bash(powershell -Command \"ls -la 'app/\\(company\\)' | head -20\")",
       "Bash(sed 's/.*public\\\\.//')",
       "Bash(sed 's/ .*//')",
-      "PowerShell(npm run typecheck 2>&1)"
+      "PowerShell(npm run typecheck 2>&1)",
+      "Bash(node \"C:/Users/geski/AppData/Local/Temp/claude/c--Users-geski-Desktop-projekte-NeoBreed-ERP/4edf3cd9-088e-4fae-a7fa-9bd6be6805dc/scratchpad/_recq.mjs\")"
     ]
   }
 }
