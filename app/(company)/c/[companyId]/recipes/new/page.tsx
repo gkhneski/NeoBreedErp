@@ -24,7 +24,7 @@ export default async function NewRecipePage({ params }: PageProps) {
     .from("materials")
     .select("id, code, name, type")
     .eq("company_id", companyId)
-    .in("type", ["finished", "semi"])
+    .eq("type", "finished")
     .is("deleted_at", null)
     .order("name", { ascending: true })
     .returns<Array<{ id: string; code: string; name: string; type: string }>>();
@@ -68,7 +68,7 @@ export default async function NewRecipePage({ params }: PageProps) {
         companyId={companyId}
         finishedMaterials={finishedMaterials.map((m) => ({
           id: m.id,
-          label: `${m.type === "semi" ? "[YM] " : "[Mamül] "}${m.code} — ${m.name}`,
+          label: `[Mamül] ${m.code} — ${m.name}`,
         }))}
       />
     </div>

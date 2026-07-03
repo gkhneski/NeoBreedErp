@@ -99,6 +99,29 @@ export async function createRecipe(
     MASTER_DATA_WRITE_ROLES,
   );
   const supabase = await createServerSupabaseClient();
+
+  const { data: finishedMaterial, error: finishedMaterialError } = await supabase
+    .from("materials")
+    .select("id")
+    .eq("id", parsed.data.finished_material_id)
+    .eq("company_id", companyId)
+    .eq("type", "finished")
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (finishedMaterialError) {
+    return { error: finishedMaterialError.message };
+  }
+
+  if (!finishedMaterial) {
+    return {
+      fieldErrors: {
+        finished_material_id: "Reçete çıktısı için yalnızca mamül seçebilirsiniz.",
+      },
+      error: "Form alanlarını kontrol edin.",
+    };
+  }
+
   const code = await nextRecipeCode(supabase, companyId);
 
   const { data, error } = await supabase
@@ -153,6 +176,28 @@ export async function updateRecipe(
     MASTER_DATA_WRITE_ROLES,
   );
   const supabase = await createServerSupabaseClient();
+
+  const { data: finishedMaterial, error: finishedMaterialError } = await supabase
+    .from("materials")
+    .select("id")
+    .eq("id", parsed.data.finished_material_id)
+    .eq("company_id", companyId)
+    .eq("type", "finished")
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (finishedMaterialError) {
+    return { error: finishedMaterialError.message };
+  }
+
+  if (!finishedMaterial) {
+    return {
+      fieldErrors: {
+        finished_material_id: "Reçete çıktısı için yalnızca mamül seçebilirsiniz.",
+      },
+      error: "Form alanlarını kontrol edin.",
+    };
+  }
 
   const { data: recipe } = await supabase
     .from("recipes")
