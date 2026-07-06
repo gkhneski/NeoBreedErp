@@ -9,7 +9,7 @@ import { withFlash } from "@/lib/flash";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { MASTER_DATA_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
-const ALLOWED_UOM = ["g", "kg", "mg", "mL", "L", "unit"] as const;
+const ALLOWED_UOM = ["g", "kg", "mg", "mL", "L", "unit", "kutu"] as const;
 
 const recipeSchema = z.object({
   company_id: z.string().uuid(),

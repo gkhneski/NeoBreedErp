@@ -18,6 +18,7 @@ const UOM_OPTIONS = [
   { value: "mL", label: "mL" },
   { value: "L", label: "L" },
   { value: "unit", label: "adet" },
+  { value: "kutu", label: "kutu" },
 ];
 
 function FieldError({ message }: { message?: string }) {
