@@ -14,6 +14,7 @@ import {
   removeRecipeItem,
 } from "../actions";
 import { RecipeItemAddForm } from "./item-add-form";
+import { RecipeActionButton } from "./recipe-action-button";
 
 interface PageProps {
   params: Promise<{ companyId: string; recipeId: string }>;
@@ -134,11 +135,7 @@ export default async function RecipeDetailPage({ params }: PageProps) {
               <Button size="sm" variant="outline">Duzenle</Button>
             </Link>
           ) : null}
-          <form action={deleteAction}>
-            <Button size="sm" variant="destructive" type="submit">
-              Sil
-            </Button>
-          </form>
+          <RecipeActionButton action={deleteAction} label="Sil" variant="destructive" />
           <Badge
             variant={
               recipe.status === "published"
@@ -186,18 +183,14 @@ export default async function RecipeDetailPage({ params }: PageProps) {
             Kalemler
           </h2>
           {isDraft ? (
-            <form action={publishAction}>
-              <Button type="submit" size="sm">
-                Yayınla
-              </Button>
-            </form>
+            <RecipeActionButton action={publishAction} label="Yayınla" />
           ) : null}
           {isPublished ? (
-            <form action={newVersionAction}>
-              <Button type="submit" size="sm" variant="outline">
-                Yeni Versiyon Oluştur
-              </Button>
-            </form>
+            <RecipeActionButton
+              action={newVersionAction}
+              label="Yeni Versiyon Oluştur"
+              variant="outline"
+            />
           ) : null}
         </div>
 
@@ -255,16 +248,12 @@ export default async function RecipeDetailPage({ params }: PageProps) {
                       </td>
                       {isDraft ? (
                         <td className="px-3 py-2 text-right">
-                          <form action={removeAction}>
-                            <Button
-                              type="submit"
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive hover:text-destructive"
-                            >
-                              Sil
-                            </Button>
-                          </form>
+                          <RecipeActionButton
+                            action={removeAction}
+                            label="Sil"
+                            variant="ghost"
+                            className="inline-block"
+                          />
                         </td>
                       ) : null}
                     </tr>

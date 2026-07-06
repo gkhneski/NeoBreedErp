@@ -60,9 +60,25 @@ async function insertProposal(
     .from("marketplace_price_events")
     .insert(proposal);
   if (!error) return true;
-  // 23505 = listing icin zaten bekleyen oneri var; sessizce yoksay.
-  if (error.code === "23505") return false;
-  throw new Error(error.message);
+  if (error.code !== "23505") throw new Error(error.message);
+
+  // 23505 = listing icin zaten bekleyen bir oneri var (marketplace_price_events_one_pending).
+  // Onu sessizce yoksaymak, SKT gun sayisi/fiyat/indirim yuzdesini ilk hesaplandigi
+  // gunde donduruyordu — gunler gectikce gercek deger degistigi halde oneri hic
+  // tazelenmiyordu. Bunun yerine bekleyen satiri guncel degerlerle yeniliyoruz.
+  const { error: updateError } = await service
+    .from("marketplace_price_events")
+    .update({
+      kind: proposal.kind,
+      old_price: proposal.old_price,
+      new_price: proposal.new_price,
+      trigger_expiry_date: proposal.trigger_expiry_date ?? null,
+      trigger_days_left: proposal.trigger_days_left ?? null,
+    })
+    .eq("listing_id", proposal.listing_id)
+    .eq("status", "pending");
+  if (updateError) throw new Error(updateError.message);
+  return true;
 }
 
 export async function reconcilePendingBatches(

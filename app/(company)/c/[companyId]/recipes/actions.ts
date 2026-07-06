@@ -389,11 +389,15 @@ export async function addRecipeItem(
   return {};
 }
 
+export type RecipeActionState = { error?: string };
+
 export async function removeRecipeItem(
   companyId: string,
   recipeId: string,
   itemId: string,
-): Promise<void> {
+  _prev: RecipeActionState,
+  _formData: FormData,
+): Promise<RecipeActionState> {
   await requireCompanyRole(companyId, MASTER_DATA_WRITE_ROLES);
   const supabase = await createServerSupabaseClient();
 
@@ -404,10 +408,10 @@ export async function removeRecipeItem(
     .maybeSingle();
 
   if (!recipe || recipe.company_id !== companyId) {
-    throw new Error("Reçete bulunamadı.");
+    return { error: "Reçete bulunamadı." };
   }
   if (recipe.status !== "draft") {
-    throw new Error("Yalnızca taslak reçetelerden kalem silinebilir.");
+    return { error: "Yalnızca taslak reçetelerden kalem silinebilir." };
   }
 
   const { error } = await supabase
@@ -416,15 +420,18 @@ export async function removeRecipeItem(
     .eq("id", itemId)
     .eq("recipe_id", recipeId);
 
-  if (error) throw new Error(error.message);
+  if (error) return { error: error.message };
 
   revalidatePath(companyModulePath(companyId, "recipes", recipeId));
+  return {};
 }
 
 export async function publishRecipe(
   companyId: string,
   recipeId: string,
-): Promise<void> {
+  _prev: RecipeActionState,
+  _formData: FormData,
+): Promise<RecipeActionState> {
   const { ctx } = await requireCompanyRole(companyId, MASTER_DATA_WRITE_ROLES);
   const supabase = await createServerSupabaseClient();
 
@@ -441,10 +448,10 @@ export async function publishRecipe(
     }>();
 
   if (!recipe || recipe.company_id !== companyId) {
-    throw new Error("Reçete bulunamadı.");
+    return { error: "Reçete bulunamadı." };
   }
   if (recipe.status !== "draft") {
-    throw new Error("Yalnızca taslak reçeteler yayınlanabilir.");
+    return { error: "Yalnızca taslak reçeteler yayınlanabilir." };
   }
 
   const { data: items } = await supabase
@@ -454,14 +461,14 @@ export async function publishRecipe(
     .returns<Array<{ percentage: number | null; active: boolean; materials: { type: string } | null }>>();
 
   if (!items || items.length === 0) {
-    throw new Error("Reçete en az bir kalem içermeli.");
+    return { error: "Reçete en az bir kalem içermeli." };
   }
 
   if (
     recipe.materials?.type === "finished" &&
     !items.some((i) => i.active && i.materials?.type === "semi")
   ) {
-    throw new Error("Mamül reçetesi en az bir aktif yarı mamül (YM) kalemi içermeli.");
+    return { error: "Mamül reçetesi en az bir aktif yarı mamül (YM) kalemi içermeli." };
   }
 
   if (recipe.mode === "percentage") {
@@ -469,7 +476,7 @@ export async function publishRecipe(
       .filter((i) => i.active)
       .reduce((sum, i) => sum + (i.percentage ?? 0), 0);
     if (Math.abs(total - 100) > 0.0001) {
-      throw new Error(`Aktif kalemlerin yüzdesi 100 olmalı (şu an: ${total.toFixed(4)}).`);
+      return { error: `Aktif kalemlerin yüzdesi 100 olmalı (şu an: ${total.toFixed(4)}).` };
     }
   }
 
@@ -480,21 +487,24 @@ export async function publishRecipe(
 
   if (error) {
     if (error.code === "23505") {
-      throw new Error(
-        "Bu bitmiş ürün için zaten yayınlanmış bir reçete var. Önce onu arşivleyin.",
-      );
+      return {
+        error: "Bu bitmiş ürün için zaten yayınlanmış bir reçete var. Önce onu arşivleyin.",
+      };
     }
-    throw new Error(error.message);
+    return { error: error.message };
   }
 
   revalidatePath(companyModulePath(companyId, "recipes"));
   revalidatePath(companyModulePath(companyId, "recipes", recipeId));
+  return {};
 }
 
 export async function createNewRecipeVersion(
   companyId: string,
   recipeId: string,
-): Promise<void> {
+  _prev: RecipeActionState,
+  _formData: FormData,
+): Promise<RecipeActionState> {
   const { ctx } = await requireCompanyRole(companyId, MASTER_DATA_WRITE_ROLES);
   const supabase = await createServerSupabaseClient();
 
@@ -507,10 +517,10 @@ export async function createNewRecipeVersion(
     .maybeSingle();
 
   if (!source || source.company_id !== companyId) {
-    throw new Error("Reçete bulunamadı.");
+    return { error: "Reçete bulunamadı." };
   }
   if (source.status !== "published") {
-    throw new Error("Yalnızca yayınlanmış bir reçeteden yeni versiyon oluşturulabilir.");
+    return { error: "Yalnızca yayınlanmış bir reçeteden yeni versiyon oluşturulabilir." };
   }
 
   const { data: latest } = await supabase
@@ -546,7 +556,7 @@ export async function createNewRecipeVersion(
     .single();
 
   if (insertError || !newRecipe) {
-    throw new Error(insertError?.message ?? "Yeni versiyon oluşturulamadı.");
+    return { error: insertError?.message ?? "Yeni versiyon oluşturulamadı." };
   }
 
   const { data: sourceItems } = await supabase
@@ -570,7 +580,7 @@ export async function createNewRecipeVersion(
       updated_by: ctx.userId,
     }));
     const { error: itemsError } = await supabase.from("recipe_items").insert(rows);
-    if (itemsError) throw new Error(itemsError.message);
+    if (itemsError) return { error: itemsError.message };
   }
 
   revalidatePath(companyModulePath(companyId, "recipes"));
@@ -582,7 +592,9 @@ export async function createNewRecipeVersion(
 export async function deleteRecipe(
   companyId: string,
   recipeId: string,
-): Promise<void> {
+  _prev: RecipeActionState,
+  _formData: FormData,
+): Promise<RecipeActionState> {
   const { ctx } = await requireCompanyRole(companyId, MASTER_DATA_WRITE_ROLES);
   const supabase = await createServerSupabaseClient();
 
@@ -596,7 +608,7 @@ export async function deleteRecipe(
     .eq("id", recipeId)
     .eq("company_id", companyId);
 
-  if (error) throw new Error(error.message);
+  if (error) return { error: error.message };
 
   revalidatePath(companyModulePath(companyId, "recipes"));
   redirect(withFlash(companyModulePath(companyId, "recipes"), "deleted"));
