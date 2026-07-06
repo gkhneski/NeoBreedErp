@@ -87,6 +87,24 @@ export function RecipeForm({
             ))}
           </select>
           <FieldError message={state.fieldErrors?.finished_material_id} />
+          {!initial ? (
+            <p className="text-xs text-muted-foreground">
+              Listede yok mu?{" "}
+              <Link
+                href={`${companyModulePath(companyId, "materials", "new")}?type=semi&returnTo=${encodeURIComponent(companyModulePath(companyId, "recipes", "new"))}`}
+                className="underline"
+              >
+                Yeni Yarı Mamül (YM) Ekle
+              </Link>{" "}
+              ·{" "}
+              <Link
+                href={`${companyModulePath(companyId, "materials", "new")}?type=finished&returnTo=${encodeURIComponent(companyModulePath(companyId, "recipes", "new"))}`}
+                className="underline"
+              >
+                Yeni Mamül Ekle
+              </Link>
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-1.5">

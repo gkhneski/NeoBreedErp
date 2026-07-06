@@ -41,7 +41,9 @@ export default async function NewMaterialPage({ params, searchParams }: PageProp
       <MaterialForm
         companyId={companyId}
         suppliers={suppliers ?? []}
-        defaultType={type === "finished" ? "finished" : "raw"}
+        defaultType={
+          type === "finished" ? "finished" : type === "semi" ? "semi" : "raw"
+        }
         preset={preset === "packaging" ? "packaging" : undefined}
         returnTo={
           returnTo?.startsWith(`/c/${companyId}/`) ? returnTo : undefined
