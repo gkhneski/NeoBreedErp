@@ -3,6 +3,7 @@
 import {
   ArrowLeftRight,
   BarChart3,
+  Blend,
   BookOpenText,
   Box,
   Boxes,
@@ -78,6 +79,7 @@ const GROUPS: NavGroup[] = [
         items: [
           { key: "materials", label: "Hammaddeler", icon: FlaskConical },
           { key: "packaging", label: "Ambalaj Malzemeleri", icon: Box },
+          { key: "semi-finished", label: "Yarı Mamüller", icon: Blend },
           { key: "lots", label: "Lotlar", icon: Layers },
           { key: "lots/onboarding", label: "Stok Girişi (Barkod)", icon: ScanBarcode },
           { key: "stock", label: "Stok", icon: Warehouse },

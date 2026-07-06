@@ -48,12 +48,17 @@ export default async function MaterialsListPage({ params, searchParams }: PagePr
   const { companyId, role } = await requireModuleAccess(routeCompanyId, "materials");
   const supabase = await createServerSupabaseClient();
 
+  // Sadece gerçek hammadde: YM'ler "Yarı Mamüller", bitmiş ürünler "Ürünler",
+  // ambalaj (AMB-/PKG-) "Ambalaj Malzemeleri" ekranlarında ayrı tutulur.
   let query = supabase
     .from("materials")
     .select(
       "id, code, name, type, base_uom, density, allergen_flags, storage_conditions, suppliers:default_supplier_id(code, name)",
     )
     .eq("company_id", companyId)
+    .eq("type", "raw")
+    .not("code", "ilike", "AMB-%")
+    .not("code", "ilike", "PKG-%")
     .is("deleted_at", null)
     .order("code", { ascending: true });
 
@@ -71,14 +76,15 @@ export default async function MaterialsListPage({ params, searchParams }: PagePr
       <header className="space-y-3">
         <div className="flex items-end justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight">Malzemeler</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Hammaddeler</h1>
             <p className="text-sm text-muted-foreground">
-              Hammaddeler ve bitmiş ürünler.
+              Üretimde tüketilen hammaddeler. Yarı mamül, ambalaj ve bitmiş
+              ürünler kendi ekranlarında tutulur.
             </p>
           </div>
           {canWriteCompanyData(role, MASTER_DATA_WRITE_ROLES) ? (
             <Link href={newHref}>
-              <Button>Yeni Malzeme</Button>
+              <Button>Yeni Hammadde</Button>
             </Link>
           ) : null}
         </div>
@@ -156,8 +162,8 @@ export default async function MaterialsListPage({ params, searchParams }: PagePr
         />
       ) : (
         <EmptyState
-          title="Henüz malzeme yok"
-          description="İlk hammadde veya bitmiş ürününüzü ekleyerek başlayın. Reçeteler bu malzemeleri referans alır."
+          title="Henüz hammadde yok"
+          description="İlk hammaddenizi ekleyerek başlayın. Reçeteler bu hammaddeleri referans alır."
         />
       )}
     </div>
