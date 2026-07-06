@@ -52,6 +52,11 @@ export default async function EditRecipePage({ params }: PageProps) {
 
   if (!recipe || recipe.status !== "draft") notFound();
 
+  const outputType = (finishedMaterials ?? []).find(
+    (m) => m.id === recipe.finished_material_id,
+  )?.type;
+  const kind = outputType === "semi" ? "ym" : "mamul";
+
   return (
     <div className="max-w-3xl space-y-6">
       <header className="space-y-1">
@@ -60,6 +65,7 @@ export default async function EditRecipePage({ params }: PageProps) {
       </header>
       <RecipeForm
         companyId={companyId}
+        kind={kind}
         initial={recipe}
         finishedMaterials={(finishedMaterials ?? []).map((m) => ({
           id: m.id,

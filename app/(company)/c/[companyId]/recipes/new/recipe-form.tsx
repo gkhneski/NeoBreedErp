@@ -46,14 +46,17 @@ function FieldError({ message }: { message?: string }) {
 interface RecipeFormProps {
   companyId: string;
   finishedMaterials: Array<{ id: string; label: string }>;
+  kind?: "ym" | "mamul";
   initial?: RecipeInitial;
 }
 
 export function RecipeForm({
   companyId,
   finishedMaterials,
+  kind = "mamul",
   initial,
 }: RecipeFormProps) {
+  const isYm = kind === "ym";
   const [state, formAction] = useActionState(
     initial ? updateRecipe : createRecipe,
     initialState,
@@ -69,7 +72,9 @@ export function RecipeForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="finished_material_id">Çıktı Ürün (Mamül / YM) *</Label>
+          <Label htmlFor="finished_material_id">
+            {isYm ? "Çıktı Yarı Mamül (YM) *" : "Çıktı Ürün (Mamül) *"}
+          </Label>
           <select
             id="finished_material_id"
             name="finished_material_id"
@@ -91,17 +96,10 @@ export function RecipeForm({
             <p className="text-xs text-muted-foreground">
               Listede yok mu?{" "}
               <Link
-                href={`${companyModulePath(companyId, "materials", "new")}?type=semi&returnTo=${encodeURIComponent(companyModulePath(companyId, "recipes", "new"))}`}
+                href={`${companyModulePath(companyId, "materials", "new")}?type=${isYm ? "semi" : "finished"}&returnTo=${encodeURIComponent(`${companyModulePath(companyId, "recipes", "new")}?kind=${kind}`)}`}
                 className="underline"
               >
-                Yeni Yarı Mamül (YM) Ekle
-              </Link>{" "}
-              ·{" "}
-              <Link
-                href={`${companyModulePath(companyId, "materials", "new")}?type=finished&returnTo=${encodeURIComponent(companyModulePath(companyId, "recipes", "new"))}`}
-                className="underline"
-              >
-                Yeni Mamül Ekle
+                {isYm ? "Yeni Yarı Mamül (YM) Ekle" : "Yeni Mamül Ekle"}
               </Link>
             </p>
           ) : null}
