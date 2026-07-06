@@ -46,29 +46,45 @@ export default async function RecipeDetailPage({ params }: PageProps) {
 
   if (!recipe) notFound();
 
-  const [{ data: finishedMaterial }, { data: items }, { data: allMaterials }] =
-    await Promise.all([
-      supabase
-        .from("materials")
-        .select("id, code, name")
-        .eq("id", recipe.finished_material_id)
-        .maybeSingle(),
-      supabase
-        .from("recipe_items")
-        .select("id, material_id, position, quantity, uom, percentage, active, notes")
-        .eq("recipe_id", recipe.id)
-        .order("position", { ascending: true }),
-      supabase
-        .from("materials")
-        .select("id, code, name, type")
-        .eq("company_id", companyId)
-        .in("type", ["raw", "semi"])
-        .is("deleted_at", null)
-        .order("name", { ascending: true }),
-    ]);
+  const [{ data: finishedMaterial }, { data: items }] = await Promise.all([
+    supabase
+      .from("materials")
+      .select("id, code, name, type")
+      .eq("id", recipe.finished_material_id)
+      .maybeSingle<{ id: string; code: string; name: string; type: string }>(),
+    supabase
+      .from("recipe_items")
+      .select("id, material_id, position, quantity, uom, percentage, active, notes")
+      .eq("recipe_id", recipe.id)
+      .order("position", { ascending: true }),
+  ]);
+
+  const isYmOutput = finishedMaterial?.type === "semi";
+  const isPackaging = (code: string) => /^(AMB|PKG)-/i.test(code);
+
+  // YM recipes may only consume hammadde; Mamül recipes only YM + ambalaj —
+  // packaging must not enter YM stock so factory floor counts stay clean.
+  const { data: candidateMaterials } = await supabase
+    .from("materials")
+    .select("id, code, name, type")
+    .eq("company_id", companyId)
+    .in("type", ["raw", "semi"])
+    .is("deleted_at", null)
+    .order("name", { ascending: true });
+
+  const allMaterials = (candidateMaterials ?? []).filter((m) =>
+    isYmOutput
+      ? m.type === "raw" && !isPackaging(m.code)
+      : m.type === "semi" || (m.type === "raw" && isPackaging(m.code)),
+  );
+
+  const itemMaterialLabel = isYmOutput ? "Hammadde" : "Yarı Mamül / Ambalaj";
+  const itemEmptyMessage = isYmOutput
+    ? "Bu firmaya tanımlı hammadde yok. Önce malzemeler bölümünden hammadde ekleyin."
+    : "Bu firmaya tanımlı yarı mamül (YM) veya ambalaj yok. Önce malzemeler bölümünden ekleyin.";
 
   const materialMap = new Map<string, { code: string; name: string }>();
-  for (const m of allMaterials ?? []) {
+  for (const m of candidateMaterials ?? []) {
     materialMap.set(m.id, { code: m.code, name: m.name });
   }
 
@@ -106,7 +122,7 @@ export default async function RecipeDetailPage({ params }: PageProps) {
             <span className="text-base text-muted-foreground">v{recipe.version}</span>
           </h1>
           <p className="text-sm text-muted-foreground">
-            Bitmiş Ürün:{" "}
+            {isYmOutput ? "Yarı Mamül (YM)" : "Bitmiş Ürün"}:{" "}
             <span className="text-foreground">
               {finishedMaterial?.code} — {finishedMaterial?.name}
             </span>
@@ -276,7 +292,9 @@ export default async function RecipeDetailPage({ params }: PageProps) {
             companyId={companyId}
             recipeId={recipe.id}
             recipeMode={recipe.mode}
-            rawMaterials={(allMaterials ?? []).map((m) => ({
+            materialLabel={itemMaterialLabel}
+            emptyMessage={itemEmptyMessage}
+            rawMaterials={allMaterials.map((m) => ({
               id: m.id,
               label: `${m.code} — ${m.name}`,
             }))}

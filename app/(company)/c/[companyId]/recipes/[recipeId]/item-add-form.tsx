@@ -30,6 +30,8 @@ interface RecipeItemAddFormProps {
   recipeId: string;
   recipeMode: "quantity" | "percentage";
   rawMaterials: Array<{ id: string; label: string }>;
+  materialLabel?: string;
+  emptyMessage?: string;
 }
 
 export function RecipeItemAddForm({
@@ -37,13 +39,15 @@ export function RecipeItemAddForm({
   recipeId,
   recipeMode,
   rawMaterials,
+  materialLabel = "Hammadde",
+  emptyMessage = "Bu firmaya tanımlı hammadde yok. Önce malzemeler bölümünden hammadde ekleyin.",
 }: RecipeItemAddFormProps) {
   const [state, formAction] = useActionState(addRecipeItem, initialState);
 
   if (rawMaterials.length === 0) {
     return (
       <p className="rounded-md border border-dashed border-border bg-card/40 px-4 py-6 text-center text-sm text-muted-foreground">
-        Bu firmaya tanımlı hammadde yok. Önce malzemeler bölümünden hammadde ekleyin.
+        {emptyMessage}
       </p>
     );
   }
@@ -55,12 +59,12 @@ export function RecipeItemAddForm({
 
       <div className="grid gap-3 sm:grid-cols-12">
         <div className="space-y-1.5 sm:col-span-5">
-          <Label htmlFor="material_id">Hammadde *</Label>
+          <Label htmlFor="material_id">{materialLabel} *</Label>
           <SearchableSelect
             id="material_id"
             name="material_id"
             options={rawMaterials.map((m) => ({ value: m.id, label: m.label }))}
-            placeholder="Hammadde / YM ara — ad veya kod…"
+            placeholder={`${materialLabel} ara — ad veya kod…`}
           />
           <FieldError message={state.fieldErrors?.material_id} />
         </div>

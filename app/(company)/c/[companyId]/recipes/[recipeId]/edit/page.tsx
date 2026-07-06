@@ -44,7 +44,7 @@ export default async function EditRecipePage({ params }: PageProps) {
       .from("materials")
       .select("id, code, name, type")
       .eq("company_id", companyId)
-      .eq("type", "finished")
+      .in("type", ["finished", "semi"])
       .is("deleted_at", null)
       .order("code", { ascending: true })
       .returns<Array<{ id: string; code: string; name: string; type: string }>>(),
@@ -63,7 +63,7 @@ export default async function EditRecipePage({ params }: PageProps) {
         initial={recipe}
         finishedMaterials={(finishedMaterials ?? []).map((m) => ({
           id: m.id,
-          label: `[Mamül] ${m.code} - ${m.name}`,
+          label: `${m.type === "semi" ? "[YM] " : "[Mamül] "}${m.code} - ${m.name}`,
         }))}
       />
     </div>

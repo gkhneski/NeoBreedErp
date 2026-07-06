@@ -39,6 +39,10 @@ function emptyToNull(v: string | undefined | null) {
   return t === "" ? null : t;
 }
 
+function isPackagingCode(code: string) {
+  return /^(AMB|PKG)-/i.test(code);
+}
+
 function parseRecipeForm(formData: FormData) {
   return recipeSchema.safeParse({
     company_id: formData.get("company_id") ?? "",
@@ -105,7 +109,7 @@ export async function createRecipe(
     .select("id")
     .eq("id", parsed.data.finished_material_id)
     .eq("company_id", companyId)
-    .eq("type", "finished")
+    .in("type", ["finished", "semi"])
     .is("deleted_at", null)
     .maybeSingle();
 
@@ -116,7 +120,7 @@ export async function createRecipe(
   if (!finishedMaterial) {
     return {
       fieldErrors: {
-        finished_material_id: "Reçete çıktısı için yalnızca mamül seçebilirsiniz.",
+        finished_material_id: "Reçete çıktısı için yalnızca mamül veya yarı mamül (YM) seçebilirsiniz.",
       },
       error: "Form alanlarını kontrol edin.",
     };
@@ -182,7 +186,7 @@ export async function updateRecipe(
     .select("id")
     .eq("id", parsed.data.finished_material_id)
     .eq("company_id", companyId)
-    .eq("type", "finished")
+    .in("type", ["finished", "semi"])
     .is("deleted_at", null)
     .maybeSingle();
 
@@ -193,7 +197,7 @@ export async function updateRecipe(
   if (!finishedMaterial) {
     return {
       fieldErrors: {
-        finished_material_id: "Reçete çıktısı için yalnızca mamül seçebilirsiniz.",
+        finished_material_id: "Reçete çıktısı için yalnızca mamül veya yarı mamül (YM) seçebilirsiniz.",
       },
       error: "Form alanlarını kontrol edin.",
     };
@@ -301,15 +305,58 @@ export async function addRecipeItem(
 
   const { data: recipe, error: recipeError } = await supabase
     .from("recipes")
-    .select("id, status, company_id")
+    .select("id, status, company_id, finished_material_id, materials:finished_material_id(type)")
     .eq("id", parsed.data.recipe_id)
-    .maybeSingle();
+    .maybeSingle<{
+      id: string;
+      status: string;
+      company_id: string;
+      finished_material_id: string;
+      materials: { type: string } | null;
+    }>();
 
   if (recipeError || !recipe || recipe.company_id !== companyId) {
     return { error: "Reçete bulunamadı." };
   }
   if (recipe.status !== "draft") {
     return { error: "Yalnızca taslak reçetelere kalem eklenebilir." };
+  }
+
+  const outputType = recipe.materials?.type;
+
+  const { data: itemMaterial, error: itemMaterialError } = await supabase
+    .from("materials")
+    .select("type, code")
+    .eq("id", parsed.data.material_id)
+    .eq("company_id", companyId)
+    .maybeSingle();
+
+  if (itemMaterialError || !itemMaterial) {
+    return { error: "Malzeme bulunamadı." };
+  }
+
+  const isPackaging = isPackagingCode(itemMaterial.code);
+
+  if (outputType === "semi") {
+    if (itemMaterial.type !== "raw" || isPackaging) {
+      return {
+        fieldErrors: {
+          material_id: "Yarı mamül (YM) reçetesine sadece hammadde eklenebilir.",
+        },
+        error: "Form alanlarını kontrol edin.",
+      };
+    }
+  } else if (outputType === "finished") {
+    const isYm = itemMaterial.type === "semi";
+    const isPackagingRaw = itemMaterial.type === "raw" && isPackaging;
+    if (!isYm && !isPackagingRaw) {
+      return {
+        fieldErrors: {
+          material_id: "Mamül reçetesine sadece yarı mamül (YM) veya ambalaj eklenebilir.",
+        },
+        error: "Form alanlarını kontrol edin.",
+      };
+    }
   }
 
   const { data: maxPositionRow } = await supabase
@@ -383,9 +430,15 @@ export async function publishRecipe(
 
   const { data: recipe } = await supabase
     .from("recipes")
-    .select("id, status, mode, company_id")
+    .select("id, status, mode, company_id, materials:finished_material_id(type)")
     .eq("id", recipeId)
-    .maybeSingle();
+    .maybeSingle<{
+      id: string;
+      status: string;
+      mode: string;
+      company_id: string;
+      materials: { type: string } | null;
+    }>();
 
   if (!recipe || recipe.company_id !== companyId) {
     throw new Error("Reçete bulunamadı.");
@@ -396,11 +449,19 @@ export async function publishRecipe(
 
   const { data: items } = await supabase
     .from("recipe_items")
-    .select("percentage, active")
-    .eq("recipe_id", recipeId);
+    .select("percentage, active, materials:material_id(type)")
+    .eq("recipe_id", recipeId)
+    .returns<Array<{ percentage: number | null; active: boolean; materials: { type: string } | null }>>();
 
   if (!items || items.length === 0) {
     throw new Error("Reçete en az bir kalem içermeli.");
+  }
+
+  if (
+    recipe.materials?.type === "finished" &&
+    !items.some((i) => i.active && i.materials?.type === "semi")
+  ) {
+    throw new Error("Mamül reçetesi en az bir aktif yarı mamül (YM) kalemi içermeli.");
   }
 
   if (recipe.mode === "percentage") {

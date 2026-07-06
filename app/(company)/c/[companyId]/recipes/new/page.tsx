@@ -24,7 +24,7 @@ export default async function NewRecipePage({ params }: PageProps) {
     .from("materials")
     .select("id, code, name, type")
     .eq("company_id", companyId)
-    .eq("type", "finished")
+    .in("type", ["finished", "semi"])
     .is("deleted_at", null)
     .order("name", { ascending: true })
     .returns<Array<{ id: string; code: string; name: string; type: string }>>();
@@ -44,8 +44,8 @@ export default async function NewRecipePage({ params }: PageProps) {
           <h1 className="text-2xl font-semibold tracking-tight">Yeni Reçete</h1>
         </header>
         <EmptyState
-          title="Önce bitmiş ürün tanımlayın"
-          description="Reçete bir bitmiş ürüne bağlıdır. Önce malzemeler bölümünden 'Bitmiş Ürün' tipinde en az bir kayıt oluşturun."
+          title="Önce mamül veya yarı mamül tanımlayın"
+          description="Reçete bir mamüle veya yarı mamüle (YM) bağlıdır. Önce malzemeler bölümünden 'Bitmiş Ürün' veya 'Yarımamül (YM)' tipinde en az bir kayıt oluşturun."
         />
         <div>
           <Link href={newFinishedMaterialHref}>
@@ -68,7 +68,7 @@ export default async function NewRecipePage({ params }: PageProps) {
         companyId={companyId}
         finishedMaterials={finishedMaterials.map((m) => ({
           id: m.id,
-          label: `[Mamül] ${m.code} — ${m.name}`,
+          label: `${m.type === "semi" ? "[YM] " : "[Mamül] "}${m.code} — ${m.name}`,
         }))}
       />
     </div>
