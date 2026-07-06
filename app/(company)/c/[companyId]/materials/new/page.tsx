@@ -29,6 +29,20 @@ export default async function NewMaterialPage({ params, searchParams }: PageProp
     .is("deleted_at", null)
     .order("code", { ascending: true });
 
+  // A YM is created "for" a finished product (the ones pulled from Trendyol),
+  // so in YM mode the name is picked from that product list, not typed free.
+  let finishedProducts: Array<{ id: string; code: string; name: string }> = [];
+  if (type === "semi") {
+    const { data: products } = await supabase
+      .from("materials")
+      .select("id, code, name")
+      .eq("company_id", companyId)
+      .eq("type", "finished")
+      .is("deleted_at", null)
+      .order("name", { ascending: true });
+    finishedProducts = products ?? [];
+  }
+
   return (
     <div className="max-w-3xl space-y-6">
       <header className="space-y-1">
@@ -45,6 +59,7 @@ export default async function NewMaterialPage({ params, searchParams }: PageProp
           type === "finished" ? "finished" : type === "semi" ? "semi" : "raw"
         }
         preset={preset === "packaging" ? "packaging" : undefined}
+        finishedProducts={finishedProducts}
         returnTo={
           returnTo?.startsWith(`/c/${companyId}/`) ? returnTo : undefined
         }

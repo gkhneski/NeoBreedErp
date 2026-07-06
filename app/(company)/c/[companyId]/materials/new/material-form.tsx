@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -57,6 +57,7 @@ interface MaterialFormProps {
   suppliers: Array<{ id: string; code: string; name: string }>;
   defaultType?: "raw" | "semi" | "finished";
   preset?: "packaging";
+  finishedProducts?: Array<{ id: string; code: string; name: string }>;
   returnTo?: string;
   initial?: MaterialInitial;
 }
@@ -71,6 +72,7 @@ export function MaterialForm({
   suppliers,
   defaultType = "raw",
   preset,
+  finishedProducts = [],
   returnTo,
   initial,
 }: MaterialFormProps) {
@@ -78,6 +80,10 @@ export function MaterialForm({
     initial ? updateMaterial : createMaterial,
     initialState,
   );
+  // YM (semi) mode: the name is picked from an existing finished product
+  // (pulled from Trendyol), not typed free-hand.
+  const ymMode = !initial && defaultType === "semi";
+  const [ymName, setYmName] = useState("");
   const cancelHref = returnTo ?? companyModulePath(companyId, "materials");
   const selectedAllergens = Array.isArray(initial?.allergen_flags)
     ? initial.allergen_flags
@@ -109,11 +115,47 @@ export function MaterialForm({
             </p>
           ) : null}
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="name">Ad *</Label>
-          <Input id="name" name="name" required defaultValue={initial?.name ?? ""} />
-          <FieldError message={state.fieldErrors?.name} />
-        </div>
+        {ymMode ? (
+          <div className="space-y-1.5">
+            <Label htmlFor="product_source">Hangi Ürünün Yarı Mamülü? *</Label>
+            <select
+              id="product_source"
+              required
+              defaultValue=""
+              onChange={(e) => {
+                const p = finishedProducts.find((x) => x.id === e.target.value);
+                setYmName(p ? `${p.name} - Yarı Mamül` : "");
+              }}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="" disabled>
+                -- Ürün seçiniz --
+              </option>
+              {finishedProducts.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.code} — {p.name}
+                </option>
+              ))}
+            </select>
+            <input type="hidden" name="name" value={ymName} />
+            {ymName ? (
+              <p className="text-xs text-muted-foreground">
+                Yarı mamül adı: <span className="font-medium text-foreground">{ymName}</span>
+              </p>
+            ) : finishedProducts.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Henüz bitmiş ürün yok. Önce Ürünler bölümünden ürün ekleyin.
+              </p>
+            ) : null}
+            <FieldError message={state.fieldErrors?.name} />
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <Label htmlFor="name">Ad *</Label>
+            <Input id="name" name="name" required defaultValue={initial?.name ?? ""} />
+            <FieldError message={state.fieldErrors?.name} />
+          </div>
+        )}
         <div className="space-y-1.5">
           <Label htmlFor="type">Tip *</Label>
           <select
