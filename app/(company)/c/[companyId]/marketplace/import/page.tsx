@@ -69,6 +69,7 @@ export default async function MarketplaceImportPage({ params }: PageProps) {
         .select("id, code, name")
         .eq("company_id", companyId)
         .eq("type", "finished")
+        .is("fason_customer_id", null)
         .is("deleted_at", null)
         .order("code"),
     ]);

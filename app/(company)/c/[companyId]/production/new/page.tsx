@@ -20,7 +20,7 @@ type RecipeOption = {
   yield_quantity: number;
   yield_uom: string;
   finished_material_id: string;
-  materials: { code: string; name: string } | null;
+  materials: { code: string; name: string; fason_customer_id: string | null } | null;
 };
 
 export default async function NewProductionOrderPage({ params }: PageProps) {
@@ -37,7 +37,7 @@ export default async function NewProductionOrderPage({ params }: PageProps) {
       .from("recipes")
       .select(
         "id, code, name, version, yield_quantity, yield_uom, finished_material_id, " +
-          "materials:finished_material_id(code, name)",
+          "materials:finished_material_id(code, name, fason_customer_id)",
       )
       .eq("company_id", companyId)
       .eq("status", "published")
@@ -62,6 +62,7 @@ export default async function NewProductionOrderPage({ params }: PageProps) {
     finished_material_id: r.finished_material_id,
     material_code: r.materials?.code ?? "",
     material_name: r.materials?.name ?? "",
+    fason_customer_id: r.materials?.fason_customer_id ?? null,
   }));
 
   return (

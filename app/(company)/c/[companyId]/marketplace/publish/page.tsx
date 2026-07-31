@@ -51,6 +51,7 @@ export default async function PublishPage({ params }: PageProps) {
       .select("id, code, name, barcode")
       .eq("company_id", companyId)
       .eq("type", "finished")
+      .is("fason_customer_id", null)
       .is("deleted_at", null)
       .order("created_at", { ascending: false }),
   ]);

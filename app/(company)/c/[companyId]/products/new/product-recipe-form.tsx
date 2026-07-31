@@ -59,14 +59,22 @@ type TrendyolProductOption = {
   image_url: string | null;
 };
 
+type CustomerOption = {
+  id: string;
+  code: string;
+  name: string;
+};
+
 export function ProductRecipeForm({
   companyId,
   rawMaterials,
   trendyolProducts,
+  customers,
 }: {
   companyId: string;
   rawMaterials: RawMaterialOption[];
   trendyolProducts: TrendyolProductOption[];
+  customers: CustomerOption[];
 }) {
   const [state, formAction] = useActionState(
     createProductWithRecipe,
@@ -76,7 +84,9 @@ export function ProductRecipeForm({
 
   const [productName, setProductName] = useState("");
   const [productBarcode, setProductBarcode] = useState("");
+  const [fasonCustomerId, setFasonCustomerId] = useState("");
   const selectedTy = trendyolProducts.find((p) => p.barcode === productBarcode);
+  const isFason = fasonCustomerId !== "";
 
   const [query, setQuery] = useState("");
   const q = query.trim().toLocaleLowerCase("tr");
@@ -103,7 +113,34 @@ export function ProductRecipeForm({
           </p>
         </div>
 
-        {trendyolProducts.length > 0 ? (
+        {customers.length > 0 ? (
+          <div className="space-y-1.5 rounded-xl border border-border bg-background p-3">
+            <Label htmlFor="fason_customer_id">Fason Müşterisi (opsiyonel)</Label>
+            <select
+              id="fason_customer_id"
+              name="fason_customer_id"
+              value={fasonCustomerId}
+              onChange={(e) => {
+                setFasonCustomerId(e.target.value);
+                if (e.target.value !== "") setProductBarcode("");
+              }}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">— Kendi ürünümüz —</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code} — {c.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Başka bir firma için fason üretiyorsanız müşteriyi seçin. Fason
+              ürünler ayrı sekmede listelenir ve Trendyol akışına girmez.
+            </p>
+          </div>
+        ) : null}
+
+        {trendyolProducts.length > 0 && !isFason ? (
           <div className="space-y-1.5 rounded-xl border border-border bg-background p-3">
             <Label htmlFor="ty_product">Trendyol ürününden doldur (opsiyonel)</Label>
             <div className="flex items-center gap-3">

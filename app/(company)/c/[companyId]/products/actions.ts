@@ -28,6 +28,7 @@ const productRecipeSchema = z.object({
     }),
   yield_uom: z.enum(ALLOWED_UOM, { message: "Geçerli bir verim birimi seçiniz." }),
   product_barcode: z.string().trim().max(128).optional().or(z.literal("")),
+  fason_customer_id: z.string().uuid().optional().or(z.literal("")),
   notes: z.string().trim().max(2000).optional().or(z.literal("")),
 });
 
@@ -75,6 +76,7 @@ export async function createProductWithRecipe(
     yield_quantity: formData.get("yield_quantity") ?? "",
     yield_uom: formData.get("yield_uom") ?? "",
     product_barcode: formData.get("product_barcode") ?? "",
+    fason_customer_id: formData.get("fason_customer_id") ?? "",
     notes: formData.get("notes") ?? "",
   });
 
@@ -148,6 +150,20 @@ export async function createProductWithRecipe(
     return { error: "Seçilen hammaddelerden biri bu firmaya ait değil veya aktif değil." };
   }
 
+  const fasonCustomerId = emptyToNull(parsed.data.fason_customer_id);
+  if (fasonCustomerId) {
+    const { data: customer } = await supabase
+      .from("customers")
+      .select("id")
+      .eq("id", fasonCustomerId)
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (!customer) {
+      return { error: "Seçilen fason müşterisi bu firmaya ait değil." };
+    }
+  }
+
   const productCode = await nextCode(supabase, "materials", companyId, "URN");
   const recipeCode = await nextCode(supabase, "recipes", companyId, "REC");
 
@@ -160,6 +176,7 @@ export async function createProductWithRecipe(
       type: "finished",
       base_uom: parsed.data.product_uom,
       barcode: emptyToNull(parsed.data.product_barcode),
+      fason_customer_id: fasonCustomerId,
       allergen_flags: [],
       notes: emptyToNull(parsed.data.notes),
       created_by: ctx.userId,

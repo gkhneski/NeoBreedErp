@@ -35,6 +35,13 @@ export default async function NewProductPage({ params }: PageProps) {
     .eq("channel", "trendyol")
     .order("title", { ascending: true });
 
+  const { data: customers } = await supabase
+    .from("customers")
+    .select("id, code, name")
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .order("name");
+
   if (!rawMaterials || rawMaterials.length === 0) {
     return (
       <div className="max-w-3xl space-y-6">
@@ -74,6 +81,7 @@ export default async function NewProductPage({ params }: PageProps) {
         companyId={companyId}
         rawMaterials={rawMaterials}
         trendyolProducts={trendyolProducts ?? []}
+        customers={customers ?? []}
       />
     </div>
   );

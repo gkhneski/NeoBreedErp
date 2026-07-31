@@ -28,6 +28,7 @@ import { PullAllImagesButton } from "./trendyol-image-buttons";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
+  searchParams: Promise<{ view?: string }>;
 }
 
 type Lot = {
@@ -44,6 +45,8 @@ type ProductRow = {
   name: string;
   base_uom: string;
   barcode: string | null;
+  fason_customer_id: string | null;
+  fason_customer: { code: string; name: string } | null;
   material_lots: Lot[] | null;
 };
 
@@ -61,8 +64,10 @@ function money(n: number): string {
   return `${Number(n).toLocaleString("tr-TR", { maximumFractionDigits: 2 })} ₺`;
 }
 
-export default async function ProductsPage({ params }: PageProps) {
+export default async function ProductsPage({ params, searchParams }: PageProps) {
   const { companyId: routeCompanyId } = await params;
+  const { view } = await searchParams;
+  const isFasonView = view === "fason";
   const { companyId, role } = await requireModuleAccess(routeCompanyId, "products");
   const supabase = await createServerSupabaseClient();
   const canWrite = canWriteCompanyData(role, MASTER_DATA_WRITE_ROLES);
@@ -71,7 +76,8 @@ export default async function ProductsPage({ params }: PageProps) {
   const { data: products } = await supabase
     .from("materials")
     .select(
-      "id, code, name, base_uom, barcode, " +
+      "id, code, name, base_uom, barcode, fason_customer_id, " +
+        "fason_customer:fason_customer_id(code, name), " +
         "material_lots(quantity_on_hand, status, expiry_date, deleted_at, " +
         "locations:location_id(is_default))",
     )
@@ -81,8 +87,12 @@ export default async function ProductsPage({ params }: PageProps) {
     .order("created_at", { ascending: false })
     .returns<ProductRow[]>();
 
-  const rows = products ?? [];
+  const allRows = products ?? [];
+  const ownRows = allRows.filter((r) => r.fason_customer_id === null);
+  const fasonRows = allRows.filter((r) => r.fason_customer_id !== null);
+  const rows = isFasonView ? fasonRows : ownRows;
   const newHref = companyModulePath(companyId, "products", "new");
+  const listHref = companyModulePath(companyId, "products");
 
   // Thumbnails (uploaded) — fall back to the Trendyol catalog image by barcode.
   const thumbnailPaths = rows.map((r) => `${companyId}/products/${r.id}/thumbnail`);
@@ -143,6 +153,29 @@ export default async function ProductsPage({ params }: PageProps) {
         ) : null}
       </header>
 
+      <div className="flex gap-1 rounded-lg border border-border bg-secondary/40 p-1 w-fit">
+        <Link
+          href={listHref}
+          className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+            !isFasonView
+              ? "bg-background shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Kendi Ürünlerimiz ({ownRows.length})
+        </Link>
+        <Link
+          href={`${listHref}?view=fason`}
+          className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+            isFasonView
+              ? "bg-background shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Fason ({fasonRows.length})
+        </Link>
+      </div>
+
       {rows.length > 0 ? (
         <div className="overflow-x-auto rounded-md border border-border">
           <table className="w-full min-w-[860px] text-sm">
@@ -154,7 +187,9 @@ export default async function ProductsPage({ params }: PageProps) {
                 <th className="px-3 py-2 text-right font-medium">LTD</th>
                 <th className="px-3 py-2 text-right font-medium">Ana Depo</th>
                 <th className="px-3 py-2 text-left font-medium">SKT</th>
-                <th className="px-3 py-2 text-left font-medium">Trendyol</th>
+                <th className="px-3 py-2 text-left font-medium">
+                  {isFasonView ? "Müşteri" : "Trendyol"}
+                </th>
                 {canWrite ? (
                   <th className="px-3 py-2 text-right font-medium">İşlem</th>
                 ) : null}
@@ -273,7 +308,11 @@ export default async function ProductsPage({ params }: PageProps) {
                       )}
                     </td>
                     <td className="px-3 py-2 text-xs">
-                      {listing ? (
+                      {row.fason_customer ? (
+                        <Badge variant="outline">
+                          {row.fason_customer.name}
+                        </Badge>
+                      ) : listing ? (
                         <Link
                           href={marketplaceHref}
                           className="inline-flex flex-col gap-0.5 hover:underline"
@@ -316,8 +355,12 @@ export default async function ProductsPage({ params }: PageProps) {
         </div>
       ) : (
         <EmptyState
-          title="Henüz bitmiş ürün yok"
-          description="Yeni ürün ekleyerek URN kodlu bitmiş ürün ve taslak reçete oluşturun."
+          title={isFasonView ? "Henüz fason ürün yok" : "Henüz bitmiş ürün yok"}
+          description={
+            isFasonView
+              ? "Yeni ürün eklerken 'Fason Müşterisi' seçerseniz ürün bu sekmede listelenir."
+              : "Yeni ürün ekleyerek URN kodlu bitmiş ürün ve taslak reçete oluşturun."
+          }
           action={
             canWrite ? (
               <Link href={newHref}>

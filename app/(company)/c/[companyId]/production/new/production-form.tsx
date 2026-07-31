@@ -27,6 +27,7 @@ interface RecipeOption {
   finished_material_id: string;
   material_code: string;
   material_name: string;
+  fason_customer_id: string | null;
 }
 
 interface CustomerOption {
@@ -57,6 +58,7 @@ export function ProductionOrderForm({
   );
   const [recipeId, setRecipeId] = useState<string>("");
   const [plannedQty, setPlannedQty] = useState<string>("");
+  const [customerId, setCustomerId] = useState<string>("");
   const cancelHref = companyModulePath(companyId, "production");
 
   const selected = useMemo(
@@ -68,7 +70,10 @@ export function ProductionOrderForm({
     const id = e.target.value;
     setRecipeId(id);
     const recipe = recipes.find((r) => r.id === id);
-    if (recipe) setPlannedQty(String(recipe.yield_quantity));
+    if (recipe) {
+      setPlannedQty(String(recipe.yield_quantity));
+      setCustomerId(recipe.fason_customer_id ?? "");
+    }
   }
 
   return (
@@ -134,7 +139,8 @@ export function ProductionOrderForm({
           <select
             id="customer_id"
             name="customer_id"
-            defaultValue=""
+            value={customerId}
+            onChange={(e) => setCustomerId(e.target.value)}
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="">— Kendi üretimimiz —</option>

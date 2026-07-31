@@ -269,6 +269,7 @@ export type Database = {
           type: MaterialType;
           base_uom: string;
           units_per_pack: number;
+          fason_customer_id: string | null;
           barcode: string | null;
           density: number | null;
           default_supplier_id: string | null;
@@ -290,6 +291,7 @@ export type Database = {
           type: MaterialType;
           base_uom: string;
           units_per_pack?: number;
+          fason_customer_id?: string | null;
           barcode?: string | null;
           density?: number | null;
           default_supplier_id?: string | null;
@@ -311,6 +313,7 @@ export type Database = {
           type?: MaterialType;
           base_uom?: string;
           units_per_pack?: number;
+          fason_customer_id?: string | null;
           barcode?: string | null;
           density?: number | null;
           default_supplier_id?: string | null;
