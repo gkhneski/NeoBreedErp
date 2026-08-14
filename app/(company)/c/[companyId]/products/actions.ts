@@ -89,10 +89,10 @@ export async function createProductWithRecipe(
     return { fieldErrors, error: "Form alanlarını kontrol edin." };
   }
 
+  // Item selection is optional: the recipe stays a draft and publishRecipe
+  // enforces the ≥1 YM rule. This breaks the chicken-and-egg for fason: the
+  // product card must exist before its YM can be created.
   const selectedIds = new Set(formData.getAll("selected_material_id").map(String));
-  if (selectedIds.size === 0) {
-    return { error: "Ürün reçetesi için en az bir yarı mamül seçiniz." };
-  }
 
   const materialIds = formData.getAll("item_material_id").map(String);
   const quantities = formData.getAll("item_quantity").map(String);
@@ -129,38 +129,35 @@ export async function createProductWithRecipe(
   );
   const supabase = await createServerSupabaseClient();
 
-  const { data: materials, error: materialsError } = await supabase
-    .from("materials")
-    .select("id, company_id, code, type, deleted_at")
-    .eq("company_id", companyId)
-    .in(
-      "id",
-      selectedItems.map((item) => item.materialId),
+  if (selectedItems.length > 0) {
+    const { data: materials, error: materialsError } = await supabase
+      .from("materials")
+      .select("id, company_id, code, type, deleted_at")
+      .eq("company_id", companyId)
+      .in(
+        "id",
+        selectedItems.map((item) => item.materialId),
+      );
+
+    if (materialsError) return { error: materialsError.message };
+
+    // Phase 17: a Tam Mamül recipe holds YM + packaging (AMB-/PKG-) only.
+    // Mirrors the DB trigger so no orphan product/recipe rows are left
+    // behind by a trigger rejection.
+    const isPackaging = (code: string) => /^(AMB|PKG)-/i.test(code);
+    const validMaterialIds = new Set(
+      (materials ?? [])
+        .filter((m) => m.company_id === companyId && m.deleted_at === null)
+        .filter((m) => m.type === "semi" || (m.type === "raw" && isPackaging(m.code)))
+        .map((m) => m.id),
     );
 
-  if (materialsError) return { error: materialsError.message };
-
-  // Phase 17: a Tam Mamül recipe holds YM + packaging (AMB-/PKG-) only,
-  // and must contain at least one YM. Mirrors the DB trigger so no orphan
-  // product/recipe rows are left behind by a trigger rejection.
-  const active = (materials ?? []).filter(
-    (m) => m.company_id === companyId && m.deleted_at === null,
-  );
-  const isPackaging = (code: string) => /^(AMB|PKG)-/i.test(code);
-  const validMaterialIds = new Set(
-    active
-      .filter((m) => m.type === "semi" || (m.type === "raw" && isPackaging(m.code)))
-      .map((m) => m.id),
-  );
-
-  if (validMaterialIds.size !== selectedItems.length) {
-    return {
-      error:
-        "Tam mamül reçetesine sadece yarı mamül (YM) ve ambalaj eklenebilir. Hammaddeler YM reçetesinde kullanılır.",
-    };
-  }
-  if (!active.some((m) => m.type === "semi")) {
-    return { error: "Reçetede en az bir yarı mamül (YM) olmalı." };
+    if (validMaterialIds.size !== selectedItems.length) {
+      return {
+        error:
+          "Tam mamül reçetesine sadece yarı mamül (YM) ve ambalaj eklenebilir. Hammaddeler YM reçetesinde kullanılır.",
+      };
+    }
   }
 
   const fasonCustomerId = emptyToNull(parsed.data.fason_customer_id);
@@ -243,12 +240,14 @@ export async function createProductWithRecipe(
     updated_by: ctx.userId,
   }));
 
-  const { error: itemsError } = await supabase.from("recipe_items").insert(rows);
+  if (rows.length > 0) {
+    const { error: itemsError } = await supabase.from("recipe_items").insert(rows);
 
-  if (itemsError) {
-    await supabase.from("recipes").delete().eq("id", recipe.id);
-    await supabase.from("materials").delete().eq("id", product.id);
-    return { error: itemsError.message };
+    if (itemsError) {
+      await supabase.from("recipes").delete().eq("id", recipe.id);
+      await supabase.from("materials").delete().eq("id", product.id);
+      return { error: itemsError.message };
+    }
   }
 
   revalidatePath(companyModulePath(companyId, "products"));

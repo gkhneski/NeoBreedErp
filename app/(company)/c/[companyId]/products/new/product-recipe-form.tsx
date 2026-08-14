@@ -269,10 +269,14 @@ export function ProductRecipeForm({
 
       <section className="space-y-3">
         <div>
-          <h2 className="text-sm font-semibold">Yarı Mamül ve Ambalaj Seçimi</h2>
+          <h2 className="text-sm font-semibold">
+            Yarı Mamül ve Ambalaj Seçimi (opsiyonel)
+          </h2>
           <p className="text-xs text-muted-foreground">
-            Tam mamül reçetesi yarı mamül (YM) ve ambalajdan oluşur; en az bir
-            YM seçin. Hammaddeler YM reçetesinde kullanılır.
+            Tam mamül reçetesi yarı mamül (YM) ve ambalajdan oluşur. Ürünün
+            YM&apos;si henüz yoksa boş bırakın: önce ürünü oluşturun, sonra
+            Yarı Mamüller bölümünden bu ürüne bağlı YM&apos;yi açın ve
+            reçeteye ekleyin. Yayınlamak için reçetede en az bir YM olmalı.
           </p>
         </div>
 
@@ -298,6 +302,13 @@ export function ProductRecipeForm({
           </p>
         ) : null}
 
+        {recipeMaterials.length === 0 ? (
+          <p className="rounded-md border border-border bg-secondary/30 px-3 py-2 text-xs text-muted-foreground">
+            Henüz kayıtlı yarı mamül veya ambalaj yok. Ürünü şimdi oluşturun;
+            YM ve ambalajı ekledikten sonra reçeteyi Reçeteler bölümünden
+            tamamlayabilirsiniz.
+          </p>
+        ) : (
         <div className="overflow-x-auto rounded-md border border-border">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
@@ -381,6 +392,7 @@ export function ProductRecipeForm({
             </tbody>
           </table>
         </div>
+        )}
       </section>
 
       <section className="space-y-1.5">

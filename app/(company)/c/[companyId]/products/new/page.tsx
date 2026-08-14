@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyRole } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { MASTER_DATA_WRITE_ROLES, companyModulePath } from "@/types/roles";
@@ -34,7 +32,6 @@ export default async function NewProductPage({ params }: PageProps) {
   const recipeMaterials = (matRows ?? []).filter(
     (m) => m.type === "semi" || /^(AMB|PKG)-/i.test(m.code),
   );
-  const hasSemi = recipeMaterials.some((m) => m.type === "semi");
 
   const { data: trendyolProducts } = await supabase
     .from("marketplace_remote_products")
@@ -50,25 +47,6 @@ export default async function NewProductPage({ params }: PageProps) {
     .is("deleted_at", null)
     .order("name");
 
-  if (!hasSemi) {
-    return (
-      <div className="max-w-3xl space-y-6">
-        <header className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Yeni Ürün</h1>
-        </header>
-        <EmptyState
-          title="Önce yarı mamül tanımlayın"
-          description="Tam mamül reçetesi yarı mamül (YM) ve ambalajdan oluşur. Önce en az bir yarı mamül kaydedin."
-          action={
-            <Link href={companyModulePath(companyId, "semi-finished")}>
-              <Button>Yarı Mamüllere Git</Button>
-            </Link>
-          }
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-5xl space-y-6">
       <header className="space-y-1">
@@ -82,7 +60,8 @@ export default async function NewProductPage({ params }: PageProps) {
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">Yeni Ürün</h1>
         <p className="text-sm text-muted-foreground">
-          Ürün kartını açın ve reçetesini yarı mamül (YM) + ambalajdan kurun.
+          Ürün kartını açın; reçete kalemlerini (YM + ambalaj) şimdi seçebilir
+          veya ürünü oluşturduktan sonra Reçeteler bölümünden ekleyebilirsiniz.
         </p>
       </header>
       <ProductRecipeForm
