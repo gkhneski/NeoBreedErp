@@ -14,6 +14,7 @@ export type MaterialMeta = {
   type: "raw" | "semi" | "finished";
   base_uom: string;
   default_supplier_id: string | null;
+  fason_customer_id: string | null;
 };
 
 export type RecipeMeta = {
@@ -209,7 +210,7 @@ export async function gatherMrpPlan(companyId: string): Promise<MrpPlan> {
   // Materials.
   const { data: matRows } = await supabase
     .from("materials")
-    .select("id, code, name, type, base_uom, default_supplier_id")
+    .select("id, code, name, type, base_uom, default_supplier_id, fason_customer_id")
     .eq("company_id", companyId)
     .is("deleted_at", null)
     .returns<MaterialMeta[]>();
@@ -257,17 +258,22 @@ export async function gatherMrpPlan(companyId: string): Promise<MrpPlan> {
     });
   }
 
-  // On-hand sellable/usable stock per material (released, non-consignment).
+  // On-hand usable stock per material: factory-owned lots, plus — for fason
+  // products — the owning customer's customer-owned lots (their finished stock
+  // already covers their demand, so MRP must not re-propose production).
   const { data: lotRows } = await supabase
     .from("material_lots")
-    .select("material_id, quantity_on_hand, unit_cost, received_at")
+    .select("material_id, quantity_on_hand, owner_customer_id")
     .eq("company_id", companyId)
     .eq("status", "released")
-    .is("owner_customer_id", null)
     .is("deleted_at", null)
     .gt("quantity_on_hand", 0);
   const stock = new Map<string, number>();
   for (const l of lotRows ?? []) {
+    const owner = l.owner_customer_id as string | null;
+    if (owner && owner !== materials.get(l.material_id)?.fason_customer_id) {
+      continue;
+    }
     stock.set(
       l.material_id,
       (stock.get(l.material_id) ?? 0) + Number(l.quantity_on_hand),

@@ -20,13 +20,21 @@ export default async function NewProductPage({ params }: PageProps) {
   );
   const supabase = await createServerSupabaseClient();
 
-  const { data: rawMaterials } = await supabase
+  const { data: matRows } = await supabase
     .from("materials")
-    .select("id, code, name, base_uom, material_lots(quantity_on_hand, status, deleted_at)")
+    .select(
+      "id, code, name, type, base_uom, material_lots(quantity_on_hand, status, deleted_at)",
+    )
     .eq("company_id", companyId)
-    .eq("type", "raw")
+    .in("type", ["semi", "raw"])
     .is("deleted_at", null)
     .order("code", { ascending: true });
+
+  // Phase 17: a Tam Mamül recipe holds YM + packaging only.
+  const recipeMaterials = (matRows ?? []).filter(
+    (m) => m.type === "semi" || /^(AMB|PKG)-/i.test(m.code),
+  );
+  const hasSemi = recipeMaterials.some((m) => m.type === "semi");
 
   const { data: trendyolProducts } = await supabase
     .from("marketplace_remote_products")
@@ -42,18 +50,18 @@ export default async function NewProductPage({ params }: PageProps) {
     .is("deleted_at", null)
     .order("name");
 
-  if (!rawMaterials || rawMaterials.length === 0) {
+  if (!hasSemi) {
     return (
       <div className="max-w-3xl space-y-6">
         <header className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Yeni Ürün</h1>
         </header>
         <EmptyState
-          title="Önce hammadde tanımlayın"
-          description="Ürün reçetesi oluşturmak için önce kullanılacak hammadde veya ambalaj malzemelerini kaydedin."
+          title="Önce yarı mamül tanımlayın"
+          description="Tam mamül reçetesi yarı mamül (YM) ve ambalajdan oluşur. Önce en az bir yarı mamül kaydedin."
           action={
-            <Link href={companyModulePath(companyId, "materials", "new")}>
-              <Button>Hammadde Ekle</Button>
+            <Link href={companyModulePath(companyId, "semi-finished")}>
+              <Button>Yarı Mamüllere Git</Button>
             </Link>
           }
         />
@@ -74,12 +82,12 @@ export default async function NewProductPage({ params }: PageProps) {
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">Yeni Ürün</h1>
         <p className="text-sm text-muted-foreground">
-          Ürün kartını açın ve kayıtlı hammaddelerden reçete kalemlerini seçin.
+          Ürün kartını açın ve reçetesini yarı mamül (YM) + ambalajdan kurun.
         </p>
       </header>
       <ProductRecipeForm
         companyId={companyId}
-        rawMaterials={rawMaterials}
+        recipeMaterials={recipeMaterials}
         trendyolProducts={trendyolProducts ?? []}
         customers={customers ?? []}
       />

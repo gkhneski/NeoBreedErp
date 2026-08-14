@@ -87,7 +87,8 @@ Material codes are **unique per company**, not globally.
 - Customers are operational records inside the factory's tenant — no portal, no login, never a separate tenant.
 - A production order may carry `customer_id` ("produced on behalf of"). Empty means own production.
 - Customer-supplied raw material is received as a normal lot flagged with `owner_customer_id`; it must not carry a unit cost.
-- Output lots of fason batches are NOT marked customer-owned; delivery/ownership transfer is out of ERP scope (accounting is external).
+- Output lots of fason batches ARE customer-owned (Phase 18): `complete_production_batch` sets `owner_customer_id` from the order's customer (fallback: the product's `fason_customer_id`) and forces `unit_cost`/`currency` to NULL on the output lot; batch cost stays on `production_batches.cost_total` + `cost_snapshots`.
+- Fason finished stock is excluded from marketplace/B2B sellable quantity, but order→shipment conversion and MRP netting DO use the owning customer's lots for that customer's fason products.
 
 ---
 

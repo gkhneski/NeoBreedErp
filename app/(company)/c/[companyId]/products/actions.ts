@@ -91,7 +91,7 @@ export async function createProductWithRecipe(
 
   const selectedIds = new Set(formData.getAll("selected_material_id").map(String));
   if (selectedIds.size === 0) {
-    return { error: "Ürün reçetesi için en az bir hammadde seçiniz." };
+    return { error: "Ürün reçetesi için en az bir yarı mamül seçiniz." };
   }
 
   const materialIds = formData.getAll("item_material_id").map(String);
@@ -109,7 +109,7 @@ export async function createProductWithRecipe(
 
   for (const item of selectedItems) {
     if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
-      itemErrors[item.materialId] = "Seçilen hammadde için pozitif miktar giriniz.";
+      itemErrors[item.materialId] = "Seçilen malzeme için pozitif miktar giriniz.";
     }
     if (!ALLOWED_UOM.includes(item.uom as (typeof ALLOWED_UOM)[number])) {
       itemErrors[item.materialId] = "Geçerli bir birim seçiniz.";
@@ -119,7 +119,7 @@ export async function createProductWithRecipe(
   if (Object.keys(itemErrors).length > 0) {
     return {
       itemErrors,
-      error: "Seçilen hammadde satırlarını kontrol edin.",
+      error: "Seçilen malzeme satırlarını kontrol edin.",
     };
   }
 
@@ -131,7 +131,7 @@ export async function createProductWithRecipe(
 
   const { data: materials, error: materialsError } = await supabase
     .from("materials")
-    .select("id, company_id, type, deleted_at")
+    .select("id, company_id, code, type, deleted_at")
     .eq("company_id", companyId)
     .in(
       "id",
@@ -140,14 +140,27 @@ export async function createProductWithRecipe(
 
   if (materialsError) return { error: materialsError.message };
 
+  // Phase 17: a Tam Mamül recipe holds YM + packaging (AMB-/PKG-) only,
+  // and must contain at least one YM. Mirrors the DB trigger so no orphan
+  // product/recipe rows are left behind by a trigger rejection.
+  const active = (materials ?? []).filter(
+    (m) => m.company_id === companyId && m.deleted_at === null,
+  );
+  const isPackaging = (code: string) => /^(AMB|PKG)-/i.test(code);
   const validMaterialIds = new Set(
-    (materials ?? [])
-      .filter((m) => m.company_id === companyId && m.type === "raw" && m.deleted_at === null)
+    active
+      .filter((m) => m.type === "semi" || (m.type === "raw" && isPackaging(m.code)))
       .map((m) => m.id),
   );
 
   if (validMaterialIds.size !== selectedItems.length) {
-    return { error: "Seçilen hammaddelerden biri bu firmaya ait değil veya aktif değil." };
+    return {
+      error:
+        "Tam mamül reçetesine sadece yarı mamül (YM) ve ambalaj eklenebilir. Hammaddeler YM reçetesinde kullanılır.",
+    };
+  }
+  if (!active.some((m) => m.type === "semi")) {
+    return { error: "Reçetede en az bir yarı mamül (YM) olmalı." };
   }
 
   const fasonCustomerId = emptyToNull(parsed.data.fason_customer_id);
@@ -212,6 +225,7 @@ export async function createProductWithRecipe(
     .single();
 
   if (recipeError || !recipe) {
+    await supabase.from("materials").delete().eq("id", product.id);
     return { error: recipeError?.message ?? "Reçete oluşturulamadı." };
   }
 
@@ -231,7 +245,11 @@ export async function createProductWithRecipe(
 
   const { error: itemsError } = await supabase.from("recipe_items").insert(rows);
 
-  if (itemsError) return { error: itemsError.message };
+  if (itemsError) {
+    await supabase.from("recipes").delete().eq("id", recipe.id);
+    await supabase.from("materials").delete().eq("id", product.id);
+    return { error: itemsError.message };
+  }
 
   revalidatePath(companyModulePath(companyId, "products"));
   revalidatePath(companyModulePath(companyId, "materials"));

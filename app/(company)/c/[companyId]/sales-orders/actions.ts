@@ -138,7 +138,8 @@ async function nextShipmentCode(
 }
 
 // F4: B2B siparisi mevcut sevkiyat akisina donusturur. Her kalem icin FEFO
-// (en yakin SKT once) sirasiyla serbest, konsinye-olmayan lotlardan tahsis yapar,
+// (en yakin SKT once) sirasiyla serbest lotlardan tahsis yapar: kendi urunlerde
+// musteri mali olmayan lotlar, fason urunlerde o musterinin mali olan lotlar.
 // SVK sevkiyati + kalemlerini olusturur ve siparise baglar. Stok dusumu hala
 // Sevkiyat ekranindaki "Sevk Et" (ship_shipment) ile olur.
 export async function convertOrderToShipment(
@@ -184,18 +185,40 @@ export async function convertOrderToShipment(
   const items = order.sales_order_items ?? [];
   if (items.length === 0) return { ok: false, error: "Siparişte kalem yok." };
 
-  // FEFO allocation per material from released, non-consignment lots.
+  const { data: itemMats } = await supabase
+    .from("materials")
+    .select("id, fason_customer_id")
+    .eq("company_id", companyId)
+    .in("id", [...new Set(items.map((i) => i.material_id))]);
+  const fasonOwnerByMaterial = new Map(
+    (itemMats ?? []).map((m) => [m.id, m.fason_customer_id as string | null]),
+  );
+
+  // FEFO allocation per material. Own products draw from factory-owned lots;
+  // fason products draw from that customer's customer-owned lots.
   const allocations: Array<{ lot_id: string; material_id: string; quantity: number }> = [];
   for (const item of items) {
-    const { data: lots } = await supabase
+    const fasonOwner = fasonOwnerByMaterial.get(item.material_id) ?? null;
+    if (fasonOwner && fasonOwner !== order.customer_id) {
+      return {
+        ok: false,
+        error:
+          "Siparişte başka bir fason müşterisine ait ürün var; sevkiyata dönüştürülemedi.",
+      };
+    }
+
+    let lotQuery = supabase
       .from("material_lots")
       .select("id, quantity_on_hand, expiry_date, created_at")
       .eq("company_id", companyId)
       .eq("material_id", item.material_id)
       .eq("status", "released")
-      .is("owner_customer_id", null)
       .is("deleted_at", null)
-      .gt("quantity_on_hand", 0)
+      .gt("quantity_on_hand", 0);
+    lotQuery = fasonOwner
+      ? lotQuery.eq("owner_customer_id", fasonOwner)
+      : lotQuery.is("owner_customer_id", null);
+    const { data: lots } = await lotQuery
       .order("expiry_date", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: true });
 

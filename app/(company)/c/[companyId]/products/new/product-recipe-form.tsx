@@ -27,10 +27,11 @@ const UOM_OPTIONS = [
   { value: "unit", label: "adet" },
 ];
 
-interface RawMaterialOption {
+interface RecipeMaterialOption {
   id: string;
   code: string;
   name: string;
+  type: string;
   base_uom: string;
   material_lots:
     | Array<{
@@ -67,12 +68,12 @@ type CustomerOption = {
 
 export function ProductRecipeForm({
   companyId,
-  rawMaterials,
+  recipeMaterials,
   trendyolProducts,
   customers,
 }: {
   companyId: string;
-  rawMaterials: RawMaterialOption[];
+  recipeMaterials: RecipeMaterialOption[];
   trendyolProducts: TrendyolProductOption[];
   customers: CustomerOption[];
 }) {
@@ -92,13 +93,13 @@ export function ProductRecipeForm({
   const q = query.trim().toLocaleLowerCase("tr");
   const matchIds = useMemo(() => {
     const set = new Set<string>();
-    for (const m of rawMaterials) {
+    for (const m of recipeMaterials) {
       if (q === "" || `${m.code} ${m.name}`.toLocaleLowerCase("tr").includes(q)) {
         set.add(m.id);
       }
     }
     return set;
-  }, [rawMaterials, q]);
+  }, [recipeMaterials, q]);
   const matchCount = matchIds.size;
 
   return (
@@ -268,9 +269,10 @@ export function ProductRecipeForm({
 
       <section className="space-y-3">
         <div>
-          <h2 className="text-sm font-semibold">Hammadde ve Ambalaj Seçimi</h2>
+          <h2 className="text-sm font-semibold">Yarı Mamül ve Ambalaj Seçimi</h2>
           <p className="text-xs text-muted-foreground">
-            Ürünün reçetesinde kullanılacak kayıtlı malzemeleri seçin.
+            Tam mamül reçetesi yarı mamül (YM) ve ambalajdan oluşur; en az bir
+            YM seçin. Hammaddeler YM reçetesinde kullanılır.
           </p>
         </div>
 
@@ -309,7 +311,7 @@ export function ProductRecipeForm({
               </tr>
             </thead>
             <tbody>
-              {rawMaterials.map((material) => {
+              {recipeMaterials.map((material) => {
                 const lots = (material.material_lots ?? []).filter(
                   (lot) => lot.deleted_at === null,
                 );
@@ -338,7 +340,10 @@ export function ProductRecipeForm({
                       <span className="font-mono text-xs text-muted-foreground">
                         {material.code}
                       </span>{" "}
-                      {material.name}
+                      {material.name}{" "}
+                      <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {material.type === "semi" ? "YM" : "Ambalaj"}
+                      </span>
                       <FieldError message={state.itemErrors?.[material.id]} />
                     </td>
                     <td className="px-3 py-2 text-right font-mono text-xs">
