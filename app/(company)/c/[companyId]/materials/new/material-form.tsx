@@ -58,6 +58,7 @@ interface MaterialFormProps {
   defaultType?: "raw" | "semi" | "finished";
   preset?: "packaging";
   finishedProducts?: Array<{ id: string; code: string; name: string }>;
+  defaultProductId?: string;
   returnTo?: string;
   initial?: MaterialInitial;
 }
@@ -73,6 +74,7 @@ export function MaterialForm({
   defaultType = "raw",
   preset,
   finishedProducts = [],
+  defaultProductId,
   returnTo,
   initial,
 }: MaterialFormProps) {
@@ -83,7 +85,10 @@ export function MaterialForm({
   // YM (semi) mode: the name is picked from an existing finished product
   // (pulled from Trendyol), not typed free-hand.
   const ymMode = !initial && defaultType === "semi";
-  const [ymName, setYmName] = useState("");
+  const [ymName, setYmName] = useState(() => {
+    const p = finishedProducts.find((x) => x.id === defaultProductId);
+    return p ? `${p.name} - Yarı Mamül` : "";
+  });
   const cancelHref = returnTo ?? companyModulePath(companyId, "materials");
   const selectedAllergens = Array.isArray(initial?.allergen_flags)
     ? initial.allergen_flags
@@ -121,7 +126,7 @@ export function MaterialForm({
             <select
               id="product_source"
               required
-              defaultValue=""
+              defaultValue={defaultProductId ?? ""}
               onChange={(e) => {
                 const p = finishedProducts.find((x) => x.id === e.target.value);
                 setYmName(p ? `${p.name} - Yarı Mamül` : "");

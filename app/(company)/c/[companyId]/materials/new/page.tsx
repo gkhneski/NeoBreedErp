@@ -10,12 +10,13 @@ interface PageProps {
     type?: string;
     preset?: string;
     returnTo?: string;
+    product?: string;
   }>;
 }
 
 export default async function NewMaterialPage({ params, searchParams }: PageProps) {
   const { companyId: routeCompanyId } = await params;
-  const { type, preset, returnTo } = await searchParams;
+  const { type, preset, returnTo, product } = await searchParams;
   const { companyId } = await requireCompanyRole(
     routeCompanyId,
     MASTER_DATA_WRITE_ROLES,
@@ -38,9 +39,12 @@ export default async function NewMaterialPage({ params, searchParams }: PageProp
       .select("id, code, name")
       .eq("company_id", companyId)
       .eq("type", "finished")
-      .is("deleted_at", null)
-      .order("name", { ascending: true });
-    finishedProducts = products ?? [];
+      .is("deleted_at", null);
+    // DB collation sorts lowercase names after all uppercase ones, which
+    // buries e.g. "maxıgal …" at the bottom of the picker — sort tr-aware.
+    finishedProducts = (products ?? []).sort((a, b) =>
+      a.name.localeCompare(b.name, "tr", { sensitivity: "base" }),
+    );
   }
 
   return (
@@ -60,6 +64,9 @@ export default async function NewMaterialPage({ params, searchParams }: PageProp
         }
         preset={preset === "packaging" ? "packaging" : undefined}
         finishedProducts={finishedProducts}
+        defaultProductId={
+          finishedProducts.some((p) => p.id === product) ? product : undefined
+        }
         returnTo={
           returnTo?.startsWith(`/c/${companyId}/`) ? returnTo : undefined
         }

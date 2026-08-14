@@ -79,6 +79,19 @@ export default async function RecipeDetailPage({ params }: PageProps) {
       : m.type === "semi" || (m.type === "raw" && isPackaging(m.code)),
   );
 
+  // A Mamül recipe's first item is its own YM; if that card doesn't exist
+  // yet the picker dead-ends, so point the user straight at YM creation.
+  const ownYmMissing =
+    !isYmOutput &&
+    finishedMaterial != null &&
+    !(candidateMaterials ?? []).some(
+      (m) =>
+        m.type === "semi" &&
+        m.name
+          .toLocaleLowerCase("tr")
+          .startsWith(finishedMaterial.name.toLocaleLowerCase("tr")),
+    );
+
   const itemMaterialLabel = isYmOutput ? "Hammadde" : "Yarı Mamül / Ambalaj";
   const itemEmptyMessage = isYmOutput
     ? "Bu firmaya tanımlı hammadde yok. Önce malzemeler bölümünden hammadde ekleyin."
@@ -277,6 +290,19 @@ export default async function RecipeDetailPage({ params }: PageProps) {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Kalem Ekle
           </h2>
+          {ownYmMissing && finishedMaterial ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p>
+                <span className="font-medium">{finishedMaterial.name}</span> için
+                henüz YM kartı yok — reçeteye eklemeden önce oluşturun.
+              </p>
+              <Link
+                href={`${companyModulePath(companyId, "materials", "new")}?type=semi&product=${finishedMaterial.id}&returnTo=${encodeURIComponent(companyModulePath(companyId, "recipes", recipe.id))}`}
+              >
+                <Button size="sm">YM Kartını Oluştur</Button>
+              </Link>
+            </div>
+          ) : null}
           <RecipeItemAddForm
             companyId={companyId}
             recipeId={recipe.id}
