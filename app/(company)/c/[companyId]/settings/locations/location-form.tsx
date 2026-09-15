@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 import {
   createLocation,
@@ -91,22 +92,17 @@ export function LocationForm({
       {kind === "shelf" ? (
         <div className="space-y-1.5">
           <Label htmlFor="parent_id">Bağlı Olduğu Depo *</Label>
-          <select
+          <SearchableSelect
             id="parent_id"
             name="parent_id"
             required
             defaultValue={initial?.parent_id ?? ""}
-            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-          >
-            <option value="" disabled>
-              Depo seçin
-            </option>
-            {depots.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.code} — {d.name}
-              </option>
-            ))}
-          </select>
+            options={depots.map((d) => ({
+              value: d.id,
+              label: `${d.code} — ${d.name}`,
+            }))}
+            placeholder="Depo seçin"
+          />
           <FieldError message={state.fieldErrors?.parent_id} />
         </div>
       ) : null}

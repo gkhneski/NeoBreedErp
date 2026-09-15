@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 
 import { createCompany, type CompanyFormState } from "../actions";
@@ -60,19 +61,14 @@ export function CompanyForm({ packages }: CompanyFormProps) {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="package_id">Paket</Label>
-          <select
+          <SearchableSelect
             id="package_id"
             name="package_id"
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             defaultValue=""
-          >
-            <option value="">— Paket seçilmedi —</option>
-            {packages.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+            options={packages.map((p) => ({ value: p.id, label: p.name }))}
+            placeholder="— Paket seçilmedi —"
+            emptyLabel="— Paket seçilmedi —"
+          />
         </div>
       </div>
 

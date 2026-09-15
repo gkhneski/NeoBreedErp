@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { companyModulePath } from "@/types/roles";
 
@@ -58,6 +59,15 @@ export function StockMovementForm({
     [lots, kind],
   );
 
+  const lotOptions = useMemo(
+    () =>
+      eligibleLots.map((l) => ({
+        value: l.id,
+        label: `${l.lot_number} — ${l.materials?.code ?? ""} ${l.materials?.name ?? ""} (${Number(l.quantity_on_hand)} ${l.materials?.base_uom ?? ""}, ${STATUS_LABEL[l.status]})`,
+      })),
+    [eligibleLots],
+  );
+
   return (
     <form action={formAction} className="space-y-5">
       <input type="hidden" name="company_id" value={companyId} />
@@ -90,25 +100,15 @@ export function StockMovementForm({
 
         <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="lot_id">Lot *</Label>
-          <select
+          <SearchableSelect
             id="lot_id"
             name="lot_id"
             required
             value={lotId}
-            onChange={(e) => setLotId(e.target.value)}
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="" disabled>
-              — Seçiniz —
-            </option>
-            {eligibleLots.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.lot_number} — {l.materials?.code} {l.materials?.name} (
-                {Number(l.quantity_on_hand)} {l.materials?.base_uom},{" "}
-                {STATUS_LABEL[l.status]})
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setLotId(v)}
+            options={lotOptions}
+            placeholder="— Seçiniz —"
+          />
           {kind === "issue" && eligibleLots.length === 0 ? (
             <p className="text-xs text-muted-foreground">
               Çıkış yapılabilecek lot yok. Bir lotu önce &quot;Serbest&quot;e alın ve

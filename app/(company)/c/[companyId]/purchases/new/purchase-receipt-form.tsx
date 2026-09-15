@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { SUPPORTED_CURRENCIES } from "@/lib/currencies";
 import { companyModulePath } from "@/types/roles";
@@ -83,6 +84,27 @@ export function PurchaseReceiptForm({
       ? selectedMaterial?.base_uom
       : selectedLot?.materials?.base_uom;
 
+  const materialOptions = useMemo(
+    () =>
+      materials.map((m) => ({
+        value: m.id,
+        label: `${m.code} - ${m.name} (${m.base_uom})`,
+      })),
+    [materials],
+  );
+  const supplierOptions = useMemo(
+    () => suppliers.map((s) => ({ value: s.id, label: `${s.code} - ${s.name}` })),
+    [suppliers],
+  );
+  const lotOptions = useMemo(
+    () =>
+      lots.map((l) => ({
+        value: l.id,
+        label: `${l.lot_number} - ${l.materials?.code ?? ""} ${l.materials?.name ?? ""} (${Number(l.quantity_on_hand)} ${l.materials?.base_uom ?? ""})`,
+      })),
+    [lots],
+  );
+
   return (
     <form action={formAction} className="space-y-5">
       <input type="hidden" name="company_id" value={companyId} />
@@ -134,23 +156,15 @@ export function PurchaseReceiptForm({
           <>
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="material_id">Malzeme *</Label>
-              <select
+              <SearchableSelect
                 id="material_id"
                 name="material_id"
                 required
                 value={materialId}
-                onChange={(e) => setMaterialId(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <option value="" disabled>
-                  -- Seçiniz --
-                </option>
-                {materials.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.code} - {m.name} ({m.base_uom})
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setMaterialId(v)}
+                options={materialOptions}
+                placeholder="-- Seçiniz --"
+              />
               <FieldError message={state.fieldErrors?.material_id} />
             </div>
 
@@ -162,20 +176,15 @@ export function PurchaseReceiptForm({
 
             <div className="space-y-1.5">
               <Label htmlFor="supplier_id">Tedarikçi</Label>
-              <select
+              <SearchableSelect
                 id="supplier_id"
                 name="supplier_id"
                 defaultValue={selectedMaterial?.default_supplier_id ?? ""}
                 key={`supplier-${materialId}`}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <option value="">-- Seçilmedi --</option>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.code} - {s.name}
-                  </option>
-                ))}
-              </select>
+                options={supplierOptions}
+                emptyLabel="-- Seçilmedi --"
+                placeholder="-- Seçilmedi --"
+              />
               <FieldError message={state.fieldErrors?.supplier_id} />
             </div>
 
@@ -188,24 +197,15 @@ export function PurchaseReceiptForm({
         ) : (
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="lot_id">Mevcut Lot *</Label>
-            <select
+            <SearchableSelect
               id="lot_id"
               name="lot_id"
               required
               value={lotId}
-              onChange={(e) => setLotId(e.target.value)}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="" disabled>
-                -- Seçiniz --
-              </option>
-              {lots.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.lot_number} - {l.materials?.code} {l.materials?.name} (
-                  {Number(l.quantity_on_hand)} {l.materials?.base_uom})
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setLotId(v)}
+              options={lotOptions}
+              placeholder="-- Seçiniz --"
+            />
             <FieldError message={state.fieldErrors?.lot_id} />
           </div>
         )}

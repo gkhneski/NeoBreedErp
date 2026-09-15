@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  SearchableSelect,
+  type SearchableOption,
+} from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { groupLocations, type LocationOption } from "@/lib/locations";
 import { companyModulePath } from "@/types/roles";
@@ -75,6 +79,17 @@ export function CompleteBatchForm({
   defaultLocationId,
 }: CompleteBatchFormProps) {
   const locationGroups = groupLocations(locations);
+  const locationOptions: SearchableOption[] = locationGroups.flatMap((group) => {
+    const groupLabel = `${group.depot.code} — ${group.depot.name}`;
+    return [
+      { value: group.depot.id, label: groupLabel, group: groupLabel },
+      ...group.shelves.map((shelf) => ({
+        value: shelf.id,
+        label: `${shelf.code} — ${shelf.name}`,
+        group: groupLabel,
+      })),
+    ];
+  });
   const [state, formAction] = useActionState(
     completeProductionBatch.bind(null, companyId),
     initialState,
@@ -148,28 +163,14 @@ export function CompleteBatchForm({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="location_id">Çıkış Konumu (Depo / Raf)</Label>
-          <select
+          <SearchableSelect
             id="location_id"
             name="location_id"
+            options={locationOptions}
+            placeholder="Depo / raf ara…"
             defaultValue={defaultLocationId ?? ""}
-            className="flex h-9 w-full max-w-sm rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {locationGroups.map((group) => (
-              <optgroup
-                key={group.depot.id}
-                label={`${group.depot.code} — ${group.depot.name}`}
-              >
-                <option value={group.depot.id}>
-                  {group.depot.code} — {group.depot.name}
-                </option>
-                {group.shelves.map((shelf) => (
-                  <option key={shelf.id} value={shelf.id}>
-                    {shelf.code} — {shelf.name}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+            className="max-w-sm"
+          />
           <p className="text-xs text-muted-foreground">
             Çıkış lotu seçilen depoya veya rafa yerleştirilir.
           </p>
@@ -236,26 +237,22 @@ export function CompleteBatchForm({
                       {formatNumber(plannedItem)} {item.uom}
                     </td>
                     <td className="px-3 py-2">
-                      <select
+                      <SearchableSelect
                         name="lot_id"
                         required
                         defaultValue=""
-                        className="flex h-9 w-full min-w-[14rem] rounded-md border border-input bg-background px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        <option value="" disabled>
-                          — Lot seçiniz —
-                        </option>
-                        {item.lots.map((lot) => (
-                          <option key={lot.id} value={lot.id}>
-                            {lot.lot_number} · stok:{" "}
-                            {formatNumber(lot.quantity_on_hand)} {item.base_uom}
-                            {lot.expiry_date ? ` · SKT ${lot.expiry_date}` : ""}
-                            {lot.unit_cost !== null
+                        placeholder="— Lot seçiniz —"
+                        className="min-w-[14rem]"
+                        options={item.lots.map((lot) => ({
+                          value: lot.id,
+                          label:
+                            `${lot.lot_number} · stok: ${formatNumber(lot.quantity_on_hand)} ${item.base_uom}` +
+                            (lot.expiry_date ? ` · SKT ${lot.expiry_date}` : "") +
+                            (lot.unit_cost !== null
                               ? ` · ${formatNumber(lot.unit_cost, 4)} ${lot.currency ?? ""}`
-                              : ""}
-                          </option>
-                        ))}
-                      </select>
+                              : ""),
+                        }))}
+                      />
                       {lotErr ? (
                         <p className="mt-1 text-xs text-destructive">
                           {lotErr}

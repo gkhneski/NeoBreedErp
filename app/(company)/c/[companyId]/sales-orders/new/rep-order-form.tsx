@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { uomLabel } from "@/lib/uom";
 import type { CatalogAvailability } from "@/types/database";
 import { companyModulePath } from "@/types/roles";
@@ -82,20 +83,14 @@ export function RepOrderForm({
         <label className="text-xs font-medium text-muted-foreground">
           Müşteri (eczane/depo)
         </label>
-        <select
+        <SearchableSelect
           value={customerId}
-          onChange={(e) => setCustomerId(e.target.value)}
-          className="mt-1 h-9 w-full max-w-md rounded-md border border-border bg-background px-2 text-sm"
-        >
-          <option value="" disabled>
-            Seçin…
-          </option>
-          {customers.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.label}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => setCustomerId(v)}
+          options={customers.map((c) => ({ value: c.id, label: c.label }))}
+          placeholder="Seçin…"
+          required
+          className="mt-1 w-full max-w-md"
+        />
       </div>
 
       <div className="overflow-x-auto rounded-md border border-border">

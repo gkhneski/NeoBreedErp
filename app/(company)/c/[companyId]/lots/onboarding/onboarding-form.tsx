@@ -13,6 +13,10 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  SearchableSelect,
+  type SearchableOption,
+} from "@/components/ui/searchable-select";
 import { groupLocations, type LocationOption } from "@/lib/locations";
 import { companyModulePath } from "@/types/roles";
 
@@ -106,6 +110,32 @@ export function OnboardingForm({
   const raw = allMaterials.filter((m) => m.type === "raw");
   const locationGroups = groupLocations(locations);
   const selectedMaterial = allMaterials.find((m) => m.id === materialId);
+
+  const materialOptions: SearchableOption[] = [
+    ...finished.map((m) => ({
+      value: m.id,
+      label: `${m.code} — ${m.name}`,
+      keywords: m.barcode ?? undefined,
+      group: "Bitmiş Ürünler",
+    })),
+    ...raw.map((m) => ({
+      value: m.id,
+      label: `${m.code} — ${m.name}`,
+      keywords: m.barcode ?? undefined,
+      group: "Hammaddeler",
+    })),
+  ];
+  const locationOptions: SearchableOption[] = locationGroups.flatMap((group) => {
+    const groupLabel = `${group.depot.code} — ${group.depot.name}`;
+    return [
+      { value: group.depot.id, label: groupLabel, group: groupLabel },
+      ...group.shelves.map((shelf) => ({
+        value: shelf.id,
+        label: `${shelf.code} — ${shelf.name}`,
+        group: groupLabel,
+      })),
+    ];
+  });
 
   const pq = pickQuery.trim().toLocaleLowerCase("tr");
   const filteredTy = pq
@@ -495,36 +525,15 @@ export function OnboardingForm({
 
         <div className="space-y-1.5">
           <Label htmlFor="material_id">Ürün *</Label>
-          <select
+          <SearchableSelect
             id="material_id"
             name="material_id"
             required
             value={materialId}
-            onChange={(e) => setMaterialId(e.target.value)}
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="" disabled>
-              — Barkod okutun ya da seçin —
-            </option>
-            {finished.length > 0 ? (
-              <optgroup label="Bitmiş Ürünler">
-                {finished.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.code} — {m.name}
-                  </option>
-                ))}
-              </optgroup>
-            ) : null}
-            {raw.length > 0 ? (
-              <optgroup label="Hammaddeler">
-                {raw.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.code} — {m.name}
-                  </option>
-                ))}
-              </optgroup>
-            ) : null}
-          </select>
+            onChange={(v) => setMaterialId(v)}
+            options={materialOptions}
+            placeholder="— Barkod okutun ya da seçin —"
+          />
           <FieldError message={state.fieldErrors?.material_id} />
         </div>
 
@@ -576,33 +585,15 @@ export function OnboardingForm({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="location_id">Konum (Depo / Raf) *</Label>
-            <select
+            <SearchableSelect
               id="location_id"
               name="location_id"
               required
               value={locationId}
-              onChange={(e) => setLocationId(e.target.value)}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="" disabled>
-                — Konum seçiniz —
-              </option>
-              {locationGroups.map((group) => (
-                <optgroup
-                  key={group.depot.id}
-                  label={`${group.depot.code} — ${group.depot.name}`}
-                >
-                  <option value={group.depot.id}>
-                    {group.depot.code} — {group.depot.name}
-                  </option>
-                  {group.shelves.map((shelf) => (
-                    <option key={shelf.id} value={shelf.id}>
-                      {shelf.code} — {shelf.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+              onChange={(v) => setLocationId(v)}
+              options={locationOptions}
+              placeholder="— Konum seçiniz —"
+            />
             <FieldError message={state.fieldErrors?.location_id} />
           </div>
         </div>

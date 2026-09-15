@@ -5,6 +5,7 @@ import { useActionState, useMemo, useState } from "react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 import { addShipmentItem, type ShipmentItemFormState } from "../actions";
 
@@ -52,25 +53,18 @@ export function ShipmentItemAddForm({
 
       <div className="min-w-64 flex-1 space-y-1.5">
         <Label htmlFor="lot_id">Lot</Label>
-        <select
+        <SearchableSelect
           id="lot_id"
           name="lot_id"
           required
           value={lotId}
-          onChange={(e) => setLotId(e.target.value)}
-          className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <option value="" disabled>
-            — Seçiniz —
-          </option>
-          {lots.map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.lot_number} · {l.material_code} {l.material_name} (eldeki{" "}
-              {l.quantity_on_hand.toLocaleString("tr-TR")} {l.base_uom}
-              {l.location_name ? ` · ${l.location_name}` : ""})
-            </option>
-          ))}
-        </select>
+          onChange={(v) => setLotId(v)}
+          options={lots.map((l) => ({
+            value: l.id,
+            label: `${l.lot_number} · ${l.material_code} ${l.material_name} (eldeki ${l.quantity_on_hand.toLocaleString("tr-TR")} ${l.base_uom}${l.location_name ? ` · ${l.location_name}` : ""})`,
+          }))}
+          placeholder="— Seçiniz —"
+        />
       </div>
 
       <div className="w-40 space-y-1.5">

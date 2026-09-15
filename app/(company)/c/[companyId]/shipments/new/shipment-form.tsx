@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import type { ShipmentChannel } from "@/types/database";
 import { companyModulePath } from "@/types/roles";
@@ -72,22 +73,17 @@ export function ShipmentForm({
         {channel === "ecza" ? (
           <div className="space-y-1.5">
             <Label htmlFor="customer_id">Ecza Deposu (Müşteri) *</Label>
-            <select
+            <SearchableSelect
               id="customer_id"
               name="customer_id"
               required
               defaultValue=""
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="" disabled>
-                — Seçiniz —
-              </option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.code} — {c.name}
-                </option>
-              ))}
-            </select>
+              options={customers.map((c) => ({
+                value: c.id,
+                label: `${c.code} — ${c.name}`,
+              }))}
+              placeholder="— Seçiniz —"
+            />
             <FieldError message={state.fieldErrors?.customer_id} />
             {customers.length === 0 ? (
               <p className="text-xs text-muted-foreground">

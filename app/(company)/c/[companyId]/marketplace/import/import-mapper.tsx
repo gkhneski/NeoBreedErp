@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 import { saveListingMappings } from "../actions";
 
@@ -46,6 +47,11 @@ export function ImportMapper({
     kind: "success" | "error";
     text: string;
   } | null>(null);
+
+  const materialOptions = useMemo(
+    () => materials.map((m) => ({ value: m.id, label: `${m.code} — ${m.name}` })),
+    [materials],
+  );
 
   const selectedCount = Object.values(selections).filter(Boolean).length;
   const unmappedCount = rows.filter((r) => !r.mapped).length;
@@ -167,23 +173,19 @@ export function ImportMapper({
                       ✓ {row.mapped.material_label}
                     </span>
                   ) : (
-                    <select
+                    <SearchableSelect
                       value={selections[row.barcode] ?? ""}
-                      onChange={(e) =>
+                      onChange={(v) =>
                         setSelections((prev) => ({
                           ...prev,
-                          [row.barcode]: e.target.value,
+                          [row.barcode]: v,
                         }))
                       }
-                      className="h-8 w-full min-w-[12rem] rounded-md border border-input bg-background px-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <option value="">— Eşleştirme yok —</option>
-                      {materials.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.code} — {m.name}
-                        </option>
-                      ))}
-                    </select>
+                      options={materialOptions}
+                      placeholder="— Eşleştirme yok —"
+                      emptyLabel="— Eşleştirme yok —"
+                      className="w-full min-w-[12rem]"
+                    />
                   )}
                 </td>
               </tr>

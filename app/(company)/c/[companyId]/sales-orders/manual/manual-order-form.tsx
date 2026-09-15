@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { companyModulePath } from "@/types/roles";
 
@@ -64,19 +65,14 @@ export function ManualOrderForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="customer">Müşteri *</Label>
-          <select
+          <SearchableSelect
             id="customer"
             value={customerId}
-            onChange={(e) => setCustomerId(e.target.value)}
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="">-- Seçiniz --</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setCustomerId(v)}
+            options={customers.map((c) => ({ value: c.id, label: c.label }))}
+            placeholder="-- Seçiniz --"
+            emptyLabel="-- Seçiniz --"
+          />
         </div>
       </div>
 

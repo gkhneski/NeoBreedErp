@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { companyModulePath } from "@/types/roles";
 
@@ -66,8 +67,20 @@ export function ProductionOrderForm({
     [recipes, recipeId],
   );
 
-  function handleRecipeChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const id = e.target.value;
+  const recipeOptions = useMemo(
+    () =>
+      recipes.map((r) => ({
+        value: r.id,
+        label: `${r.code} v${r.version} — ${r.name} (${r.material_code} — ${r.material_name})`,
+      })),
+    [recipes],
+  );
+  const customerOptions = useMemo(
+    () => customers.map((c) => ({ value: c.id, label: `${c.code} — ${c.name}` })),
+    [customers],
+  );
+
+  function handleRecipeChange(id: string) {
     setRecipeId(id);
     const recipe = recipes.find((r) => r.id === id);
     if (recipe) {
@@ -81,24 +94,15 @@ export function ProductionOrderForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="recipe_id">Reçete *</Label>
-          <select
+          <SearchableSelect
             id="recipe_id"
             name="recipe_id"
             required
+            options={recipeOptions}
+            placeholder="— Seçiniz —"
             value={recipeId}
             onChange={handleRecipeChange}
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="" disabled>
-              — Seçiniz —
-            </option>
-            {recipes.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.code} v{r.version} — {r.name} ({r.material_code} —{" "}
-                {r.material_name})
-              </option>
-            ))}
-          </select>
+          />
           <FieldError message={state.fieldErrors?.recipe_id} />
           {selected ? (
             <p className="text-xs text-muted-foreground">
@@ -136,20 +140,15 @@ export function ProductionOrderForm({
 
         <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="customer_id">Müşteri (Fason)</Label>
-          <select
+          <SearchableSelect
             id="customer_id"
             name="customer_id"
+            options={customerOptions}
+            emptyLabel="— Kendi üretimimiz —"
+            placeholder="Müşteri ara…"
             value={customerId}
-            onChange={(e) => setCustomerId(e.target.value)}
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="">— Kendi üretimimiz —</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.code} — {c.name}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setCustomerId(v)}
+          />
           <FieldError message={state.fieldErrors?.customer_id} />
           <p className="text-xs text-muted-foreground">
             Başka bir firma adına üretiliyorsa seçin; boş bırakılırsa kendi

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { companyModulePath } from "@/types/roles";
 
@@ -90,6 +91,14 @@ export function MaterialForm({
     return p ? `${p.name} - Yarı Mamül` : "";
   });
   const cancelHref = returnTo ?? companyModulePath(companyId, "materials");
+  const productOptions = finishedProducts.map((p) => ({
+    value: p.id,
+    label: `${p.code} — ${p.name}`,
+  }));
+  const supplierOptions = suppliers.map((s) => ({
+    value: s.id,
+    label: `${s.code} - ${s.name}`,
+  }));
   const selectedAllergens = Array.isArray(initial?.allergen_flags)
     ? initial.allergen_flags
     : [];
@@ -123,25 +132,17 @@ export function MaterialForm({
         {ymMode ? (
           <div className="space-y-1.5">
             <Label htmlFor="product_source">Hangi Ürünün Yarı Mamülü? *</Label>
-            <select
+            <SearchableSelect
               id="product_source"
               required
               defaultValue={defaultProductId ?? ""}
-              onChange={(e) => {
-                const p = finishedProducts.find((x) => x.id === e.target.value);
+              onChange={(v) => {
+                const p = finishedProducts.find((x) => x.id === v);
                 setYmName(p ? `${p.name} - Yarı Mamül` : "");
               }}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="" disabled>
-                -- Ürün seçiniz --
-              </option>
-              {finishedProducts.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.code} — {p.name}
-                </option>
-              ))}
-            </select>
+              options={productOptions}
+              placeholder="-- Ürün seçiniz --"
+            />
             <input type="hidden" name="name" value={ymName} />
             {ymName ? (
               <p className="text-xs text-muted-foreground">
@@ -227,19 +228,14 @@ export function MaterialForm({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="default_supplier_id">Varsayılan Tedarikçi</Label>
-          <select
+          <SearchableSelect
             id="default_supplier_id"
             name="default_supplier_id"
             defaultValue={initial?.default_supplier_id ?? ""}
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="">-- Seçilmedi --</option>
-            {suppliers.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.code} - {s.name}
-              </option>
-            ))}
-          </select>
+            options={supplierOptions}
+            emptyLabel="-- Seçilmedi --"
+            placeholder="-- Seçilmedi --"
+          />
           {suppliers.length === 0 ? (
             <p className="text-xs text-muted-foreground">
               Henüz tedarikçi yok.{" "}

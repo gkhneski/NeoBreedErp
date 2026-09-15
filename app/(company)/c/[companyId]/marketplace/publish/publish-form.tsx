@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 import { publishProductToTrendyol, type PublishState } from "./actions";
@@ -52,22 +53,19 @@ export function PublishForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1 sm:col-span-2">
             <Label htmlFor="material_id">ERP Ürünü *</Label>
-            <select
+            <SearchableSelect
               id="material_id"
               name="material_id"
               required
               value={selected?.id ?? ""}
-              onChange={(e) =>
-                setSelected(products.find((p) => p.id === e.target.value) ?? null)
-              }
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.code} — {p.name}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setSelected(products.find((p) => p.id === v) ?? null)}
+              options={products.map((p) => ({
+                value: p.id,
+                label: `${p.code} — ${p.name}`,
+                keywords: p.barcode ?? undefined,
+              }))}
+              placeholder="Ürün ara…"
+            />
           </div>
 
           <div className="space-y-1">
@@ -109,35 +107,25 @@ export function PublishForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1">
             <Label htmlFor="form_value_id">Form *</Label>
-            <select
+            <SearchableSelect
               id="form_value_id"
               name="form_value_id"
               required
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              <option value="">Seçin…</option>
-              {formValues.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name}
-                </option>
-              ))}
-            </select>
+              defaultValue=""
+              options={formValues.map((v) => ({ value: String(v.id), label: v.name }))}
+              placeholder="Seçin…"
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor="aroma_value_id">Aroma *</Label>
-            <select
+            <SearchableSelect
               id="aroma_value_id"
               name="aroma_value_id"
               required
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              <option value="">Seçin…</option>
-              {aromaValues.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name}
-                </option>
-              ))}
-            </select>
+              defaultValue=""
+              options={aromaValues.map((v) => ({ value: String(v.id), label: v.name }))}
+              placeholder="Seçin…"
+            />
           </div>
         </div>
       </section>
@@ -167,19 +155,14 @@ export function PublishForm({
           </div>
           <div className="space-y-1">
             <Label htmlFor="cargo_company_id">Kargo Firması *</Label>
-            <select
+            <SearchableSelect
               id="cargo_company_id"
               name="cargo_company_id"
               required
-              defaultValue={10}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              {CARGO_OPTIONS.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              defaultValue="10"
+              options={CARGO_OPTIONS.map((c) => ({ value: String(c.id), label: c.name }))}
+              placeholder="Kargo firması ara…"
+            />
           </div>
         </div>
       </section>

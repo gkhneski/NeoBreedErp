@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { companyModulePath } from "@/types/roles";
 
@@ -66,8 +67,11 @@ export function QualityCheckForm({
       : STARTER_BATCH_SPECS.map((s) => ({ ...s })),
   );
 
+  const [subjectId, setSubjectId] = useState("");
+
   function onKindChange(next: "material_lot" | "production_batch") {
     setKind(next);
+    setSubjectId("");
     setItems(
       next === "material_lot"
         ? STARTER_LOT_SPECS.map((s) => ({ ...s }))
@@ -141,22 +145,18 @@ export function QualityCheckForm({
               ? "Karantinadaki Lot *"
               : "Tamamlanmış Parti *"}
           </Label>
-          <select
+          <SearchableSelect
             id="subject_id"
             name="subject_id"
             required
-            defaultValue=""
-            className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="" disabled>
-              — Seçiniz —
-            </option>
-            {subjectOptions.map((opt) => (
-              <option key={opt.id} value={opt.id}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            placeholder="— Seçiniz —"
+            options={subjectOptions.map((opt) => ({
+              value: opt.id,
+              label: opt.label,
+            }))}
+            value={subjectId}
+            onChange={(v) => setSubjectId(v)}
+          />
           {state.fieldErrors?.subject_id ? (
             <p className="text-xs text-destructive">
               {state.fieldErrors.subject_id}

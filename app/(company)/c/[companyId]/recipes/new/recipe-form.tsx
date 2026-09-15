@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { companyModulePath } from "@/types/roles";
 
@@ -76,22 +77,17 @@ export function RecipeForm({
           <Label htmlFor="finished_material_id">
             {isYm ? "Çıktı Yarı Mamül (YM) *" : "Çıktı Ürün (Mamül) *"}
           </Label>
-          <select
+          <SearchableSelect
             id="finished_material_id"
             name="finished_material_id"
             required
+            placeholder="-- Seçiniz --"
             defaultValue={initial?.finished_material_id ?? ""}
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="" disabled>
-              -- Seçiniz --
-            </option>
-            {finishedMaterials.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
-              </option>
-            ))}
-          </select>
+            options={finishedMaterials.map((m) => ({
+              value: m.id,
+              label: m.label,
+            }))}
+          />
           <FieldError message={state.fieldErrors?.finished_material_id} />
           {!initial ? (
             <p className="text-xs text-muted-foreground">

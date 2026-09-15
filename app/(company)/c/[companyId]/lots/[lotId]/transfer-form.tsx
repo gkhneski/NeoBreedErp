@@ -4,6 +4,10 @@ import { useActionState } from "react";
 
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Label } from "@/components/ui/label";
+import {
+  SearchableSelect,
+  type SearchableOption,
+} from "@/components/ui/searchable-select";
 import { groupLocations, type LocationOption } from "@/lib/locations";
 
 import { transferLot, type TransferLotState } from "../actions";
@@ -26,6 +30,29 @@ export function TransferForm({
   const [state, formAction] = useActionState(transferLot, initialState);
   const targets = locations.filter((l) => l.id !== currentLocationId);
   const groups = groupLocations(targets);
+  const options: SearchableOption[] = [
+    ...groups.flatMap((group) => {
+      const groupLabel = `${group.depot.code} — ${group.depot.name}`;
+      return [
+        { value: group.depot.id, label: groupLabel, group: groupLabel },
+        ...group.shelves.map((shelf) => ({
+          value: shelf.id,
+          label: `${shelf.code} — ${shelf.name}`,
+          group: groupLabel,
+        })),
+      ];
+    }),
+    ...targets
+      .filter(
+        (t) =>
+          t.kind === "shelf" &&
+          !groups.some((g) => g.depot.id === t.parent_id),
+      )
+      .map((shelf) => ({
+        value: shelf.id,
+        label: `${shelf.code} — ${shelf.name}`,
+      })),
+  ];
 
   if (targets.length === 0) {
     return (
@@ -43,45 +70,15 @@ export function TransferForm({
 
       <div className="space-y-1.5">
         <Label htmlFor="to_location_id">Hedef Konum (Depo / Raf)</Label>
-        <select
+        <SearchableSelect
           id="to_location_id"
           name="to_location_id"
           required
           defaultValue={targets.length === 1 ? targets[0].id : ""}
-          className="flex h-9 w-full max-w-sm rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {targets.length > 1 ? (
-            <option value="" disabled>
-              — Seçiniz —
-            </option>
-          ) : null}
-          {groups.map((group) => (
-            <optgroup
-              key={group.depot.id}
-              label={`${group.depot.code} — ${group.depot.name}`}
-            >
-              <option value={group.depot.id}>
-                {group.depot.code} — {group.depot.name}
-              </option>
-              {group.shelves.map((shelf) => (
-                <option key={shelf.id} value={shelf.id}>
-                  {shelf.code} — {shelf.name}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-          {targets
-            .filter(
-              (t) =>
-                t.kind === "shelf" &&
-                !groups.some((g) => g.depot.id === t.parent_id),
-            )
-            .map((shelf) => (
-              <option key={shelf.id} value={shelf.id}>
-                {shelf.code} — {shelf.name}
-              </option>
-            ))}
-        </select>
+          options={options}
+          placeholder="— Seçiniz —"
+          className="max-w-sm"
+        />
       </div>
 
       {lotBlocked ? (

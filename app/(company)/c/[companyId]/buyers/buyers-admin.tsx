@@ -3,6 +3,7 @@
 import { useActionState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 import { inviteBuyer, revokeBuyer, type BuyerInviteState } from "./actions";
 
@@ -66,20 +67,12 @@ export function BuyersAdmin({
 
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Müşteri (eczane/depo)</label>
-            <select
+            <SearchableSelect
               name="customer_id"
-              className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
               defaultValue=""
-            >
-              <option value="" disabled>
-                Seçin…
-              </option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
+              options={customers.map((c) => ({ value: c.id, label: c.label }))}
+              placeholder="Seçin…"
+            />
             {state.fieldErrors?.customer_id ? (
               <p className="text-[11px] text-destructive">{state.fieldErrors.customer_id}</p>
             ) : null}

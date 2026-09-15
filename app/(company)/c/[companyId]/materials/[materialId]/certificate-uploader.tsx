@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 
 import {
   uploadAttachment,
@@ -9,6 +9,7 @@ import {
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 
 const INITIAL: UploadAttachmentState = {};
@@ -31,10 +32,20 @@ export function MaterialCertificateUploader({
     INITIAL,
   );
   const formRef = useRef<HTMLFormElement>(null);
+  // form.reset() does not clear the combobox's React state; remount it instead.
+  const [resetKey, setResetKey] = useState(0);
 
   useEffect(() => {
-    if (state.ok) formRef.current?.reset();
+    if (state.ok) {
+      formRef.current?.reset();
+      setResetKey((k) => k + 1);
+    }
   }, [state.ok]);
+
+  const lotOptions = lots.map((lot) => ({
+    value: lot.id,
+    label: `${lot.lot_number} (${Number(lot.quantity_on_hand)})`,
+  }));
 
   if (lots.length === 0) {
     return (
@@ -56,22 +67,15 @@ export function MaterialCertificateUploader({
       <div className="grid gap-3 sm:grid-cols-[1fr_1fr]">
         <div className="space-y-1">
           <Label htmlFor="subject_id">Lot *</Label>
-          <select
+          <SearchableSelect
+            key={resetKey}
             id="subject_id"
             name="subject_id"
             required
             defaultValue=""
-            className="flex h-9 w-full rounded-md border border-border bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="" disabled>
-              -- Seçiniz --
-            </option>
-            {lots.map((lot) => (
-              <option key={lot.id} value={lot.id}>
-                {lot.lot_number} ({Number(lot.quantity_on_hand)})
-              </option>
-            ))}
-          </select>
+            options={lotOptions}
+            placeholder="-- Seçiniz --"
+          />
         </div>
         <div className="space-y-1">
           <Label htmlFor="file">Dosya *</Label>

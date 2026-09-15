@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { SUPPORTED_CURRENCIES } from "@/lib/currencies";
 import { companyModulePath } from "@/types/roles";
@@ -71,6 +72,23 @@ export function LotForm({
     [materials, materialId],
   );
 
+  const materialOptions = useMemo(
+    () =>
+      materials.map((m) => ({
+        value: m.id,
+        label: `${m.code} — ${m.name} (${TYPE_LABEL[m.type] ?? m.type}, ${m.base_uom})`,
+      })),
+    [materials],
+  );
+  const supplierOptions = useMemo(
+    () => suppliers.map((s) => ({ value: s.id, label: `${s.code} — ${s.name}` })),
+    [suppliers],
+  );
+  const customerOptions = useMemo(
+    () => customers.map((c) => ({ value: c.id, label: `${c.code} — ${c.name}` })),
+    [customers],
+  );
+
   return (
     <form action={formAction} className="space-y-5">
       <input type="hidden" name="company_id" value={companyId} />
@@ -78,24 +96,15 @@ export function LotForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="material_id">Malzeme *</Label>
-          <select
+          <SearchableSelect
             id="material_id"
             name="material_id"
             required
             value={materialId}
-            onChange={(e) => setMaterialId(e.target.value)}
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="" disabled>
-              — Seçiniz —
-            </option>
-            {materials.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.code} — {m.name} ({TYPE_LABEL[m.type] ?? m.type},{" "}
-                {m.base_uom})
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setMaterialId(v)}
+            options={materialOptions}
+            placeholder="— Seçiniz —"
+          />
           <FieldError message={state.fieldErrors?.material_id} />
         </div>
 
@@ -112,20 +121,15 @@ export function LotForm({
 
         <div className="space-y-1.5">
           <Label htmlFor="supplier_id">Tedarikçi</Label>
-          <select
+          <SearchableSelect
             id="supplier_id"
             name="supplier_id"
             defaultValue={selected?.default_supplier_id ?? ""}
             key={`sup-${materialId}`}
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="">— Seçilmedi —</option>
-            {suppliers.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.code} — {s.name}
-              </option>
-            ))}
-          </select>
+            options={supplierOptions}
+            emptyLabel="— Seçilmedi —"
+            placeholder="— Seçilmedi —"
+          />
           <FieldError message={state.fieldErrors?.supplier_id} />
         </div>
 
@@ -169,20 +173,15 @@ export function LotForm({
 
         <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="owner_customer_id">Müşteri Malı (Sahibi)</Label>
-          <select
+          <SearchableSelect
             id="owner_customer_id"
             name="owner_customer_id"
             value={ownerCustomerId}
-            onChange={(e) => setOwnerCustomerId(e.target.value)}
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="">— Kendi malımız —</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.code} — {c.name}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setOwnerCustomerId(v)}
+            options={customerOptions}
+            emptyLabel="— Kendi malımız —"
+            placeholder="— Kendi malımız —"
+          />
           <FieldError message={state.fieldErrors?.owner_customer_id} />
           {customerOwned ? (
             <p className="text-xs text-muted-foreground">

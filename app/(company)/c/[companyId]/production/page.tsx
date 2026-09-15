@@ -13,6 +13,8 @@ import {
 } from "@/types/roles";
 import type { ProductionOrderStatus } from "@/types/database";
 
+import { CustomerFilter } from "./customer-filter";
+
 interface PageProps {
   params: Promise<{ companyId: string }>;
   searchParams: Promise<{ customer?: string }>;
@@ -126,32 +128,13 @@ export default async function ProductionOrdersListPage({
       </header>
 
       {(customerOptions ?? []).length > 0 ? (
-        <form method="get" className="flex items-end gap-2">
-          <div className="space-y-1">
-            <label
-              htmlFor="customer"
-              className="text-xs font-medium text-muted-foreground"
-            >
-              Müşteriye göre filtrele
-            </label>
-            <select
-              id="customer"
-              name="customer"
-              defaultValue={customerFilter ?? ""}
-              className="flex h-9 w-64 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="">Tümü</option>
-              {(customerOptions ?? []).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.code} — {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Button type="submit" variant="outline" size="sm">
-            Uygula
-          </Button>
-        </form>
+        <CustomerFilter
+          value={customerFilter ?? ""}
+          options={(customerOptions ?? []).map((c) => ({
+            value: c.id,
+            label: `${c.code} — ${c.name}`,
+          }))}
+        />
       ) : null}
 
       {rows.length > 0 ? (

@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { Plus, Trash2 } from "lucide-react";
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Textarea } from "@/components/ui/textarea";
 import { SUPPORTED_CURRENCIES } from "@/lib/currencies";
@@ -77,6 +78,27 @@ export function PurchaseDocumentForm({
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
   const cancelHref = companyModulePath(companyId, "purchases");
 
+  const supplierOptions = useMemo(
+    () => suppliers.map((s) => ({ value: s.id, label: `${s.code} - ${s.name}` })),
+    [suppliers],
+  );
+  const materialOptions = useMemo(
+    () =>
+      materials.map((m) => ({
+        value: m.id,
+        label: `${m.code} - ${m.name} (${m.base_uom})`,
+      })),
+    [materials],
+  );
+  const lotOptions = useMemo(
+    () =>
+      lots.map((l) => ({
+        value: l.id,
+        label: `${l.lot_number} - ${l.materials?.code ?? ""} ${l.materials?.name ?? ""} (${Number(l.quantity_on_hand)} ${l.materials?.base_uom ?? ""})`,
+      })),
+    [lots],
+  );
+
   function update(key: number, patch: Partial<Line>) {
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   }
@@ -118,14 +140,14 @@ export function PurchaseDocumentForm({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="supplier_id">Tedarikçi</Label>
-            <select id="supplier_id" name="supplier_id" defaultValue="" className={selectClass}>
-              <option value="">-- Seçilmedi --</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.code} - {s.name}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+              id="supplier_id"
+              name="supplier_id"
+              defaultValue=""
+              options={supplierOptions}
+              emptyLabel="-- Seçilmedi --"
+              placeholder="-- Seçilmedi --"
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="invoice_number">Fatura No</Label>
@@ -211,18 +233,12 @@ export function PurchaseDocumentForm({
                   <>
                     <div className="space-y-1.5">
                       <Label className="text-xs">Malzeme *</Label>
-                      <select
+                      <SearchableSelect
                         value={line.materialId}
-                        onChange={(e) => update(line.key, { materialId: e.target.value })}
-                        className={selectClass}
-                      >
-                        <option value="">-- Seçiniz --</option>
-                        {materials.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.code} - {m.name} ({m.base_uom})
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(v) => update(line.key, { materialId: v })}
+                        options={materialOptions}
+                        placeholder="-- Seçiniz --"
+                      />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs">Lot Numarası *</Label>
@@ -243,19 +259,12 @@ export function PurchaseDocumentForm({
                 ) : (
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label className="text-xs">Mevcut Lot *</Label>
-                    <select
+                    <SearchableSelect
                       value={line.lotId}
-                      onChange={(e) => update(line.key, { lotId: e.target.value })}
-                      className={selectClass}
-                    >
-                      <option value="">-- Seçiniz --</option>
-                      {lots.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.lot_number} - {l.materials?.code} {l.materials?.name} (
-                          {Number(l.quantity_on_hand)} {l.materials?.base_uom})
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(v) => update(line.key, { lotId: v })}
+                      options={lotOptions}
+                      placeholder="-- Seçiniz --"
+                    />
                   </div>
                 )}
 

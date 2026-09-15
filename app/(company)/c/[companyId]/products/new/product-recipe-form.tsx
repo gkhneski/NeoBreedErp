@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { companyModulePath } from "@/types/roles";
 
@@ -89,6 +90,20 @@ export function ProductRecipeForm({
   const selectedTy = trendyolProducts.find((p) => p.barcode === productBarcode);
   const isFason = fasonCustomerId !== "";
 
+  const customerOptions = useMemo(
+    () => customers.map((c) => ({ value: c.id, label: `${c.code} — ${c.name}` })),
+    [customers],
+  );
+  const trendyolOptions = useMemo(
+    () =>
+      trendyolProducts.map((p) => ({
+        value: p.barcode,
+        label: `${(p.title ?? "—").slice(0, 70)} · ${p.barcode}`,
+        keywords: p.barcode,
+      })),
+    [trendyolProducts],
+  );
+
   const [query, setQuery] = useState("");
   const q = query.trim().toLocaleLowerCase("tr");
   const matchIds = useMemo(() => {
@@ -117,23 +132,18 @@ export function ProductRecipeForm({
         {customers.length > 0 ? (
           <div className="space-y-1.5 rounded-xl border border-border bg-background p-3">
             <Label htmlFor="fason_customer_id">Fason Müşterisi (opsiyonel)</Label>
-            <select
+            <SearchableSelect
               id="fason_customer_id"
               name="fason_customer_id"
+              options={customerOptions}
+              emptyLabel="— Kendi ürünümüz —"
+              placeholder="Müşteri ara…"
               value={fasonCustomerId}
-              onChange={(e) => {
-                setFasonCustomerId(e.target.value);
-                if (e.target.value !== "") setProductBarcode("");
+              onChange={(v) => {
+                setFasonCustomerId(v);
+                if (v !== "") setProductBarcode("");
               }}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="">— Kendi ürünümüz —</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.code} — {c.name}
-                </option>
-              ))}
-            </select>
+            />
             <p className="text-xs text-muted-foreground">
               Başka bir firma için fason üretiyorsanız müşteriyi seçin. Fason
               ürünler ayrı sekmede listelenir ve Trendyol akışına girmez.
@@ -153,23 +163,19 @@ export function ProductRecipeForm({
                   className="h-12 w-12 shrink-0 rounded border border-border object-cover"
                 />
               ) : null}
-              <select
+              <SearchableSelect
                 id="ty_product"
+                options={trendyolOptions}
+                emptyLabel="— Trendyol'dan seç (ad + barkod otomatik dolar) —"
+                placeholder="Ürün adı veya barkod ara…"
                 value={productBarcode}
-                onChange={(e) => {
-                  const p = trendyolProducts.find((x) => x.barcode === e.target.value);
-                  setProductBarcode(e.target.value);
+                onChange={(v) => {
+                  const p = trendyolProducts.find((x) => x.barcode === v);
+                  setProductBarcode(v);
                   if (p) setProductName(p.title ?? "");
                 }}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <option value="">— Trendyol&apos;dan seç (ad + barkod otomatik dolar) —</option>
-                {trendyolProducts.map((p) => (
-                  <option key={p.barcode} value={p.barcode}>
-                    {(p.title ?? "—").slice(0, 70)} · {p.barcode}
-                  </option>
-                ))}
-              </select>
+                className="w-full"
+              />
             </div>
             <p className="text-xs text-muted-foreground">
               Seçince ürün adı Trendyol&apos;daki adla birebir dolar ve barkod

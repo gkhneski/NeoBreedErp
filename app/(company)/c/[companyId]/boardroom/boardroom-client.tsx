@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { AgentActionKind, AgentMessageKind } from "@/types/database";
@@ -390,19 +391,15 @@ export function BoardroomClient({
 
       {canManage ? (
         <div className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-3 sm:flex-row sm:items-center">
-          <select
+          <SearchableSelect
             value={productFocus}
-            onChange={(e) => setProductFocus(e.target.value)}
+            onChange={(v) => setProductFocus(v)}
             disabled={running}
-            className="min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-sm sm:w-56"
-          >
-            <option value="">Tüm ürünler (genel)</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.name}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+            options={products.map((p) => ({ value: p.name, label: p.name }))}
+            placeholder="Tüm ürünler (genel)"
+            emptyLabel="Tüm ürünler (genel)"
+            className="min-w-0 sm:w-56"
+          />
           <input
             value={focus}
             onChange={(e) => setFocus(e.target.value)}
