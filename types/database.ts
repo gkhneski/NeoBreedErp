@@ -1119,6 +1119,7 @@ export type Database = {
           notes: string | null;
           created_at: string;
           created_by: string | null;
+          reverses_movement_id: string | null;
         };
         Insert: {
           id?: string;
@@ -1136,6 +1137,7 @@ export type Database = {
           notes?: string | null;
           created_at?: string;
           created_by?: string | null;
+          reverses_movement_id?: string | null;
         };
         Update: never;
         Relationships: [];
@@ -2196,6 +2198,14 @@ export type Database = {
       ship_shipment: {
         Args: { p_company_id: string; p_shipment_id: string };
         Returns: undefined;
+      };
+      reverse_stock_movement: {
+        Args: {
+          p_company_id: string;
+          p_movement_id: string;
+          p_reason?: string | null;
+        };
+        Returns: string;
       };
       ensure_default_location: {
         Args: { p_company_id: string };

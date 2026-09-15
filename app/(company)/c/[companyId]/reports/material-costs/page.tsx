@@ -23,17 +23,27 @@ export default async function MaterialCostsReportPage({ params }: PageProps) {
   const supabase = await createServerSupabaseClient();
 
   // Weighted-average purchase cost from receipt movements (with a unit cost).
-  const { data: moves } = await supabase
-    .from("stock_movements")
-    .select("material_id, quantity, unit_cost")
-    .eq("company_id", companyId)
-    .eq("kind", "receipt")
-    .not("unit_cost", "is", null)
-    .returns<Array<{ material_id: string; quantity: number; unit_cost: number | null }>>();
+  const [{ data: moves }, { data: reversals }] = await Promise.all([
+    supabase
+      .from("stock_movements")
+      .select("id, material_id, quantity, unit_cost")
+      .eq("company_id", companyId)
+      .eq("kind", "receipt")
+      .not("unit_cost", "is", null)
+      .returns<Array<{ id: string; material_id: string; quantity: number; unit_cost: number | null }>>(),
+    supabase
+      .from("stock_movements")
+      .select("reverses_movement_id")
+      .eq("company_id", companyId)
+      .not("reverses_movement_id", "is", null)
+      .returns<Array<{ reverses_movement_id: string }>>(),
+  ]);
+  // Cancelled (reversed) receipts must not weigh into the average cost.
+  const reversedIds = new Set((reversals ?? []).map((r) => r.reverses_movement_id));
 
   const agg = new Map<string, { qty: number; cost: number }>();
   for (const m of moves ?? []) {
-    if (m.unit_cost === null) continue;
+    if (m.unit_cost === null || reversedIds.has(m.id)) continue;
     const a = agg.get(m.material_id) ?? { qty: 0, cost: 0 };
     a.qty += Number(m.quantity);
     a.cost += Number(m.quantity) * Number(m.unit_cost);

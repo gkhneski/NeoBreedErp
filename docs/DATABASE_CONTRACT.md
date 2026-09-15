@@ -614,3 +614,24 @@ The approve→push flow crosses an external HTTP call no DB transaction can span
 Sellable quantity = SUM(`quantity_on_hand`) of the material's lots with `status='released'`, not deleted, `owner_customer_id IS NULL`, qty > 0 (quarantine/blocked/fason never sold). Discount trigger = any such lot with `expiry_date <= today + threshold`. Detection runs via daily Vercel Cron (`/api/cron/marketplace-discounts`, `CRON_SECRET` Bearer) and on-demand from the marketplace page.
 
 **Files affected:** `supabase/migrations/20260616000000_phase8a_marketplaces.sql`, `lib/marketplaces/*`, `app/(company)/c/[companyId]/marketplace/*`, `settings/marketplaces/*`, `app/api/cron/marketplace-discounts/*`, `types/roles.ts` (MARKETPLACE_APPROVE_ROLES, operator module access), sidebar + dashboard, `vercel.json` (crons).
+
+---
+
+## 21. Stock Movement Reversal (storno) (2026-09-15)
+
+**Business intent:** a mis-entered ledger row (typically a duplicate goods receipt) must be cancellable from the Stok Hareketleri tab without breaking the append-only ledger rule (ERP_RULES §4).
+
+### `stock_movements` (column addition)
+
+- `reverses_movement_id uuid null references stock_movements(id) on delete restrict` — set only on the counter-movement. Partial unique index: a movement can be reversed at most once. The original row is never updated.
+
+### RPC `reverse_stock_movement(p_company_id, p_movement_id, p_reason default null)` → `uuid`
+
+`security invoker`, RLS applies. Rejects transfers, reversal rows, and already-reversed movements. Inserts an `adjustment` with `quantity = -original.quantity`, same lot/material/batch/unit_cost, `reason` default `'Hatalı kayıt iptali'`. The lot trigger recomputes on-hand; if the reversal would drive the lot negative (the received stock was already consumed) the insert fails with `23514` and nothing is written. If the lot has no other movements and ends at zero, the lot is soft-deleted (`deleted_at`) so the mistaken lot vanishes from stock views.
+
+### App semantics
+
+- Ledger view: reversal rows are hidden; the original renders struck-through with an `İptal edildi` badge. Material cost report excludes reversed receipts.
+- Access: `STOCK_WRITE_ROLES` only.
+
+**Files affected:** `supabase/migrations/20260915000000_stock_movement_reversal.sql`, `app/(company)/c/[companyId]/stock/{actions.ts,page.tsx,movement-cancel-button.tsx}`, `reports/material-costs/page.tsx`, `types/database.ts`.

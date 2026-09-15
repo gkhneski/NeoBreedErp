@@ -220,3 +220,53 @@ export async function recordStockMovement(
   revalidatePath(companyModulePath(companyId, "lots"));
   redirect(withFlash(companyModulePath(companyId, "stock"), "created"));
 }
+
+export type ReverseMovementResult = { ok: true } | { ok: false; error: string };
+
+// Ledger is append-only: cancelling a mis-entered movement posts a counter
+// movement (storno) linked via reverses_movement_id. See migration
+// 20260915000000_stock_movement_reversal.sql.
+export async function reverseStockMovement(
+  companyIdInput: string,
+  movementId: string,
+): Promise<ReverseMovementResult> {
+  if (!z.string().uuid().safeParse(companyIdInput).success) {
+    return { ok: false, error: "Geçersiz firma." };
+  }
+  if (!z.string().uuid().safeParse(movementId).success) {
+    return { ok: false, error: "Geçersiz hareket." };
+  }
+
+  const { companyId } = await requireCompanyRole(
+    companyIdInput,
+    STOCK_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { error } = await supabase.rpc("reverse_stock_movement", {
+    p_company_id: companyId,
+    p_movement_id: movementId,
+    p_reason: "Hatalı kayıt iptali",
+  });
+
+  if (error) {
+    if (error.code === "23505") {
+      return { ok: false, error: "Bu hareket zaten iptal edilmiş." };
+    }
+    if (error.code === "P0002") {
+      return { ok: false, error: "Hareket bulunamadı." };
+    }
+    if (error.code === "23514" && /below zero/i.test(error.message)) {
+      return {
+        ok: false,
+        error:
+          "İptal edilemez: bu girişin stoğu sonradan kullanılmış, lot negatife düşer.",
+      };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath(companyModulePath(companyId, "stock"));
+  revalidatePath(companyModulePath(companyId, "lots"));
+  return { ok: true };
+}

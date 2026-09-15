@@ -20,6 +20,7 @@ import { STOCK_WRITE_ROLES, canWriteCompanyData, companyModulePath } from "@/typ
 
 import { KIND_LABEL, KIND_VARIANT } from "./constants";
 import { LotQuantityEditor } from "./lot-quantity-editor";
+import { MovementCancelButton } from "./movement-cancel-button";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -46,6 +47,7 @@ type MovementRow = {
   reason: string | null;
   occurred_at: string;
   notes: string | null;
+  reverses_movement_id: string | null;
   materials: { code: string; name: string; base_uom: string } | null;
   material_lots: { lot_number: string } | null;
 };
@@ -183,7 +185,14 @@ function MovementsTable({
 }) {
   const newHref = companyModulePath(companyId, "stock", "new");
 
-  if (rows.length === 0) {
+  // Reversal rows are folded into their original: the original is shown
+  // struck-through as "İptal edildi", the counter-movement itself is hidden.
+  const reversedIds = new Set(
+    rows.flatMap((m) => (m.reverses_movement_id ? [m.reverses_movement_id] : [])),
+  );
+  const visible = rows.filter((m) => !m.reverses_movement_id);
+
+  if (visible.length === 0) {
     return (
       <EmptyState
         title="Stok hareketi yok"
@@ -211,20 +220,34 @@ function MovementsTable({
               <th className="px-3 py-2 text-left font-medium">Lot</th>
               <th className="px-3 py-2 text-right font-medium">Miktar</th>
               <th className="px-3 py-2 text-left font-medium">Not</th>
+              {canWrite ? <th className="px-3 py-2" /> : null}
             </tr>
           </thead>
           <tbody>
-            {rows.map((m) => {
+            {visible.map((m) => {
               const isOut = Number(m.quantity) < 0;
+              const reversed = reversedIds.has(m.id);
+              const summary = `${m.materials?.code ?? ""} ${m.materials?.name ?? ""} · Lot ${m.material_lots?.lot_number ?? "—"} · ${isOut ? "" : "+"}${formatQty(Number(m.quantity))} ${uomLabel(m.materials?.base_uom)}`;
               return (
-                <tr key={m.id} className="border-t border-border align-top">
+                <tr
+                  key={m.id}
+                  className={cn(
+                    "border-t border-border align-top",
+                    reversed && "line-through opacity-50",
+                  )}
+                >
                   <td className="px-3 py-2 text-xs text-muted-foreground">
                     {formatDT(m.occurred_at)}
                   </td>
                   <td className="px-3 py-2">
-                    <Badge variant={KIND_VARIANT[m.kind]}>
-                      {KIND_LABEL[m.kind]}
-                    </Badge>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <Badge variant={KIND_VARIANT[m.kind]}>
+                        {KIND_LABEL[m.kind]}
+                      </Badge>
+                      {reversed ? (
+                        <Badge variant="destructive">İptal edildi</Badge>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-3 py-2">
                     {m.materials ? (
@@ -262,6 +285,17 @@ function MovementsTable({
                     ) : null}
                     {!m.reason && !m.notes ? "—" : null}
                   </td>
+                  {canWrite ? (
+                    <td className="px-3 py-2 text-right">
+                      {!reversed ? (
+                        <MovementCancelButton
+                          companyId={companyId}
+                          movementId={m.id}
+                          summary={summary}
+                        />
+                      ) : null}
+                    </td>
+                  ) : null}
                 </tr>
               );
             })}
@@ -499,7 +533,7 @@ export default async function StockPage({ params, searchParams }: PageProps) {
     let query = supabase
       .from("stock_movements")
       .select(
-        "id, kind, quantity, unit_cost, reason, occurred_at, notes, " +
+        "id, kind, quantity, unit_cost, reason, occurred_at, notes, reverses_movement_id, " +
           `materials:material_id${isOperator ? "!inner" : ""}(code, name, base_uom), ` +
           "material_lots:lot_id!inner(lot_number, deleted_at)",
       )
