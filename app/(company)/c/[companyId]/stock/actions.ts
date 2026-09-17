@@ -268,5 +268,6 @@ export async function reverseStockMovement(
 
   revalidatePath(companyModulePath(companyId, "stock"));
   revalidatePath(companyModulePath(companyId, "lots"));
+  revalidatePath(companyModulePath(companyId, "purchases"));
   return { ok: true };
 }

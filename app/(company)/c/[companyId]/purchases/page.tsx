@@ -5,11 +5,14 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireModuleAccess } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 import {
   STOCK_WRITE_ROLES,
   canWriteCompanyData,
   companyModulePath,
 } from "@/types/roles";
+
+import { MovementCancelButton } from "../stock/movement-cancel-button";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -56,6 +59,22 @@ export default async function PurchaseReceiptsPage({ params }: PageProps) {
     .returns<ReceiptRow[]>();
 
   const rows = receipts ?? [];
+  const canWrite = canWriteCompanyData(role, STOCK_WRITE_ROLES);
+
+  const { data: reversals } =
+    rows.length > 0
+      ? await supabase
+          .from("stock_movements")
+          .select("reverses_movement_id")
+          .eq("company_id", companyId)
+          .in(
+            "reverses_movement_id",
+            rows.map((r) => r.id),
+          )
+      : { data: [] };
+  const reversedIds = new Set(
+    (reversals ?? []).map((r) => r.reverses_movement_id),
+  );
 
   return (
     <div className="space-y-6">
@@ -69,7 +88,7 @@ export default async function PurchaseReceiptsPage({ params }: PageProps) {
             stok defterine mal kabul olarak islenir.
           </p>
         </div>
-        {canWriteCompanyData(role, STOCK_WRITE_ROLES) ? (
+        {canWrite ? (
           <Link href={companyModulePath(companyId, "purchases", "new")}>
             <Button>Yeni Belge</Button>
           </Link>
@@ -87,16 +106,30 @@ export default async function PurchaseReceiptsPage({ params }: PageProps) {
                 <th className="px-3 py-2 text-left font-medium">Lot</th>
                 <th className="px-3 py-2 text-right font-medium">Miktar</th>
                 <th className="px-3 py-2 text-left font-medium">Belge / Not</th>
+                {canWrite ? <th className="px-3 py-2" /> : null}
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-t border-border align-top">
+              {rows.map((r) => {
+                const reversed = reversedIds.has(r.id);
+                return (
+                <tr
+                  key={r.id}
+                  className={cn(
+                    "border-t border-border align-top",
+                    reversed && "line-through opacity-50",
+                  )}
+                >
                   <td className="px-3 py-2 text-xs text-muted-foreground">
                     {formatDate(r.occurred_at)}
                   </td>
                   <td className="px-3 py-2">
-                    <Badge>Mal Kabul</Badge>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <Badge>Mal Kabul</Badge>
+                      {reversed ? (
+                        <Badge variant="destructive">İptal edildi</Badge>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-3 py-2">
                     {r.materials ? (
@@ -122,8 +155,20 @@ export default async function PurchaseReceiptsPage({ params }: PageProps) {
                   <td className="whitespace-pre-line px-3 py-2 text-xs text-muted-foreground">
                     {r.notes ?? "--"}
                   </td>
+                  {canWrite ? (
+                    <td className="px-3 py-2 text-right">
+                      {!reversed ? (
+                        <MovementCancelButton
+                          companyId={companyId}
+                          movementId={r.id}
+                          summary={`${r.materials?.code ?? ""} ${r.materials?.name ?? ""} · Lot ${r.material_lots?.lot_number ?? "—"} · +${formatNumber(Number(r.quantity))} ${r.materials?.base_uom ?? ""}`}
+                        />
+                      ) : null}
+                    </td>
+                  ) : null}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
