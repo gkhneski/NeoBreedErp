@@ -240,7 +240,8 @@ export default async function CompleteBatchPage({ params }: PageProps) {
         <p className="text-sm text-muted-foreground">
           Aktif parti{" "}
           <span className="font-mono">{batch.batch_number}</span>. Her aktif
-          reçete kalemi için bir lot seçip tüketim miktarını giriniz; çıkış
+          reçete kalemi için bir veya birden fazla lot seçip tüketim
+          miktarlarını giriniz; çıkış
           ürünü için yeni bir lot numarası belirtin. Tüm bunlar tek bir DB
           işleminde gerçekleşir.
         </p>

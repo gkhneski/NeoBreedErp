@@ -1,5 +1,6 @@
 "use client";
 
+import { Plus, X } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useState } from "react";
 
@@ -56,6 +57,12 @@ interface CompleteBatchFormProps {
   defaultLocationId: string | null;
 }
 
+interface AllocRow {
+  key: string;
+  lotId: string;
+  qty: string;
+}
+
 const initialState: CompleteBatchState = {};
 
 function formatNumber(n: number, max = 6): string {
@@ -63,6 +70,48 @@ function formatNumber(n: number, max = 6): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: max,
   });
+}
+
+function round6(n: number): number {
+  return Math.round(n * 1e6) / 1e6;
+}
+
+function qtyString(n: number): string {
+  return String(round6(n));
+}
+
+// Lots arrive sorted by expiry (FEFO); fill the need lot by lot.
+function allocateFefo(item: FormItem, needed: number): AllocRow[] {
+  const rows: AllocRow[] = [];
+  let remaining = round6(needed);
+  for (const lot of item.lots) {
+    if (remaining <= 0) break;
+    const take = Math.min(lot.quantity_on_hand, remaining);
+    if (take <= 0) continue;
+    rows.push({
+      key: `${item.recipe_item_id}:${rows.length}`,
+      lotId: lot.id,
+      qty: qtyString(take),
+    });
+    remaining = round6(remaining - take);
+  }
+  if (rows.length === 0) {
+    rows.push({
+      key: `${item.recipe_item_id}:0`,
+      lotId: "",
+      qty: qtyString(needed),
+    });
+  }
+  return rows;
+}
+
+function allocateAll(items: FormItem[], scale: number): Record<string, AllocRow[]> {
+  return Object.fromEntries(
+    items.map((item) => [
+      item.recipe_item_id,
+      allocateFefo(item, item.planned_consumption * scale),
+    ]),
+  );
 }
 
 export function CompleteBatchForm({
@@ -102,6 +151,46 @@ export function CompleteBatchForm({
     Number.isFinite(actualNum) && actualNum > 0
       ? actualNum / plannedQuantity
       : 1;
+
+  const [alloc, setAlloc] = useState<Record<string, AllocRow[]>>(() =>
+    allocateAll(items, 1),
+  );
+
+  function updateRow(itemId: string, key: string, patch: Partial<AllocRow>) {
+    setAlloc((prev) => ({
+      ...prev,
+      [itemId]: prev[itemId].map((r) => (r.key === key ? { ...r, ...patch } : r)),
+    }));
+  }
+
+  function removeRow(itemId: string, key: string) {
+    setAlloc((prev) => ({
+      ...prev,
+      [itemId]: prev[itemId].filter((r) => r.key !== key),
+    }));
+  }
+
+  function addRow(item: FormItem, plannedItem: number) {
+    setAlloc((prev) => {
+      const rows = prev[item.recipe_item_id];
+      const used = new Set(rows.map((r) => r.lotId));
+      const nextLot = item.lots.find((l) => !used.has(l.id));
+      const total = rows.reduce((sum, r) => sum + (Number(r.qty) || 0), 0);
+      const missing = Math.max(round6(plannedItem - total), 0);
+      const qty = nextLot ? Math.min(nextLot.quantity_on_hand, missing) : missing;
+      return {
+        ...prev,
+        [item.recipe_item_id]: [
+          ...rows,
+          {
+            key: `${item.recipe_item_id}:n${Date.now()}`,
+            lotId: nextLot?.id ?? "",
+            qty: qty > 0 ? qtyString(qty) : "",
+          },
+        ],
+      };
+    });
+  }
 
   return (
     <form action={formAction} className="space-y-6">
@@ -185,11 +274,24 @@ export function CompleteBatchForm({
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold">Tüketilen Loylar (Aktif Reçete Kalemleri)</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold">
+            Tüketilen Lotlar (Aktif Reçete Kalemleri)
+          </h2>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setAlloc(allocateAll(items, scale))}
+          >
+            Lotları otomatik dağıt (SKT sırasıyla)
+          </Button>
+        </div>
         <p className="text-xs text-muted-foreground">
           Plan, gerçek üretim miktarına ({formatNumber(Number(actualQty || 0))}{" "}
-          {plannedUom}) ölçeklenmiştir. Her kalem için tek bir lot
-          seçebilirsiniz; çoklu lot tüketimi sonraki adımlarda gelecektir.
+          {plannedUom}) ölçeklenmiştir. Tek lot yetmiyorsa &quot;+ Lot
+          ekle&quot; ile aynı kalemi birden fazla lottan tüketebilirsiniz;
+          varsayılan dağıtım SKT&apos;si en yakın lottan başlar.
         </p>
 
         <div className="overflow-x-auto rounded-md border border-border">
@@ -199,8 +301,9 @@ export function CompleteBatchForm({
                 <th className="px-3 py-2 text-left font-medium">#</th>
                 <th className="px-3 py-2 text-left font-medium">Malzeme</th>
                 <th className="px-3 py-2 text-right font-medium">Plan</th>
-                <th className="px-3 py-2 text-left font-medium">Lot</th>
-                <th className="px-3 py-2 text-right font-medium">Tüketim</th>
+                <th className="px-3 py-2 text-left font-medium">
+                  Lot · Tüketim
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -214,6 +317,14 @@ export function CompleteBatchForm({
                     `${item.recipe_item_id}.quantity`
                   ];
                 const generalErr = state.fieldErrors?.items?.[errorKey];
+                const rows = alloc[item.recipe_item_id] ?? [];
+                const total = round6(
+                  rows.reduce((sum, r) => sum + (Number(r.qty) || 0), 0),
+                );
+                const available = round6(
+                  item.lots.reduce((sum, l) => sum + l.quantity_on_hand, 0),
+                );
+                const diff = round6(total - plannedItem);
                 return (
                   <tr
                     key={item.recipe_item_id}
@@ -227,48 +338,126 @@ export function CompleteBatchForm({
                         {item.material_code}
                       </span>
                       <span className="ml-1">— {item.material_name}</span>
-                      <input
-                        type="hidden"
-                        name="recipe_item_id"
-                        value={item.recipe_item_id}
-                      />
                     </td>
                     <td className="px-3 py-2 text-right font-mono text-xs">
                       {formatNumber(plannedItem)} {item.uom}
                     </td>
-                    <td className="px-3 py-2">
-                      <SearchableSelect
-                        name="lot_id"
-                        required
-                        defaultValue=""
-                        placeholder="— Lot seçiniz —"
-                        className="min-w-[14rem]"
-                        options={item.lots.map((lot) => ({
-                          value: lot.id,
-                          label:
-                            `${lot.lot_number} · stok: ${formatNumber(lot.quantity_on_hand)} ${item.base_uom}` +
-                            (lot.expiry_date ? ` · SKT ${lot.expiry_date}` : "") +
-                            (lot.unit_cost !== null
-                              ? ` · ${formatNumber(lot.unit_cost, 4)} ${lot.currency ?? ""}`
-                              : ""),
-                        }))}
-                      />
+                    <td className="space-y-2 px-3 py-2">
+                      {rows.map((row) => {
+                        const rowLot = item.lots.find((l) => l.id === row.lotId);
+                        const overStock =
+                          rowLot !== undefined &&
+                          (Number(row.qty) || 0) > rowLot.quantity_on_hand;
+                        return (
+                          <div key={row.key}>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="hidden"
+                                name="recipe_item_id"
+                                value={item.recipe_item_id}
+                              />
+                              <SearchableSelect
+                                name="lot_id"
+                                required
+                                value={row.lotId}
+                                onChange={(next) =>
+                                  updateRow(item.recipe_item_id, row.key, {
+                                    lotId: next,
+                                  })
+                                }
+                                placeholder="— Lot seçiniz —"
+                                className="min-w-[14rem] flex-1"
+                                options={item.lots.map((lot) => ({
+                                  value: lot.id,
+                                  disabled: rows.some(
+                                    (r) => r.key !== row.key && r.lotId === lot.id,
+                                  ),
+                                  label:
+                                    `${lot.lot_number} · stok: ${formatNumber(lot.quantity_on_hand)} ${item.base_uom}` +
+                                    (lot.expiry_date
+                                      ? ` · SKT ${lot.expiry_date}`
+                                      : "") +
+                                    (lot.unit_cost !== null
+                                      ? ` · ${formatNumber(lot.unit_cost, 4)} ${lot.currency ?? ""}`
+                                      : ""),
+                                }))}
+                              />
+                              <Input
+                                name="quantity"
+                                type="number"
+                                step="0.000001"
+                                min="0"
+                                required
+                                value={row.qty}
+                                onChange={(e) =>
+                                  updateRow(item.recipe_item_id, row.key, {
+                                    qty: e.target.value,
+                                  })
+                                }
+                                className="w-32 text-right font-mono"
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                aria-label="Lot satırını kaldır"
+                                disabled={rows.length === 1}
+                                onClick={() =>
+                                  removeRow(item.recipe_item_id, row.key)
+                                }
+                                className="h-8 w-8 shrink-0 p-0"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            {overStock ? (
+                              <p className="mt-1 text-xs text-destructive">
+                                Bu lotta yalnızca{" "}
+                                {formatNumber(rowLot.quantity_on_hand)}{" "}
+                                {item.base_uom} var — kalanı için lot ekleyin.
+                              </p>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        {rows.length < item.lots.length ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => addRow(item, plannedItem)}
+                          >
+                            <Plus className="mr-1 h-3.5 w-3.5" />
+                            Lot ekle
+                          </Button>
+                        ) : (
+                          <span />
+                        )}
+                        <p
+                          className={
+                            "font-mono text-xs " +
+                            (diff === 0
+                              ? "text-muted-foreground"
+                              : "text-amber-600")
+                          }
+                        >
+                          Toplam {formatNumber(total)} / {formatNumber(plannedItem)}{" "}
+                          {item.uom}
+                        </p>
+                      </div>
+                      {available < round6(plannedItem) ? (
+                        <p className="text-xs text-destructive">
+                          Serbest stok yetersiz: toplam{" "}
+                          {formatNumber(available)} {item.base_uom} var,{" "}
+                          {formatNumber(round6(plannedItem - available))} eksik.
+                        </p>
+                      ) : null}
                       {lotErr ? (
                         <p className="mt-1 text-xs text-destructive">
                           {lotErr}
                         </p>
                       ) : null}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <Input
-                        name="quantity"
-                        type="number"
-                        step="0.000001"
-                        min="0"
-                        required
-                        defaultValue={plannedItem.toFixed(6)}
-                        className="ml-auto w-32 text-right font-mono"
-                      />
                       {qtyErr ? (
                         <p className="mt-1 text-xs text-destructive">
                           {qtyErr}
