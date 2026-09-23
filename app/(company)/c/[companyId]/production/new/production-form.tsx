@@ -13,6 +13,7 @@ import { companyModulePath } from "@/types/roles";
 
 import {
   createProductionOrder,
+  updateProductionOrder,
   type ProductionOrderFormState,
 } from "../actions";
 
@@ -37,11 +38,28 @@ interface CustomerOption {
   name: string;
 }
 
+export interface ProductionOrderInitial {
+  id: string;
+  recipe_id: string;
+  customer_id: string | null;
+  planned_quantity: number;
+  planned_start_at: string | null;
+  planned_end_at: string | null;
+  notes: string | null;
+  recipeLocked: boolean;
+}
+
 interface ProductionOrderFormProps {
   companyId: string;
   recipes: RecipeOption[];
   customers: CustomerOption[];
   defaultRecipeId?: string;
+  initial?: ProductionOrderInitial;
+}
+
+function toDateTimeLocal(iso: string | null): string {
+  if (!iso) return "";
+  return new Date(iso).toISOString().slice(0, 16);
 }
 
 function FieldError({ message }: { message?: string }) {
@@ -54,20 +72,37 @@ export function ProductionOrderForm({
   recipes,
   customers,
   defaultRecipeId = "",
+  initial,
 }: ProductionOrderFormProps) {
+  const isEdit = Boolean(initial);
   const [state, formAction] = useActionState(
-    createProductionOrder.bind(null, companyId),
+    initial
+      ? updateProductionOrder.bind(null, companyId, initial.id)
+      : createProductionOrder.bind(null, companyId),
     initialState,
   );
-  const defaultRecipe = recipes.find((r) => r.id === defaultRecipeId) ?? null;
-  const [recipeId, setRecipeId] = useState<string>(defaultRecipe?.id ?? "");
+  const defaultRecipe =
+    recipes.find((r) => r.id === (initial?.recipe_id ?? defaultRecipeId)) ??
+    null;
+  const [recipeId, setRecipeId] = useState<string>(
+    initial?.recipe_id ?? defaultRecipe?.id ?? "",
+  );
   const [plannedQty, setPlannedQty] = useState<string>(
-    defaultRecipe ? String(defaultRecipe.yield_quantity) : "",
+    initial
+      ? String(initial.planned_quantity)
+      : defaultRecipe
+        ? String(defaultRecipe.yield_quantity)
+        : "",
   );
   const [customerId, setCustomerId] = useState<string>(
-    defaultRecipe?.fason_customer_id ?? "",
+    initial
+      ? (initial.customer_id ?? "")
+      : (defaultRecipe?.fason_customer_id ?? ""),
   );
-  const cancelHref = companyModulePath(companyId, "production");
+  const recipeLocked = initial?.recipeLocked ?? false;
+  const cancelHref = initial
+    ? companyModulePath(companyId, "production", initial.id)
+    : companyModulePath(companyId, "production");
 
   const selected = useMemo(
     () => recipes.find((r) => r.id === recipeId) ?? null,
@@ -101,15 +136,33 @@ export function ProductionOrderForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="recipe_id">Reçete *</Label>
-          <SearchableSelect
-            id="recipe_id"
-            name="recipe_id"
-            required
-            options={recipeOptions}
-            placeholder="— Seçiniz —"
-            value={recipeId}
-            onChange={handleRecipeChange}
-          />
+          {recipeLocked ? (
+            <>
+              <input type="hidden" name="recipe_id" value={recipeId} />
+              <Input
+                id="recipe_id"
+                value={
+                  recipeOptions.find((o) => o.value === recipeId)?.label ??
+                  recipeId
+                }
+                readOnly
+                disabled
+              />
+              <p className="text-xs text-muted-foreground">
+                Parti açıldığı için reçete değiştirilemez.
+              </p>
+            </>
+          ) : (
+            <SearchableSelect
+              id="recipe_id"
+              name="recipe_id"
+              required
+              options={recipeOptions}
+              placeholder="— Seçiniz —"
+              value={recipeId}
+              onChange={handleRecipeChange}
+            />
+          )}
           <FieldError message={state.fieldErrors?.recipe_id} />
           {selected ? (
             <p className="text-xs text-muted-foreground">
@@ -169,6 +222,7 @@ export function ProductionOrderForm({
             id="planned_start_at"
             name="planned_start_at"
             type="datetime-local"
+            defaultValue={toDateTimeLocal(initial?.planned_start_at ?? null)}
           />
           <FieldError message={state.fieldErrors?.planned_start_at} />
         </div>
@@ -179,6 +233,7 @@ export function ProductionOrderForm({
             id="planned_end_at"
             name="planned_end_at"
             type="datetime-local"
+            defaultValue={toDateTimeLocal(initial?.planned_end_at ?? null)}
           />
           <FieldError message={state.fieldErrors?.planned_end_at} />
         </div>
@@ -186,7 +241,12 @@ export function ProductionOrderForm({
 
       <div className="space-y-1.5">
         <Label htmlFor="notes">Notlar</Label>
-        <Textarea id="notes" name="notes" rows={3} />
+        <Textarea
+          id="notes"
+          name="notes"
+          rows={3}
+          defaultValue={initial?.notes ?? ""}
+        />
         <FieldError message={state.fieldErrors?.notes} />
       </div>
 
@@ -197,7 +257,9 @@ export function ProductionOrderForm({
       ) : null}
 
       <div className="flex gap-2">
-        <SubmitButton>Üretim Emri Oluştur</SubmitButton>
+        <SubmitButton>
+          {isEdit ? "Değişiklikleri Kaydet" : "Üretim Emri Oluştur"}
+        </SubmitButton>
         <Link href={cancelHref}>
           <Button type="button" variant="outline">
             İptal

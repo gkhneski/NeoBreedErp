@@ -262,6 +262,10 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
   const canPlan = order.status === "draft";
   const canStart = order.status === "planned";
   const canCancel = order.status === "draft" || order.status === "planned";
+  const canEdit =
+    order.status === "draft" ||
+    order.status === "planned" ||
+    order.status === "in_progress";
   const canComplete = order.status === "in_progress" && activeBatch;
 
   const defaultBatchNumber = `${order.code}-B${orderBatches.length + 1}`;
@@ -306,6 +310,13 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
             <Badge variant={STATUS_VARIANT[order.status]}>
               {STATUS_LABEL[order.status]}
             </Badge>
+            {canEdit ? (
+              <Link
+                href={companyModulePath(companyId, "production", order.id, "edit")}
+              >
+                <Button variant="outline">Düzenle</Button>
+              </Link>
+            ) : null}
             {canPlan ? (
               <form action={planProductionOrder.bind(null, companyId)}>
                 <input type="hidden" name="order_id" value={order.id} />

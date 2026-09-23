@@ -192,6 +192,170 @@ export async function createProductionOrder(
   );
 }
 
+export async function updateProductionOrder(
+  routeCompanyId: string,
+  orderId: string,
+  _prev: ProductionOrderFormState,
+  formData: FormData,
+): Promise<ProductionOrderFormState> {
+  const parsed = productionOrderCreateSchema.safeParse({
+    recipe_id: formData.get("recipe_id") ?? "",
+    customer_id: formData.get("customer_id") ?? "",
+    planned_quantity: formData.get("planned_quantity") ?? "",
+    planned_start_at: formData.get("planned_start_at") ?? "",
+    planned_end_at: formData.get("planned_end_at") ?? "",
+    notes: formData.get("notes") ?? "",
+  });
+
+  if (!parsed.success) {
+    const fieldErrors: ProductionOrderFormState["fieldErrors"] = {};
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0] as keyof z.input<
+        typeof productionOrderCreateSchema
+      >;
+      if (!fieldErrors[key]) fieldErrors[key] = issue.message;
+    }
+    return { fieldErrors, error: "Form alanlarını kontrol edin." };
+  }
+
+  if (
+    parsed.data.planned_start_at &&
+    parsed.data.planned_end_at &&
+    parsed.data.planned_end_at < parsed.data.planned_start_at
+  ) {
+    return {
+      fieldErrors: { planned_end_at: "Bitiş başlangıçtan önce olamaz." },
+      error: "Form alanlarını kontrol edin.",
+    };
+  }
+
+  const { ctx, companyId } = await requireCompanyRole(
+    routeCompanyId,
+    PRODUCTION_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { data: order } = await supabase
+    .from("production_orders")
+    .select("id, status, recipe_id, finished_material_id, planned_uom")
+    .eq("id", orderId)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!order) return { error: "Üretim emri bulunamadı." };
+
+  const editable =
+    order.status === "draft" ||
+    order.status === "planned" ||
+    order.status === "in_progress";
+  if (!editable) {
+    return {
+      error:
+        "Tamamlanmış, kapatılmış veya iptal edilmiş üretim emri düzenlenemez.",
+    };
+  }
+
+  const recipeLocked = order.status === "in_progress";
+  if (recipeLocked && parsed.data.recipe_id !== order.recipe_id) {
+    return {
+      fieldErrors: {
+        recipe_id: "Parti açıldıktan sonra reçete değiştirilemez.",
+      },
+      error: "Reçete kilitli.",
+    };
+  }
+
+  let finishedMaterialId = order.finished_material_id;
+  let plannedUom = order.planned_uom;
+  if (!recipeLocked && parsed.data.recipe_id !== order.recipe_id) {
+    const { data: recipe } = await supabase
+      .from("recipes")
+      .select("id, company_id, status, finished_material_id, yield_uom")
+      .eq("id", parsed.data.recipe_id)
+      .maybeSingle();
+    if (!recipe || recipe.company_id !== companyId) {
+      return {
+        fieldErrors: { recipe_id: "Reçete bulunamadı." },
+        error: "Geçersiz reçete.",
+      };
+    }
+    if (recipe.status !== "published") {
+      return {
+        fieldErrors: {
+          recipe_id: "Yalnızca yayınlanmış reçete seçilebilir.",
+        },
+        error: "Reçete yayınlanmış değil.",
+      };
+    }
+    finishedMaterialId = recipe.finished_material_id;
+    plannedUom = recipe.yield_uom;
+  }
+
+  const customerId = emptyToNull(parsed.data.customer_id);
+  if (customerId) {
+    const { data: customer } = await supabase
+      .from("customers")
+      .select("id")
+      .eq("id", customerId)
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (!customer) {
+      return {
+        fieldErrors: { customer_id: "Müşteri bulunamadı." },
+        error: "Geçersiz müşteri.",
+      };
+    }
+  }
+
+  const { error } = await supabase
+    .from("production_orders")
+    .update({
+      recipe_id: parsed.data.recipe_id,
+      finished_material_id: finishedMaterialId,
+      planned_uom: plannedUom,
+      customer_id: customerId,
+      planned_quantity: parsed.data.planned_quantity,
+      planned_start_at: parsed.data.planned_start_at,
+      planned_end_at: parsed.data.planned_end_at,
+      notes: emptyToNull(parsed.data.notes),
+      updated_by: ctx.userId,
+    })
+    .eq("id", order.id)
+    .eq("company_id", companyId);
+
+  if (error) {
+    if (error.code === "23514" && /not published/i.test(error.message)) {
+      return {
+        error:
+          "Bu emrin reçetesi artık yayında değil; düzenlemek için yayında bir reçete seçin.",
+      };
+    }
+    return { error: error.message };
+  }
+
+  if (recipeLocked) {
+    // Açık parti, emrin planlı miktarını kopyalar; ikisi tutarlı kalsın.
+    await supabase
+      .from("production_batches")
+      .update({
+        planned_quantity: parsed.data.planned_quantity,
+        updated_by: ctx.userId,
+      })
+      .eq("company_id", companyId)
+      .eq("production_order_id", order.id)
+      .eq("status", "in_progress")
+      .is("deleted_at", null);
+  }
+
+  revalidatePath(companyModulePath(companyId, "production"));
+  revalidatePath(companyModulePath(companyId, "production", order.id));
+  redirect(
+    withFlash(companyModulePath(companyId, "production", order.id), "updated"),
+  );
+}
+
 const transitionSchema = z.object({
   order_id: z.string().uuid(),
 });
