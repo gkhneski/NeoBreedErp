@@ -162,7 +162,7 @@ export default async function WarehousePage({ params }: PageProps) {
                         </Link>
                       </td>
                       <td className="px-3 py-2">
-                        {lot.materials?.code ?? "—"}
+                        {lot.materials?.name ?? "—"}
                       </td>
                       <td className="px-3 py-2 text-right font-mono text-xs">
                         {formatNumber(Number(lot.quantity_on_hand))}{" "}
@@ -219,8 +219,11 @@ export default async function WarehousePage({ params }: PageProps) {
                           </span>
                         ) : null}
                       </td>
-                      <td className="px-3 py-2 font-mono text-xs">
-                        {movement.material_lots?.lot_number ?? "—"}
+                      <td className="px-3 py-2">
+                        {movement.materials?.name ?? "—"}
+                        <span className="block font-mono text-xs text-muted-foreground">
+                          {movement.material_lots?.lot_number ?? "—"}
+                        </span>
                       </td>
                       <td className="px-3 py-2 text-right font-mono text-xs">
                         {formatNumber(Number(movement.quantity))}{" "}
