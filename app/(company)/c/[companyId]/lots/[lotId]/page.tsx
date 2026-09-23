@@ -162,9 +162,16 @@ export default async function LotDetailPage({ params }: PageProps) {
             ) : null}
           </div>
         </div>
-        <Link href={listHref}>
-          <Button variant="outline">Listeye Dön</Button>
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {canWriteCompanyData(role, STOCK_WRITE_ROLES) ? (
+            <Link href={companyModulePath(companyId, "lots", lot.id, "edit")}>
+              <Button variant="outline">Düzenle</Button>
+            </Link>
+          ) : null}
+          <Link href={listHref}>
+            <Button variant="outline">Listeye Dön</Button>
+          </Link>
+        </div>
       </header>
 
       <section className="rounded-md border border-border p-4">

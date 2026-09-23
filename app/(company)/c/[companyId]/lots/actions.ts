@@ -486,3 +486,273 @@ export async function updateLotStatus(formData: FormData): Promise<void> {
 
   revalidatePath(companyModulePath(companyId, "lots"));
 }
+
+const lotUpdateSchema = z
+  .object({
+    company_id: z.string().uuid(),
+    lot_id: z.string().uuid(),
+    supplier_id: optionalUuid,
+    lot_number: z
+      .string()
+      .trim()
+      .min(1, "Lot numarası boş olamaz.")
+      .max(64, "Lot numarası en fazla 64 karakter olabilir.")
+      .regex(
+        /^[A-Za-z0-9._\-/]+$/,
+        "Lot numarası yalnızca harf, rakam, nokta, tire, alt çizgi ve eğik çizgi içerebilir.",
+      ),
+    received_at: dateOptional,
+    expiry_date: dateOptional,
+    quantity_on_hand: z
+      .string()
+      .trim()
+      .min(1, "Eldeki miktar gerekli.")
+      .transform((v) => Number(v))
+      .refine((v) => Number.isFinite(v) && v >= 0, {
+        message: "Eldeki miktar 0 veya pozitif olmalı.",
+      }),
+    unit_cost: z
+      .string()
+      .trim()
+      .optional()
+      .transform((v) => (v && v.length > 0 ? Number(v) : null))
+      .refine((v) => v === null || (Number.isFinite(v) && v >= 0), {
+        message: "Birim maliyet 0 veya pozitif olmalı.",
+      }),
+    currency: z
+      .string()
+      .trim()
+      .max(3)
+      .optional()
+      .or(z.literal(""))
+      .transform((v) => (v ? v.toUpperCase() : ""))
+      .refine(
+        (v) => !v || isSupportedCurrency(v),
+        "Para birimi TRY, USD veya EUR olmalı.",
+      ),
+    notes: z.string().trim().max(2000).optional().or(z.literal("")),
+  })
+  .refine(
+    (d) => !d.expiry_date || !d.received_at || d.expiry_date >= d.received_at,
+    { message: "Son kullanma alış tarihinden önce olamaz.", path: ["expiry_date"] },
+  );
+
+export type LotEditState = {
+  error?: string;
+  fieldErrors?: Partial<Record<keyof z.input<typeof lotUpdateSchema>, string>>;
+};
+
+// Lot başlığını düzeltir. Miktar değişirse defter append-only kaldığı için
+// fark kadar bir 'adjustment' hareketi yazılır; tetikleyici eldeki miktarı
+// yeniden hesaplar.
+export async function updateLot(
+  _prev: LotEditState,
+  formData: FormData,
+): Promise<LotEditState> {
+  const parsed = lotUpdateSchema.safeParse({
+    company_id: formData.get("company_id") ?? "",
+    lot_id: formData.get("lot_id") ?? "",
+    supplier_id: formData.get("supplier_id") ?? "",
+    lot_number: formData.get("lot_number") ?? "",
+    received_at: formData.get("received_at") ?? "",
+    expiry_date: formData.get("expiry_date") ?? "",
+    quantity_on_hand: formData.get("quantity_on_hand") ?? "",
+    unit_cost: formData.get("unit_cost") ?? "",
+    currency: formData.get("currency") ?? "",
+    notes: formData.get("notes") ?? "",
+  });
+
+  if (!parsed.success) {
+    const fieldErrors: LotEditState["fieldErrors"] = {};
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0] as keyof z.input<typeof lotUpdateSchema>;
+      if (!fieldErrors[key]) fieldErrors[key] = issue.message;
+    }
+    return { fieldErrors, error: "Form alanlarını kontrol edin." };
+  }
+
+  const { ctx, companyId } = await requireCompanyRole(
+    parsed.data.company_id,
+    STOCK_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { data: lot } = await supabase
+    .from("material_lots")
+    .select("id, material_id, quantity_on_hand, owner_customer_id")
+    .eq("id", parsed.data.lot_id)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!lot) return { error: "Lot bulunamadı." };
+
+  if (lot.owner_customer_id && parsed.data.unit_cost !== null) {
+    return {
+      fieldErrors: { unit_cost: "Müşteri malı lota birim maliyet girilemez." },
+      error: "Form alanlarını kontrol edin.",
+    };
+  }
+
+  if (parsed.data.supplier_id) {
+    const { data: supplier } = await supabase
+      .from("suppliers")
+      .select("id")
+      .eq("id", parsed.data.supplier_id)
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (!supplier) {
+      return {
+        fieldErrors: { supplier_id: "Tedarikçi bulunamadı." },
+        error: "Geçersiz tedarikçi.",
+      };
+    }
+  }
+
+  const { error } = await supabase
+    .from("material_lots")
+    .update({
+      lot_number: parsed.data.lot_number,
+      supplier_id: parsed.data.supplier_id,
+      received_at: parsed.data.received_at ?? undefined,
+      expiry_date: parsed.data.expiry_date,
+      unit_cost: parsed.data.unit_cost,
+      currency:
+        parsed.data.unit_cost === null
+          ? null
+          : normalizeSupportedCurrency(parsed.data.currency),
+      notes: emptyToNull(parsed.data.notes),
+      updated_by: ctx.userId,
+    })
+    .eq("id", lot.id)
+    .eq("company_id", companyId);
+
+  if (error) {
+    if (error.code === "23505") {
+      return {
+        error: "Bu malzeme için aynı lot numarası zaten kayıtlı.",
+        fieldErrors: { lot_number: "Lot numarası benzersiz olmalı." },
+      };
+    }
+    return { error: error.message };
+  }
+
+  const delta = parsed.data.quantity_on_hand - Number(lot.quantity_on_hand);
+  if (Math.abs(delta) >= 1e-9) {
+    const { error: adjError } = await supabase.from("stock_movements").insert({
+      company_id: companyId,
+      material_id: lot.material_id,
+      lot_id: lot.id,
+      kind: "adjustment",
+      quantity: delta,
+      reason: "Lot düzeltmesi (hatalı giriş)",
+      occurred_at: new Date().toISOString(),
+      created_by: ctx.userId,
+    });
+    if (adjError) {
+      return {
+        error: `Lot bilgileri kaydedildi ancak miktar düzeltilemedi: ${adjError.message}`,
+      };
+    }
+  }
+
+  revalidatePath(companyModulePath(companyId, "lots"));
+  revalidatePath(companyModulePath(companyId, "lots", lot.id));
+  revalidatePath(companyModulePath(companyId, "stock"));
+  revalidatePath(companyModulePath(companyId, "warehouse"));
+  redirect(withFlash(companyModulePath(companyId, "lots", lot.id), "updated"));
+}
+
+export type DeleteLotResult = { ok: true } | { ok: false; error: string };
+
+// Hatalı açılmış lotu kaldırır. Defter append-only: kalan miktar kadar
+// 'adjustment' yazılır, lot soft-delete edilir. Üretimde tüketilmiş,
+// sevk edilmiş veya üretim çıktısı olan lot silinemez.
+export async function deleteLot(
+  companyIdInput: string,
+  lotIdInput: string,
+): Promise<DeleteLotResult> {
+  const companyParsed = z.string().uuid().safeParse(companyIdInput);
+  const lotParsed = z.string().uuid().safeParse(lotIdInput);
+  if (!companyParsed.success || !lotParsed.success) {
+    return { ok: false, error: "Geçersiz istek." };
+  }
+
+  const { ctx, companyId } = await requireCompanyRole(
+    companyParsed.data,
+    STOCK_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { data: lot } = await supabase
+    .from("material_lots")
+    .select("id, material_id, lot_number, quantity_on_hand")
+    .eq("id", lotParsed.data)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!lot) return { ok: false, error: "Lot bulunamadı." };
+
+  const [{ count: issueCount }, { count: batchCount }, { count: shipCount }] =
+    await Promise.all([
+      supabase
+        .from("stock_movements")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("lot_id", lot.id)
+        .or("kind.eq.issue,batch_id.not.is.null"),
+      supabase
+        .from("production_batches")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("output_lot_id", lot.id),
+      supabase
+        .from("shipment_items")
+        .select("id", { count: "exact", head: true })
+        .eq("lot_id", lot.id),
+    ]);
+
+  if ((issueCount ?? 0) > 0 || (shipCount ?? 0) > 0) {
+    return {
+      ok: false,
+      error:
+        "Bu lot üretimde tüketilmiş veya sevk edilmiş; silinemez. Miktarı Düzenle ile düzeltin.",
+    };
+  }
+  if ((batchCount ?? 0) > 0) {
+    return {
+      ok: false,
+      error: "Bu lot bir üretim partisinin çıktısı; silinemez.",
+    };
+  }
+
+  const onHand = Number(lot.quantity_on_hand);
+  if (onHand > 0) {
+    const { error: adjError } = await supabase.from("stock_movements").insert({
+      company_id: companyId,
+      material_id: lot.material_id,
+      lot_id: lot.id,
+      kind: "adjustment",
+      quantity: -onHand,
+      reason: "Lot silindi (hatalı kayıt)",
+      occurred_at: new Date().toISOString(),
+      created_by: ctx.userId,
+    });
+    if (adjError) return { ok: false, error: adjError.message };
+  }
+
+  const { error } = await supabase
+    .from("material_lots")
+    .update({ deleted_at: new Date().toISOString(), updated_by: ctx.userId })
+    .eq("id", lot.id)
+    .eq("company_id", companyId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(companyModulePath(companyId, "lots"));
+  revalidatePath(companyModulePath(companyId, "stock"));
+  revalidatePath(companyModulePath(companyId, "warehouse"));
+  return { ok: true };
+}

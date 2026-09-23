@@ -28,6 +28,7 @@ import {
 } from "@/types/roles";
 
 import { updateLotStatus } from "./actions";
+import { LotDeleteButton } from "./lot-delete-button";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -381,6 +382,21 @@ export default async function LotsListPage({ params, searchParams }: PageProps) 
                               </form>
                             ))
                           : null}
+                        {canWriteStock ? (
+                          <>
+                            <Link
+                              href={`${listPath}/${lot.id}/edit`}
+                              className="rounded-sm border border-border px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground hover:bg-secondary"
+                            >
+                              Düzenle
+                            </Link>
+                            <LotDeleteButton
+                              companyId={companyId}
+                              lotId={lot.id}
+                              summary={`${lot.lot_number} · ${lot.materials?.name ?? ""} · ${formatNumber(Number(lot.quantity_on_hand))} ${lot.materials?.base_uom ?? ""}`}
+                            />
+                          </>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
