@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { requireCompanyRole } from "@/lib/auth";
 import { withFlash } from "@/lib/flash";
+import { getRecipeEditability } from "@/lib/recipes/editable";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { MASTER_DATA_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
@@ -205,14 +206,30 @@ export async function updateRecipe(
 
   const { data: recipe } = await supabase
     .from("recipes")
-    .select("id, status, company_id")
+    .select("id, status, company_id, finished_material_id")
     .eq("id", parsed.data.recipe_id)
     .eq("company_id", companyId)
     .maybeSingle();
 
   if (!recipe) return { error: "Reçete bulunamadı." };
-  if (recipe.status !== "draft") {
-    return { error: "Yalnızca taslak reçeteler düzenlenebilir." };
+  const editability = await getRecipeEditability(
+    supabase,
+    companyId,
+    recipe.id,
+    recipe.status,
+  );
+  if (!editability.editable) return { error: editability.reason };
+  if (
+    editability.published &&
+    parsed.data.finished_material_id !== recipe.finished_material_id
+  ) {
+    return {
+      fieldErrors: {
+        finished_material_id:
+          "Yayındaki reçetenin çıktı ürünü değiştirilemez; yeni reçete açın.",
+      },
+      error: "Form alanlarını kontrol edin.",
+    };
   }
 
   const { error } = await supabase
@@ -318,9 +335,13 @@ export async function addRecipeItem(
   if (recipeError || !recipe || recipe.company_id !== companyId) {
     return { error: "Reçete bulunamadı." };
   }
-  if (recipe.status !== "draft") {
-    return { error: "Yalnızca taslak reçetelere kalem eklenebilir." };
-  }
+  const editability = await getRecipeEditability(
+    supabase,
+    companyId,
+    recipe.id,
+    recipe.status,
+  );
+  if (!editability.editable) return { error: editability.reason };
 
   const outputType = recipe.materials?.type;
 
@@ -410,9 +431,13 @@ export async function removeRecipeItem(
   if (!recipe || recipe.company_id !== companyId) {
     return { error: "Reçete bulunamadı." };
   }
-  if (recipe.status !== "draft") {
-    return { error: "Yalnızca taslak reçetelerden kalem silinebilir." };
-  }
+  const editability = await getRecipeEditability(
+    supabase,
+    companyId,
+    recipe.id,
+    recipe.status,
+  );
+  if (!editability.editable) return { error: editability.reason };
 
   const { error } = await supabase
     .from("recipe_items")

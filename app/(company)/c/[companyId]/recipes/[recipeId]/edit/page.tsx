@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { requireCompanyRole } from "@/lib/auth";
+import { getRecipeEditability } from "@/lib/recipes/editable";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { MASTER_DATA_WRITE_ROLES } from "@/types/roles";
 
@@ -50,7 +51,14 @@ export default async function EditRecipePage({ params }: PageProps) {
       .returns<Array<{ id: string; code: string; name: string; type: string }>>(),
   ]);
 
-  if (!recipe || recipe.status !== "draft") notFound();
+  if (!recipe) notFound();
+  const editability = await getRecipeEditability(
+    supabase,
+    companyId,
+    recipe.id,
+    recipe.status,
+  );
+  if (!editability.editable) notFound();
 
   const outputType = (finishedMaterials ?? []).find(
     (m) => m.id === recipe.finished_material_id,

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requireModuleAccess } from "@/lib/auth";
+import { getRecipeEditability } from "@/lib/recipes/editable";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { companyModulePath } from "@/types/roles";
 
@@ -104,6 +105,13 @@ export default async function RecipeDetailPage({ params }: PageProps) {
 
   const isDraft = recipe.status === "draft";
   const isPublished = recipe.status === "published";
+  const editability = await getRecipeEditability(
+    supabase,
+    companyId,
+    recipe.id,
+    recipe.status,
+  );
+  const canEdit = editability.editable;
 
   const activePercentageTotal =
     recipe.mode === "percentage"
@@ -143,9 +151,9 @@ export default async function RecipeDetailPage({ params }: PageProps) {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {isDraft ? (
+          {canEdit ? (
             <Link href={editHref}>
-              <Button size="sm" variant="outline">Duzenle</Button>
+              <Button size="sm" variant="outline">Düzenle</Button>
             </Link>
           ) : null}
           <RecipeActionButton action={deleteAction} label="Sil" variant="destructive" />
@@ -162,6 +170,20 @@ export default async function RecipeDetailPage({ params }: PageProps) {
           </Badge>
         </div>
       </div>
+
+      {isPublished ? (
+        canEdit ? (
+          <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Bu reçete yayında ama henüz tamamlanmış üretim partisi yok; hatalı
+            kalemleri yerinde düzeltebilirsiniz. Açık üretim emirleri güncel
+            kalemleri kullanır. İlk parti tamamlandığında bu sürüm dondurulur.
+          </p>
+        ) : (
+          <p className="rounded-md border border-border bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
+            {editability.editable ? null : editability.reason}
+          </p>
+        )
+      ) : null}
 
       <section className="grid gap-3 rounded-md border border-border bg-card p-4 text-sm sm:grid-cols-3">
         <div>
@@ -225,7 +247,7 @@ export default async function RecipeDetailPage({ params }: PageProps) {
                   <th className="px-3 py-2 text-left font-medium">Birim</th>
                   <th className="px-3 py-2 text-right font-medium">%</th>
                   <th className="px-3 py-2 text-left font-medium">Aktif</th>
-                  {isDraft ? <th className="px-3 py-2" /> : null}
+                  {canEdit ? <th className="px-3 py-2" /> : null}
                 </tr>
               </thead>
               <tbody>
@@ -266,7 +288,7 @@ export default async function RecipeDetailPage({ params }: PageProps) {
                       <td className="px-3 py-2 text-muted-foreground">
                         {item.active ? "Evet" : "Hayır"}
                       </td>
-                      {isDraft ? (
+                      {canEdit ? (
                         <td className="px-3 py-2 text-right">
                           <RecipeActionButton
                             action={removeAction}
@@ -285,14 +307,14 @@ export default async function RecipeDetailPage({ params }: PageProps) {
         ) : (
           <p className="rounded-md border border-dashed border-border bg-card/40 px-4 py-6 text-center text-sm text-muted-foreground">
             Henüz kalem yok.{" "}
-            {isDraft
+            {canEdit
               ? "Aşağıdaki formdan ekleyin."
               : "Yeni versiyon oluşturup düzenleyebilirsiniz."}
           </p>
         )}
       </section>
 
-      {isDraft ? (
+      {canEdit ? (
         <section className="space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Kalem Ekle
