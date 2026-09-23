@@ -199,11 +199,18 @@ export default async function RecipeDetailPage({ params }: PageProps) {
             <RecipeActionButton action={publishAction} label="Yayınla" />
           ) : null}
           {isPublished ? (
-            <RecipeActionButton
-              action={newVersionAction}
-              label="Yeni Versiyon Oluştur"
-              variant="outline"
-            />
+            <div className="flex items-center gap-2">
+              <RecipeActionButton
+                action={newVersionAction}
+                label="Yeni Versiyon Oluştur"
+                variant="outline"
+              />
+              <Link
+                href={`${companyModulePath(companyId, "production", "new")}?recipe=${recipe.id}`}
+              >
+                <Button size="sm">Üretim Emri Aç</Button>
+              </Link>
+            </div>
           ) : null}
         </div>
 

@@ -36,7 +36,12 @@ type OrderDetail = {
   updated_at: string;
   finished_material_id: string;
   recipe_id: string;
-  materials: { code: string; name: string; base_uom: string } | null;
+  materials: {
+    code: string;
+    name: string;
+    base_uom: string;
+    type: "raw" | "semi" | "finished";
+  } | null;
   recipes: {
     code: string;
     name: string;
@@ -44,6 +49,17 @@ type OrderDetail = {
     mode: "quantity" | "percentage";
     yield_quantity: number;
     yield_uom: string;
+  } | null;
+};
+
+// Tamamlanmış bir YM emrinden sonra bu YM'yi kullanan yayında mamül reçeteleri.
+type DownstreamRecipeRow = {
+  recipes: {
+    id: string;
+    code: string;
+    name: string;
+    version: number;
+    materials: { code: string; name: string } | null;
   } | null;
 };
 
@@ -148,7 +164,7 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
       "id, code, status, planned_quantity, planned_uom, planned_start_at, planned_end_at, " +
         "started_at, completed_at, closed_at, cancelled_at, notes, created_at, updated_at, " +
         "finished_material_id, recipe_id, " +
-        "materials:finished_material_id(code, name, base_uom), " +
+        "materials:finished_material_id(code, name, base_uom, type), " +
         "recipes:recipe_id(code, name, version, mode, yield_quantity, yield_uom)",
     )
     .eq("id", orderId)
@@ -209,6 +225,32 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
       const list = costSnapshotsByBatch.get(row.production_batch_id) ?? [];
       list.push(row);
       costSnapshotsByBatch.set(row.production_batch_id, list);
+    }
+  }
+
+  const isFinishedSemiOrder =
+    order.materials?.type === "semi" &&
+    (order.status === "completed" || order.status === "closed");
+  const downstreamRecipes: NonNullable<DownstreamRecipeRow["recipes"]>[] = [];
+  if (isFinishedSemiOrder) {
+    const { data } = await supabase
+      .from("recipe_items")
+      .select(
+        "recipes:recipe_id!inner(id, code, name, version, status, deleted_at, " +
+          "materials:finished_material_id(code, name))",
+      )
+      .eq("company_id", companyId)
+      .eq("material_id", order.finished_material_id)
+      .eq("active", true)
+      .eq("recipes.status", "published")
+      .is("recipes.deleted_at", null)
+      .returns<DownstreamRecipeRow[]>();
+    const seen = new Set<string>();
+    for (const row of data ?? []) {
+      if (row.recipes && !seen.has(row.recipes.id)) {
+        seen.add(row.recipes.id);
+        downstreamRecipes.push(row.recipes);
+      }
     }
   }
 
@@ -348,6 +390,50 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
           </div>
         ) : null}
       </section>
+
+      {isFinishedSemiOrder ? (
+        <section className="space-y-3 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
+          <div className="space-y-1">
+            <p className="font-medium">Sıradaki adım: Mamül üretimi</p>
+            <p className="text-muted-foreground">
+              Bu emir bir <strong>yarı mamül</strong> üretti; çıkan lot YM stoğuna
+              girdi. Bitmiş ürünün stokta görünmesi için mamül reçetesinden ayrı bir
+              üretim emri açılıp tamamlanmalıdır (YM lotu + ambalaj tüketilir).
+            </p>
+          </div>
+          {downstreamRecipes.length > 0 ? (
+            <ul className="space-y-2">
+              {downstreamRecipes.map((r) => (
+                <li
+                  key={r.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2"
+                >
+                  <span>
+                    <span className="font-mono text-xs">{r.code}</span> v{r.version}{" "}
+                    — {r.name}
+                    {r.materials ? (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        · {r.materials.code} — {r.materials.name}
+                      </span>
+                    ) : null}
+                  </span>
+                  <Link
+                    href={`${companyModulePath(companyId, "production", "new")}?recipe=${r.id}`}
+                  >
+                    <Button size="sm">Mamül Üretim Emri Aç</Button>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Bu YM&apos;yi kullanan yayında bir mamül reçetesi yok. Önce Reçeteler
+              bölümünden mamül reçetesi oluşturup yayınlayın.
+            </p>
+          )}
+        </section>
+      ) : null}
 
       {order.notes ? (
         <section className="rounded-md border border-border bg-card/40 p-4 text-sm">

@@ -10,6 +10,7 @@ import { ProductionOrderForm } from "./production-form";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
+  searchParams: Promise<{ recipe?: string }>;
 }
 
 type RecipeOption = {
@@ -23,8 +24,12 @@ type RecipeOption = {
   materials: { code: string; name: string; fason_customer_id: string | null } | null;
 };
 
-export default async function NewProductionOrderPage({ params }: PageProps) {
+export default async function NewProductionOrderPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { companyId: routeCompanyId } = await params;
+  const { recipe: requestedRecipeId } = await searchParams;
   await requireModuleAccess(routeCompanyId, "production");
   const { companyId } = await requireCompanyRole(
     routeCompanyId,
@@ -64,6 +69,8 @@ export default async function NewProductionOrderPage({ params }: PageProps) {
     material_name: r.materials?.name ?? "",
     fason_customer_id: r.materials?.fason_customer_id ?? null,
   }));
+  const defaultRecipeId =
+    recipeOptions.find((r) => r.id === requestedRecipeId)?.id ?? "";
 
   return (
     <div className="space-y-6">
@@ -91,6 +98,7 @@ export default async function NewProductionOrderPage({ params }: PageProps) {
           companyId={companyId}
           recipes={recipeOptions}
           customers={customers ?? []}
+          defaultRecipeId={defaultRecipeId}
         />
       ) : (
         <EmptyState

@@ -41,6 +41,7 @@ interface ProductionOrderFormProps {
   companyId: string;
   recipes: RecipeOption[];
   customers: CustomerOption[];
+  defaultRecipeId?: string;
 }
 
 function FieldError({ message }: { message?: string }) {
@@ -52,14 +53,20 @@ export function ProductionOrderForm({
   companyId,
   recipes,
   customers,
+  defaultRecipeId = "",
 }: ProductionOrderFormProps) {
   const [state, formAction] = useActionState(
     createProductionOrder.bind(null, companyId),
     initialState,
   );
-  const [recipeId, setRecipeId] = useState<string>("");
-  const [plannedQty, setPlannedQty] = useState<string>("");
-  const [customerId, setCustomerId] = useState<string>("");
+  const defaultRecipe = recipes.find((r) => r.id === defaultRecipeId) ?? null;
+  const [recipeId, setRecipeId] = useState<string>(defaultRecipe?.id ?? "");
+  const [plannedQty, setPlannedQty] = useState<string>(
+    defaultRecipe ? String(defaultRecipe.yield_quantity) : "",
+  );
+  const [customerId, setCustomerId] = useState<string>(
+    defaultRecipe?.fason_customer_id ?? "",
+  );
   const cancelHref = companyModulePath(companyId, "production");
 
   const selected = useMemo(
