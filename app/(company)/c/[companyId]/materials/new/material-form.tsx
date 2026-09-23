@@ -90,6 +90,8 @@ export function MaterialForm({
     const p = finishedProducts.find((x) => x.id === defaultProductId);
     return p ? `${p.name} - Yarı Mamül` : "";
   });
+  const [newProductMode, setNewProductMode] = useState(false);
+  const [newProductName, setNewProductName] = useState("");
   const cancelHref = returnTo ?? companyModulePath(companyId, "materials");
   const productOptions = finishedProducts.map((p) => ({
     value: p.id,
@@ -131,26 +133,67 @@ export function MaterialForm({
         </div>
         {ymMode ? (
           <div className="space-y-1.5">
-            <Label htmlFor="product_source">Hangi Ürünün Yarı Mamülü? *</Label>
-            <SearchableSelect
-              id="product_source"
-              required
-              defaultValue={defaultProductId ?? ""}
-              onChange={(v) => {
-                const p = finishedProducts.find((x) => x.id === v);
-                setYmName(p ? `${p.name} - Yarı Mamül` : "");
-              }}
-              options={productOptions}
-              placeholder="-- Ürün seçiniz --"
-            />
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="product_source">Hangi Ürünün Yarı Mamülü? *</Label>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !newProductMode;
+                  setNewProductMode(next);
+                  setYmName(
+                    next && newProductName.trim()
+                      ? `${newProductName.trim()} - Yarı Mamül`
+                      : "",
+                  );
+                }}
+                className="text-xs text-primary hover:underline"
+              >
+                {newProductMode ? "Listeden seç" : "Listede yok, yeni ürün yaz"}
+              </button>
+            </div>
+            {newProductMode ? (
+              <>
+                <Input
+                  id="new_product_name"
+                  name="new_product_name"
+                  required
+                  autoFocus
+                  value={newProductName}
+                  onChange={(e) => {
+                    setNewProductName(e.target.value);
+                    const t = e.target.value.trim();
+                    setYmName(t ? `${t} - Yarı Mamül` : "");
+                  }}
+                  placeholder="örn. Via Platinum Man"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Kayıtta bu adla yeni bir bitmiş ürün kartı (URN kodu) açılır ve
+                  yarı mamül ona bağlanır.
+                </p>
+                <FieldError message={state.fieldErrors?.new_product_name} />
+              </>
+            ) : (
+              <SearchableSelect
+                id="product_source"
+                required
+                defaultValue={defaultProductId ?? ""}
+                onChange={(v) => {
+                  const p = finishedProducts.find((x) => x.id === v);
+                  setYmName(p ? `${p.name} - Yarı Mamül` : "");
+                }}
+                options={productOptions}
+                placeholder="-- Ürün seçiniz --"
+              />
+            )}
             <input type="hidden" name="name" value={ymName} />
             {ymName ? (
               <p className="text-xs text-muted-foreground">
                 Yarı mamül adı: <span className="font-medium text-foreground">{ymName}</span>
               </p>
-            ) : finishedProducts.length === 0 ? (
+            ) : finishedProducts.length === 0 && !newProductMode ? (
               <p className="text-xs text-muted-foreground">
-                Henüz bitmiş ürün yok. Önce Ürünler bölümünden ürün ekleyin.
+                Henüz bitmiş ürün yok. &quot;Listede yok, yeni ürün yaz&quot; ile
+                ekleyebilirsiniz.
               </p>
             ) : null}
             <FieldError message={state.fieldErrors?.name} />

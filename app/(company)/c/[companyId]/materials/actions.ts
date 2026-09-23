@@ -18,6 +18,12 @@ const materialSchema = z.object({
   material_id: z.string().uuid().optional().or(z.literal("")),
   preset: z.enum(["packaging"]).optional().or(z.literal("")),
   name: z.string().trim().min(2, "Ad en az 2 karakter olmalı.").max(200),
+  new_product_name: z
+    .string()
+    .trim()
+    .max(200, "Ürün adı en fazla 200 karakter olabilir.")
+    .optional()
+    .or(z.literal("")),
   type: z.enum(["raw", "semi", "finished"], { message: "Tip seçiniz." }),
   base_uom: z.enum(ALLOWED_UOM, { message: "Geçerli bir birim seçiniz." }),
   barcode: z
@@ -77,6 +83,7 @@ function parseMaterialForm(formData: FormData) {
     material_id: formData.get("material_id") ?? "",
     preset: formData.get("preset") ?? "",
     name: formData.get("name") ?? "",
+    new_product_name: formData.get("new_product_name") ?? "",
     type: formData.get("type") ?? "",
     base_uom: formData.get("base_uom") ?? "",
     barcode: formData.get("barcode") ?? "",
@@ -146,6 +153,39 @@ export async function createMaterial(
         : parsed.data.type === "semi"
           ? "YM"
           : "HAM";
+  // YM for a product that is not in the list yet: open the finished product
+  // card first so the YM has something to belong to.
+  const newProductName = emptyToNull(parsed.data.new_product_name);
+  if (parsed.data.type === "semi" && newProductName) {
+    const { data: existingProduct } = await supabase
+      .from("materials")
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("type", "finished")
+      .is("deleted_at", null)
+      .ilike("name", newProductName)
+      .maybeSingle();
+
+    if (!existingProduct) {
+      const productCode = await nextMaterialCode(supabase, companyId, "URN");
+      const { error: productError } = await supabase.from("materials").insert({
+        company_id: companyId,
+        code: productCode,
+        name: newProductName,
+        type: "finished",
+        base_uom: "unit",
+        created_by: ctx.userId,
+        updated_by: ctx.userId,
+      });
+      if (productError) {
+        return {
+          error: `Yeni ürün kartı oluşturulamadı: ${productError.message}`,
+          fieldErrors: { new_product_name: "Ürün oluşturulamadı." },
+        };
+      }
+    }
+  }
+
   const code = await nextMaterialCode(supabase, companyId, prefix);
 
   const { error } = await supabase.from("materials").insert({
