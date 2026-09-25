@@ -552,6 +552,19 @@ export default async function StockPage({ params, searchParams }: PageProps) {
 
   const stockPath = companyModulePath(companyId, "stock");
 
+  let costlessLots = 0;
+  if (canWrite && !isOperator) {
+    const { count } = await supabase
+      .from("material_lots")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .is("unit_cost", null)
+      .is("owner_customer_id", null)
+      .is("deleted_at", null)
+      .gt("quantity_on_hand", 0);
+    costlessLots = count ?? 0;
+  }
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -562,11 +575,24 @@ export default async function StockPage({ params, searchParams }: PageProps) {
           </p>
         </div>
         {canWrite ? (
-          <Link href={companyModulePath(companyId, "stock", "boxes")}>
-            <Button variant="outline" size="sm">
-              Kutu Birimine Geçiş
-            </Button>
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            {!isOperator ? (
+              <Link href={companyModulePath(companyId, "stock", "valuation")}>
+                <Button
+                  variant={costlessLots > 0 ? "default" : "outline"}
+                  size="sm"
+                >
+                  Stok Değerleme
+                  {costlessLots > 0 ? ` (${costlessLots} maliyetsiz lot)` : ""}
+                </Button>
+              </Link>
+            ) : null}
+            <Link href={companyModulePath(companyId, "stock", "boxes")}>
+              <Button variant="outline" size="sm">
+                Kutu Birimine Geçiş
+              </Button>
+            </Link>
+          </div>
         ) : null}
       </header>
 

@@ -22,15 +22,24 @@ export default async function MaterialCostsReportPage({ params }: PageProps) {
   const { companyId } = await requireModuleAccess(routeCompanyId, "reports");
   const supabase = await createServerSupabaseClient();
 
-  // Weighted-average purchase cost from receipt movements (with a unit cost).
+  // Weighted-average purchase cost from receipt movements. The ledger is
+  // append-only, so a cost assigned to a lot afterwards (Stok Değerleme,
+  // lot edit) lives only on the lot; fall back to it when the receipt has none.
   const [{ data: moves }, { data: reversals }] = await Promise.all([
     supabase
       .from("stock_movements")
-      .select("id, material_id, quantity, unit_cost")
+      .select("id, material_id, quantity, unit_cost, material_lots(unit_cost)")
       .eq("company_id", companyId)
       .eq("kind", "receipt")
-      .not("unit_cost", "is", null)
-      .returns<Array<{ id: string; material_id: string; quantity: number; unit_cost: number | null }>>(),
+      .returns<
+        Array<{
+          id: string;
+          material_id: string;
+          quantity: number;
+          unit_cost: number | null;
+          material_lots: { unit_cost: number | null } | null;
+        }>
+      >(),
     supabase
       .from("stock_movements")
       .select("reverses_movement_id")
@@ -43,10 +52,11 @@ export default async function MaterialCostsReportPage({ params }: PageProps) {
 
   const agg = new Map<string, { qty: number; cost: number }>();
   for (const m of moves ?? []) {
-    if (m.unit_cost === null || reversedIds.has(m.id)) continue;
+    const unitCost = m.unit_cost ?? m.material_lots?.unit_cost ?? null;
+    if (unitCost === null || reversedIds.has(m.id)) continue;
     const a = agg.get(m.material_id) ?? { qty: 0, cost: 0 };
     a.qty += Number(m.quantity);
-    a.cost += Number(m.quantity) * Number(m.unit_cost);
+    a.cost += Number(m.quantity) * Number(unitCost);
     agg.set(m.material_id, a);
   }
 
