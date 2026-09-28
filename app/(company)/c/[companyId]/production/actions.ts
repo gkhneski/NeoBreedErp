@@ -642,6 +642,71 @@ export async function completeProductionBatch(
   );
 }
 
+export type DeleteProductionOrderResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+const deleteSchema = z.object({
+  order_id: z.string().uuid(),
+  reason: z
+    .string()
+    .trim()
+    .min(3, "Silme nedeni gerekli.")
+    .max(500, "Silme nedeni en fazla 500 karakter olabilir."),
+});
+
+// Hatalı açılmış emri kaldırır. Stok etkisi olan (tamamlanmış) emir silinemez;
+// silme, neden ile birlikte firma protokolüne (audit_log) yazılır.
+export async function deleteProductionOrder(
+  routeCompanyId: string,
+  orderId: string,
+  reason: string,
+): Promise<DeleteProductionOrderResult> {
+  const parsed = deleteSchema.safeParse({ order_id: orderId, reason });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Geçersiz istek.",
+    };
+  }
+
+  const { companyId } = await requireCompanyRole(
+    routeCompanyId,
+    PRODUCTION_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { error } = await supabase.rpc("delete_production_order", {
+    p_company_id: companyId,
+    p_order_id: parsed.data.order_id,
+    p_reason: parsed.data.reason,
+  });
+
+  if (error) {
+    if (error.code === "23503") {
+      return { ok: false, error: "Üretim emri bulunamadı." };
+    }
+    if (error.code === "23514") {
+      if (/stock or quality/i.test(error.message)) {
+        return {
+          ok: false,
+          error:
+            "Bu emrin partisinde stok hareketi veya kalite kaydı var; silinemez.",
+        };
+      }
+      return {
+        ok: false,
+        error: "Tamamlanmış veya kapatılmış üretim emri silinemez.",
+      };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath(companyModulePath(companyId, "production"));
+  revalidatePath(companyModulePath(companyId, "production", "log"));
+  return { ok: true };
+}
+
 export async function cancelProductionOrder(
   routeCompanyId: string,
   formData: FormData,

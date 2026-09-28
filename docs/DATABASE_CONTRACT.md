@@ -394,6 +394,18 @@ Per-company execution row for a production order. Each row carries `company_id`,
 
 **Files affected:** `supabase/migrations/20260520000100_phase5c_production_orders.sql`, `supabase/migrations/20260521000000_phase5c_production_batches.sql`, and company routes under `app/(company)/c/[companyId]/production/`.
 
+### 12.3 `audit_log` + production order deletion
+
+Per-company, append-only protocol of operational mutations. Columns: `company_id uuid not null`, `actor_id`, `action`, `target_table`, `target_id`, `target_label`, `reason`, `diff jsonb`, `created_at`. No soft delete, no update: triggers block `update`/`delete`.
+
+**Indexes:** `(company_id, created_at desc)`, `(company_id, target_table, target_id)`.
+
+**RLS:** member select; member insert only with `actor_id = auth.uid()`. No update/delete policy. No platform-admin bypass.
+
+**RPC:** `delete_production_order(company, order, reason)` — `security invoker`. Requires a non-empty reason. Allowed for `draft | planned | in_progress | cancelled` orders whose batches have no stock movement, output lot, QC check or `completed | closed` status. Soft-deletes the order, cancels + soft-deletes its open batches, and writes one `audit_log` row (`action = 'delete_production_order'`, order snapshot in `diff`) in the same transaction.
+
+**Files affected:** `supabase/migrations/20260928000000_audit_log_delete_production_order.sql`, `app/(company)/c/[companyId]/production/log/page.tsx`.
+
 ---
 
 ## 13. Phase 5d - Quality Control

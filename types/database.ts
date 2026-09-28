@@ -230,6 +230,34 @@ export type Database = {
         };
         Relationships: [];
       };
+      audit_log: {
+        Row: {
+          id: string;
+          company_id: string;
+          actor_id: string | null;
+          action: string;
+          target_table: string | null;
+          target_id: string | null;
+          target_label: string | null;
+          reason: string | null;
+          diff: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          actor_id?: string | null;
+          action: string;
+          target_table?: string | null;
+          target_id?: string | null;
+          target_label?: string | null;
+          reason?: string | null;
+          diff?: Json | null;
+          created_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
       platform_audit_log: {
         Row: {
           id: string;
@@ -2225,6 +2253,14 @@ export type Database = {
           p_company_id: string;
           p_order_id: string;
           p_batch_number: string;
+        };
+        Returns: string;
+      };
+      delete_production_order: {
+        Args: {
+          p_company_id: string;
+          p_order_id: string;
+          p_reason: string;
         };
         Returns: string;
       };

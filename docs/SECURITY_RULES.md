@@ -81,7 +81,7 @@ Security is a hard constraint, not a phase. These rules apply from the first lin
 
 - No PII or secrets in logs.
 - Super Admin actions are recorded in `platform_audit_log` (see `DATABASE_CONTRACT.md` and `SUPERADMIN_RULES.md`).
-- Operational mutations (production orders created, QC sign-offs, stock movements) are recorded in a per-company `audit_log` table introduced in Phase 5.
+- Operational mutations (production orders created, QC sign-offs, stock movements) are recorded in a per-company `audit_log` table introduced in Phase 5 (`DATABASE_CONTRACT.md` §12.3; first writer: production order deletion).
 
 ---
 

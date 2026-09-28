@@ -14,6 +14,7 @@ import {
 import type { ProductionOrderStatus } from "@/types/database";
 
 import { CustomerFilter } from "./customer-filter";
+import { OrderDeleteButton } from "./order-delete-button";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -108,6 +109,7 @@ export default async function ProductionOrdersListPage({
 
   const rows = orders ?? [];
   const newHref = companyModulePath(companyId, "production", "new");
+  const canWrite = canWriteCompanyData(role, PRODUCTION_WRITE_ROLES);
 
   return (
     <div className="space-y-6">
@@ -120,11 +122,16 @@ export default async function ProductionOrdersListPage({
             ve çıkış lotu) Adım 2&apos;de devreye girer.
           </p>
         </div>
-        {canWriteCompanyData(role, PRODUCTION_WRITE_ROLES) ? (
-          <Link href={newHref}>
-            <Button>Yeni Üretim Emri</Button>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <Link href={companyModulePath(companyId, "production", "log")}>
+            <Button variant="outline">Silme Protokolü</Button>
           </Link>
-        ) : null}
+          {canWrite ? (
+            <Link href={newHref}>
+              <Button>Yeni Üretim Emri</Button>
+            </Link>
+          ) : null}
+        </div>
       </header>
 
       {(customerOptions ?? []).length > 0 ? (
@@ -150,6 +157,7 @@ export default async function ProductionOrdersListPage({
                 <th className="px-3 py-2 text-left font-medium">Başlangıç</th>
                 <th className="px-3 py-2 text-left font-medium">Bitiş</th>
                 <th className="px-3 py-2 text-left font-medium">Durum</th>
+                {canWrite ? <th className="px-3 py-2" /> : null}
               </tr>
             </thead>
             <tbody>
@@ -231,6 +239,18 @@ export default async function ProductionOrdersListPage({
                       {STATUS_LABEL[order.status]}
                     </Badge>
                   </td>
+                  {canWrite ? (
+                    <td className="px-3 py-2">
+                      {order.status !== "completed" &&
+                      order.status !== "closed" ? (
+                        <OrderDeleteButton
+                          companyId={companyId}
+                          orderId={order.id}
+                          summary={`${order.code} — ${order.materials?.name ?? ""} (${STATUS_LABEL[order.status]})`}
+                        />
+                      ) : null}
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>

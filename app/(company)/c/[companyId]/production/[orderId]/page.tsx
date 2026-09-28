@@ -6,13 +6,18 @@ import { Button } from "@/components/ui/button";
 import { requireModuleAccess } from "@/lib/auth";
 import { boxBreakdown, unitLabelForDisplay } from "@/lib/production/pack";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { companyModulePath } from "@/types/roles";
+import {
+  PRODUCTION_WRITE_ROLES,
+  canWriteCompanyData,
+  companyModulePath,
+} from "@/types/roles";
 import type {
   ProductionBatchStatus,
   ProductionOrderStatus,
 } from "@/types/database";
 
 import { cancelProductionOrder, planProductionOrder } from "../actions";
+import { OrderDeleteButton } from "../order-delete-button";
 import { StartBatchForm } from "./start-batch-form";
 
 interface PageProps {
@@ -155,7 +160,10 @@ function formatDateTime(iso: string | null): string {
 
 export default async function ProductionOrderDetailPage({ params }: PageProps) {
   const { companyId: routeCompanyId, orderId } = await params;
-  const { companyId } = await requireModuleAccess(routeCompanyId, "production");
+  const { companyId, role } = await requireModuleAccess(
+    routeCompanyId,
+    "production",
+  );
   const supabase = await createServerSupabaseClient();
 
   const { data: order } = await supabase
@@ -267,6 +275,10 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
     order.status === "planned" ||
     order.status === "in_progress";
   const canComplete = order.status === "in_progress" && activeBatch;
+  const canDelete =
+    canWriteCompanyData(role, PRODUCTION_WRITE_ROLES) &&
+    order.status !== "completed" &&
+    order.status !== "closed";
 
   const defaultBatchNumber = `${order.code}-B${orderBatches.length + 1}`;
 
@@ -342,6 +354,14 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
                   İptal Et
                 </Button>
               </form>
+            ) : null}
+            {canDelete ? (
+              <OrderDeleteButton
+                companyId={companyId}
+                orderId={order.id}
+                summary={`${order.code} — ${order.materials?.name ?? ""} (${STATUS_LABEL[order.status]})`}
+                redirectTo={companyModulePath(companyId, "production")}
+              />
             ) : null}
           </div>
         </div>
