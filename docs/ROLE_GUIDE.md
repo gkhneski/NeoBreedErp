@@ -55,49 +55,68 @@ Yazma grupları (`types/roles.ts`):
 
 ### 3.1 Operator (depocu) — yalnızca bitmiş ürün
 
-Menü: Panel, Stok, Depo Hareketleri, Siparişler (sevkiyat), Eczane Siparişleri, Satış & Ürünler, Ürünler (salt okuma), Pazaryeri, Stok Girişi (Barkod).
-Hammadde, fabrika lotları, reçete, üretim, maliyet ve tedarikçileri hiçbir zaman görmez.
+Görünen menü: Panel, Stok, Depo Hareketleri, Siparişler (sevkiyat), Eczane Siparişleri, Satış & Ürünler, Ürünler (salt okuma), Pazaryeri, Stok Girişi (Barkod).
+Hammadde, fabrika lotları, reçete, üretim, maliyet ve tedarikçileri görmez.
 
-**Bir partiyi LTD deposuna sayarak almak**
-1. Parti kartındaki QR'ı telefon kamerasıyla açın; ya da *Depo Hareketleri → Barkod Tara → Kamerayla Tara* (kamera yoksa lot numarasını yazıp *Bul*).
-2. Ürünü sayıp *Sayılan miktar* alanına yazın.
-3. *NeuPharma LTD.ŞTİ.* (veya altındaki bir raf) butonuna basın.
-4. Sayım sistemdeki miktara eşitse lot hemen alınır.
-5. Farklıysa sarı bir kutu farkı gösterir. Nedenini yazın, *"… olarak stoğa al"* butonuna basın. Sayılan miktar stok olur; fark düzeltme hareketi olarak kayda geçer.
-6. Lot, biri serbest bırakana kadar **karantinada** kalır (bkz. 3.2).
+| İşlem | Nereden | Nasıl |
+|---|---|---|
+| Partiyi LTD deposuna sayarak almak | Parti kartındaki QR (telefon kamerası) veya *Depo Hareketleri → Barkod Tara → Kamerayla Tara* | 1) Lotu açın 2) *Sayılan miktar*'a sayıyı yazın 3) *NeuPharma LTD.ŞTİ.* butonuna basın |
+| Sayım sistemle aynıysa | Aynı ekran | Lot hemen alınır, ekranda "… stoğuna alındı" yazar |
+| Sayım farklıysa | Aynı ekran | Sarı kutu farkı gösterir → nedenini yazın → *"… olarak stoğa al"*. Sayılan miktar stok olur, fark düzeltme hareketi olarak kaydolur |
+| Yanlış yazdıysa | Aynı ekran | *Vazgeç* |
+| Kamera yoksa | *Barkod Tara* | Lot numarasını kutuya yazıp *Bul* |
+| Aynı depoda rafa yerleştirmek | *Barkod Tara* | Lotu okutun → raf etiketini okutun veya listeden seçin (sayım gerekmez) |
+| Raftakileri görmek | *Barkod Tara* | Raf etiketini okutun |
+| Sipariş hazırlamak | *Eczane Siparişleri* veya *Siparişler → Yeni* | Siparişi açın → sevkiyata çevirin → serbest lotları seçin |
+| Göndermek | *Siparişler* | Sevkiyatı *Gönder* (gönderilen değiştirilemez) |
+| Pazaryeri fiyat onayı | *Pazaryeri* | Öneriyi onaylayın veya reddedin |
+| Mevcut stoğu girmek | *Stok Girişi (Barkod)* | Ürün barkodunu okutun, adedi girin |
 
-**Aynı depo içinde rafa yerleştirmek:** lotu okutun, ardından raf etiketini okutun (veya listeden seçin). Sayım gerekmez.
-
-**Raf okutmak:** raftaki lotlar listelenir.
-
-**Sipariş hazırlamak ve göndermek:** *Eczane Siparişleri* → siparişi açın → sevkiyata çevirin; ya da *Siparişler → Yeni*. Serbest lotları seçin, gönderin. Gönderilmiş sevkiyat değiştirilemez.
-
-**Pazaryeri:** fiyat önerilerini onaylar/reddeder, stok gönderir, listeleri eşleştirir.
-
-**Stok Girişi (Barkod):** mevcut bitmiş ürün stoğunu ürün barkodunu okutarak girer.
+Not: Lot depoya alınınca **karantinada** kalır; biri serbest bırakana kadar satılabilir stokta görünmez.
 
 ### 3.2 Firma admini / üretim sorumlusu / firma kullanıcısı
 
-- **Ana veri:** Hammaddeler, Ambalaj, Yarı Mamüller, Ürünler (*Yeni Ürün*), Tedarikçiler, Müşteriler.
-- **Reçeteler:** *Reçeteler → Yeni*. Kesin kural: YM reçetesinde yalnızca hammadde; mamül reçetesinde yalnızca YM ve ambalaj olur. Kullanmadan önce yayınlayın.
-- **Üretim:**
-  1. *Üretim → Yeni Üretim Emri*: yayında bir reçete ve hedef miktarı seçin. Bitmiş ürün miktarı **kutu** cinsindendir.
-  2. *Planla* → *Üretime Al*. Depoda tam bir YM partisi varsa parti numarası ondan önerilir; parti numarası ürün bazında benzersizdir.
-  3. *Tamamla*: her kalem için tüketilen lotları, çıkış lot numarasını, SKT'yi ve konumu girin. Çıkış lotu karantinada açılır.
-  4. Tamamlanan emirde *Parti Kartı (PDF)*: ürün resmi, parti/lot numarası, içerik ve QR içeren tek sayfalık A4. Yazdır penceresinden PDF olarak kaydedilir.
-  5. Emir tamamlanana kadar düzenlenebilir; yanlış girilen emirler silinebilir (*Silme Protokolü*'nde kayıt tutulur).
-- **Stok:** *Lotlar* (liste, düzenle, yanlış girilen lotu sil, *Etiket Yazdır (QR)*), *Mal Kabul*, *Stok Hareketi*, *Stok Değerleme* (maliyetsiz lotlara toplu birim maliyet), stok hareketi iptali (storno).
-- **Karantinadan çıkarma:** *Lotlar*'da lotu açıp durumunu *Serbest* yapın (gereken yerde kalite onayından sonra). Yalnızca serbest lotlar satılabilir stoktur.
-- **Satınalma:** *MRP* açık siparişlerden ihtiyacı hesaplar; *Satınalma Siparişleri* tedarikçiye gönderir ve mal kabulü kaydeder; *Fatura / İrsaliye*.
-- **Finans:** *Genel Giderler* (aylık), *Cari Hesaplar* (müşteri/tedarikçi hesabı; ödeme için dekont no, tarih ve tutar gerekir), *Raporlar* (maliyet, karlılık, hammadde maliyetleri).
-- **Satış:** *Eczane Siparişleri*, *Portal Kataloğu* (eczanelerin gördüğü ürünler), *Eczane Hesapları* (alıcı girişleri), *Web Sitesi*.
-- **Ajan Kurulu:** yapay zekâ tartışmasını çalıştırır; önerilen aksiyonlar yalnızca onaydan sonra uygulanır.
+| Alan | İşlem | Nereden | Nasıl |
+|---|---|---|---|
+| Ana veri | Hammadde, ambalaj, YM, ürün, tedarikçi, müşteri eklemek | İlgili menü | *Yeni* butonu |
+| Reçete | Reçete oluşturmak | *Reçeteler → Yeni* | YM reçetesine yalnızca hammadde; mamül reçetesine yalnızca YM + ambalaj. Kullanmadan önce yayınlayın |
+| Üretim | Emir açmak | *Üretim → Yeni Üretim Emri* | Yayında reçete + hedef miktar (mamülde **kutu**) |
+| Üretim | Başlatmak | Emir sayfası | *Planla* → *Üretime Al* (parti no: depoda tek YM partisi varsa ondan önerilir; ürün bazında benzersiz) |
+| Üretim | Tamamlamak | Emir sayfası | *Tamamla*: tüketilen lotlar, çıkış lot no, SKT, konum. Çıkış lotu karantinada açılır |
+| Üretim | Parti kartı | Tamamlanmış emir | *Parti Kartı (PDF)* → *PDF Kaydet / Yazdır* |
+| Üretim | Emri düzeltmek / silmek | Emir sayfası | *Düzenle* (tamamlanana kadar); *Sil* (*Silme Protokolü*'ne kaydolur) |
+| Stok | Lotları yönetmek | *Lotlar* | Düzenle, yanlış lotu sil, *Etiket Yazdır (QR)* |
+| Stok | Mal kabul / elle hareket | *Depo Hareketleri* | *Mal Kabul*, *Stok Hareketi* |
+| Stok | Maliyetsiz lotlara maliyet | *Stok* | *Stok Değerleme* |
+| Stok | Yanlış hareketi geri almak | Lot / hareket | Storno |
+| Stok | Karantinadan çıkarmak | *Lotlar* → lot | Durumu *Serbest* yapın (yalnızca serbest lot satılabilir) |
+| Satınalma | İhtiyaç hesabı | *MRP* | Açık siparişlerden hesaplanır |
+| Satınalma | Sipariş ve kabul | *Satınalma Siparişleri* | Tedarikçiye gönder, mal kabulü kaydet |
+| Satınalma | Fatura / irsaliye | *Fatura / İrsaliye* | *Yeni* |
+| Finans | Aylık giderler | *Genel Giderler* | Maaş, elektrik, su, kira vb. girin |
+| Finans | Cari hesap | *Cari Hesaplar* | Ödeme için dekont no, tarih, tutar zorunlu |
+| Finans | Raporlar | *Raporlar* | Maliyet, karlılık, hammadde maliyetleri |
+| Satış | Eczane siparişi | *Eczane Siparişleri* | Siparişi açın, sevkiyata çevirin |
+| Satış | Portal kataloğu / alıcılar | *Portal Kataloğu*, *Eczane Hesapları* | Ürünleri listeleyin, alıcı girişi tanımlayın |
+| Satış | Web sitesi | *Web Sitesi* | İçerik ve ürün yönetimi |
+| Yönetim | Ajan Kurulu | *Ajan Kurulu* | Tartışmayı çalıştırın; önerilen aksiyonlar onaydan sonra uygulanır |
 
-Yalnızca firma admini: *Kullanıcılar* (davet, rol atama), *Ayarlar → Pazaryeri Bağlantıları* (API bilgileri), *Ayarlar*'daki depo ve raf tanımları.
+Yalnızca **firma admini**:
+
+| İşlem | Nereden | Nasıl |
+|---|---|---|
+| Kullanıcı davet etmek, rol vermek | *Kullanıcılar* | Davet et, rol seç |
+| Pazaryeri API bilgileri | *Ayarlar → Pazaryeri Bağlantıları* | Bilgileri girin |
+| Depo ve raf tanımı | *Ayarlar* | Yeni depo / raf ekleyin |
 
 ### 3.3 Kalite sorumlusu
 
-Tüm modülleri görür. Yazdığı yerler: *Kalite Kontrol* (kontrol oluşturma, imzalama veya iptal) ve dosya ekleri (analiz sertifikası, MSDS, raporlar). Başarısız kalite kontrolü lotun veya partinin serbest bırakılmasını engeller. Stok, üretim veya ana veri düzenleyemez.
+| İşlem | Nereden | Nasıl |
+|---|---|---|
+| Kalite kontrol açmak | *Kalite Kontrol → Yeni* | Lot veya parti seçin |
+| İmzalamak / iptal etmek | Kontrol sayfası | Sonucu girip imzalayın (başarısız kontrol lotu serbest bırakmayı engeller) |
+| Dosya eklemek | Lot / kontrol sayfası | Analiz sertifikası, MSDS, rapor yükleyin |
+| Diğer modüller | – | Yalnızca görür; stok, üretim, ana veri düzenleyemez |
 
 ### 3.4 Salt okuma (viewer)
 
@@ -105,27 +124,41 @@ Her modülü görür, hiçbir şeyi değiştiremez.
 
 ### 3.5 Bölge müdürü
 
-Panel, Eczane Siparişleri, Ürünler, Stok, Üretim (salt okuma), Satış & Ürünler ve Müşteriler'i görür. Eczaneler adına sipariş girer. Ana veri, kalite ve kullanıcı yönetimi yoktur.
+| İşlem | Nereden | Nasıl |
+|---|---|---|
+| Eczane adına sipariş girmek | *Eczane Siparişleri* | Yeni sipariş, eczane ve ürünleri seçin |
+| Bakmak | Ürünler, Stok, Üretim, Satış & Ürünler, Müşteriler | Salt okuma |
+| Yapamaz | – | Ana veri, kalite, kullanıcı yönetimi |
 
 ### 3.6 Eczane alıcısı (portal)
 
-ERP'den ayrıdır; firma kullanıcısı değildir. `/portal`'a giriş yapar, firmanın yayınladığı kataloğa bakar ve sipariş verir. `/c/...` sayfalarına giremez.
+| İşlem | Nereden | Nasıl |
+|---|---|---|
+| Kataloğa bakmak, sipariş vermek | `/portal` | Kendi girişiyle |
+| Yapamaz | – | `/c/...` (ERP) sayfalarına giremez |
 
 ### 3.7 Platform admini
 
-`/superadmin`: firma, paket ve koltuk limiti oluşturur, kullanıcı davet eder, denetim kaydını okur. Hiçbir firmanın operasyonel verisine dokunmaz.
+| İşlem | Nereden | Nasıl |
+|---|---|---|
+| Firma, paket, koltuk limiti | `/superadmin` | Firmalar / Abonelikler |
+| Kullanıcı davet etmek | Firma detayı | *Davet* |
+| Denetim kaydı | *Audit* | Okuma |
+| Yapamaz | – | Firmanın stok, üretim, maliyet verisi |
 
 ---
 
 ## 4. Baştan sona akış (fabrika → depo → müşteri)
 
-1. Hammadde gelir (*Mal Kabul* veya satınalma siparişi kabulü) → lot karantinada → kalite kontrol → serbest.
-2. YM emri → tamamla → YM lotu (parti numarası örn. `2608006`).
-3. Aynı parti numarasıyla mamül emri → tamamla → mamül lotu `ANA`'da karantinada.
-4. *Parti Kartı (PDF)* yazdırılır, ürünün yanına konur.
-5. Depocu QR'ı okutur, sayar, lotu `LTD`'ye alır.
-6. Lot serbest bırakılır (kalite kararı) → satılabilir stok, pazaryeri stoğu ve portal stoğu olarak görünür.
-7. Sipariş gelir (portal, pazaryeri, elle) → sevkiyat → gönder.
+| Adım | Kim | Ne olur |
+|---|---|---|
+| 1 | Yönetici | Hammadde gelir (*Mal Kabul* / satınalma kabulü) → karantina → kalite → serbest |
+| 2 | Yönetici | YM emri → tamamla → YM lotu (parti no örn. `2608006`) |
+| 3 | Yönetici | Aynı parti numarasıyla mamül emri → tamamla → mamül lotu `ANA`'da karantinada |
+| 4 | Yönetici | *Parti Kartı (PDF)* yazdırılır, ürünün yanına konur |
+| 5 | Depocu | QR okutur, sayar, lotu `LTD`'ye alır |
+| 6 | Yönetici / kalite | Lot serbest bırakılır → satılabilir stok, pazaryeri ve portal stoğu |
+| 7 | Depocu | Sipariş gelir (portal, pazaryeri, elle) → sevkiyat → gönder |
 
 ---
 
