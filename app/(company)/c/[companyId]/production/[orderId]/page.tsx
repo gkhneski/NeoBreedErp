@@ -421,6 +421,13 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
                 <Button>Tamamla</Button>
               </Link>
             ) : null}
+            {orderBatches.some((b) => b.output_lot_id) ? (
+              <Link
+                href={companyModulePath(companyId, "production", order.id, "label")}
+              >
+                <Button variant="outline">Parti Kartı (PDF)</Button>
+              </Link>
+            ) : null}
             {canCancel ? (
               <form action={cancelProductionOrder.bind(null, companyId)}>
                 <input type="hidden" name="order_id" value={order.id} />
