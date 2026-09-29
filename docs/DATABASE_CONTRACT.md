@@ -392,6 +392,8 @@ Per-company execution row for a production order. Each row carries `company_id`,
 
 **RPCs:** `start_production_order(company, order, batch_number)` moves `planned -> in_progress` and creates a batch. `complete_production_batch(company, batch, actual_quantity, output_lot_number, output_expiry_date, consumed[])` issues consumed released lots, creates a quarantine output lot, records receipt, completes the batch/order, and writes costing data when available. RPCs are `security invoker`; RLS still applies.
 
+**Output quantity (boxes):** the output lot is stored in boxes. `actual_quantity` is in the recipe's yield unit and is divided by `materials.units_per_pack` only when the recipe yields pieces. If the recipe consumes about a pack's worth of semi-finished units per yield unit (active `semi` items with `uom = 'unit'`, summed, ÷ `yield_quantity` ≥ `(1 + units_per_pack) / 2`), the yield is already boxes and is not divided (`20260929000000_complete_batch_box_yield.sql`). The UI applies the same rule in `lib/production/pack.ts` (`yieldIsInBoxes`).
+
 **Files affected:** `supabase/migrations/20260520000100_phase5c_production_orders.sql`, `supabase/migrations/20260521000000_phase5c_production_batches.sql`, and company routes under `app/(company)/c/[companyId]/production/`.
 
 ### 12.3 `audit_log` + production order deletion
