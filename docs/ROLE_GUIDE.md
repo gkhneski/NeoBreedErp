@@ -1,138 +1,138 @@
-# ROLE_GUIDE.md — What each role can do, and how
+# ROLE_GUIDE.md — Hangi rol neyi yapabilir ve nasıl yapar
 
-Living document. **Update it in the same change whenever a role, module or workflow changes.**
-Source of truth for permissions is [types/roles.ts](../types/roles.ts); this file explains it in plain terms.
-Menu and button names are the Turkish labels shown in the app.
+Yaşayan doküman. **Bir rol, modül veya iş akışı değiştiğinde aynı değişiklikte bu dosya da güncellenir.**
+Yetkilerin asıl kaynağı [types/roles.ts](../types/roles.ts) dosyasıdır; bu dosya onu sade dille anlatır.
+Menü ve buton adları uygulamada göründüğü gibi yazılmıştır.
 
-Last reviewed: 2026-09-29.
+Son gözden geçirme: 2026-09-29.
 
 ---
 
-## 1. Roles at a glance
+## 1. Rollere genel bakış
 
-| Role (badge) | Who | Sees | Can change |
+| Rol (rozet) | Kim | Neyi görür | Neyi değiştirir |
 |---|---|---|---|
-| Platform admin | Gökhan (owner) | `/superadmin` only: companies, packages, users, audit | Companies, packages, seats. **Not** any company's stock, production or costs |
-| `company_admin` (FIRMA ADMINI) | Company owner / manager | Everything in the company | Everything, plus users and marketplace credentials |
-| `production_manager` (URETIM) | Production head | Everything | Master data, production, stock, shipments, orders, boardroom |
-| `quality_manager` (KALITE) | QC | Everything | Quality checks and file attachments only |
-| `operator` (OPERATOR) | Depot clerk | Finished goods only (see 3.1) | Stock scan/receipt, shipments, orders, marketplace |
-| `company_user` (KULLANICI) | General staff | Everything | Same as production manager, plus quality |
-| `viewer` (OKUMA) | Read-only | Everything | Nothing |
-| `regional_manager` (BOLGE) | Sales rep | Dashboard, orders, products, stock, production (read), customers, sales | Enters pharmacy orders |
-| Pharmacy buyer | External pharmacy | `/portal` only (not the ERP) | Own orders |
+| Platform admini | Gökhan (platform sahibi) | Yalnızca `/superadmin`: firmalar, paketler, kullanıcılar, denetim kaydı | Firmalar, paketler, koltuk limitleri. Hiçbir firmanın stok, üretim veya maliyetine **dokunmaz** |
+| `company_admin` (FIRMA ADMINI) | Firma sahibi / yöneticisi | Firmadaki her şey | Her şey; ayrıca kullanıcılar ve pazaryeri bağlantı bilgileri |
+| `production_manager` (URETIM) | Üretim sorumlusu | Her şey | Ana veri, üretim, stok, sevkiyat, siparişler, Ajan Kurulu |
+| `quality_manager` (KALITE) | Kalite sorumlusu | Her şey | Yalnızca kalite kontrolleri ve dosya ekleri |
+| `operator` (OPERATOR) | Depocu | Yalnızca bitmiş ürün (bkz. 3.1) | Stok okutma/kabul, sevkiyat, siparişler, pazaryeri |
+| `company_user` (KULLANICI) | Genel personel | Her şey | Üretim sorumlusuyla aynı, ek olarak kalite |
+| `viewer` (OKUMA) | Salt okuma | Her şey | Hiçbir şey |
+| `regional_manager` (BOLGE) | Satış temsilcisi | Panel, siparişler, ürünler, stok, üretim (salt okuma), müşteriler, satış | Eczaneler adına sipariş girer |
+| Eczane alıcısı | Dış eczane | Yalnızca `/portal` (ERP'ye giremez) | Kendi siparişleri |
 
-Write groups (from `types/roles.ts`):
+Yazma grupları (`types/roles.ts`):
 
-| Group | company_admin | production_manager | quality_manager | operator | company_user | regional_manager |
+| Grup | company_admin | production_manager | quality_manager | operator | company_user | regional_manager |
 |---|---|---|---|---|---|---|
-| Master data (materials, products, recipes, suppliers) | yes | yes | – | – | yes | – |
-| Production (orders, batches) | yes | yes | – | yes | yes | – |
-| Quality | yes | – | yes | – | yes | – |
-| Stock (lots, receipts, scan) | yes | yes | – | yes | yes | – |
-| Files (CoA, attachments) | yes | yes | yes | – | yes | – |
-| Shipments | yes | yes | – | yes | yes | – |
-| B2B sales orders | yes | yes | – | yes | yes | yes |
-| Marketplace (listings, price approval) | yes | yes | – | yes | yes | – |
-| Boardroom (AI agents) | yes | yes | – | – | yes | – |
-| Users, marketplace credentials | yes | – | – | – | – | – |
+| Ana veri (hammadde, ürün, reçete, tedarikçi) | evet | evet | – | – | evet | – |
+| Üretim (emir, parti) | evet | evet | – | evet | evet | – |
+| Kalite | evet | – | evet | – | evet | – |
+| Stok (lot, mal kabul, okutma) | evet | evet | – | evet | evet | – |
+| Dosyalar (analiz sertifikası, ekler) | evet | evet | evet | – | evet | – |
+| Sevkiyat | evet | evet | – | evet | evet | – |
+| B2B satış siparişleri | evet | evet | – | evet | evet | evet |
+| Pazaryeri (liste, fiyat onayı) | evet | evet | – | evet | evet | – |
+| Ajan Kurulu (yapay zekâ ajanları) | evet | evet | – | – | evet | – |
+| Kullanıcılar, pazaryeri bağlantı bilgileri | evet | – | – | – | – | – |
 
-`viewer` appears in no write group.
+`viewer` hiçbir yazma grubunda yer almaz.
 
 ---
 
-## 2. Company structure in the menu
+## 2. Menüdeki firma yapısı
 
-- **İmalat A.Ş.** (factory): Hammaddeler, Ambalaj, Yarı Mamüller, Lotlar, Stok Girişi (Barkod), Stok, Depo Hareketleri, Reçeteler, Üretim, Kalite Kontrol, Üretim İş Listesi, Tedarikçiler, MRP, Satınalma Siparişleri, Fatura / İrsaliye, Genel Giderler.
-- **Satış Ltd. Şti.** (sales): Ürünler, Müşteriler, Satış & Ürünler, Eczane Siparişleri, Portal Kataloğu, Siparişler (shipments), Eczane Hesapları, Pazaryeri, Web Sitesi.
+- **İmalat A.Ş.** (fabrika): Hammaddeler, Ambalaj Malzemeleri, Yarı Mamüller, Lotlar, Stok Girişi (Barkod), Stok, Depo Hareketleri, Reçeteler, Üretim, Kalite Kontrol, Üretim İş Listesi, Tedarikçiler, MRP (İhtiyaç Planlama), Satınalma Siparişleri, Fatura / İrsaliye, Genel Giderler.
+- **Satış Ltd. Şti.** (satış): Ürünler, Müşteriler, Satış & Ürünler, Eczane Siparişleri, Portal Kataloğu, Siparişler (sevkiyat), Eczane Hesapları, Pazaryeri, Web Sitesi.
 - **Ortak**: Ajan Kurulu, Cari Hesaplar, Raporlar, Kullanıcılar, Ayarlar.
 
-Both entities are **one tenant**. Depots are locations: `ANA` = Ana Depo (factory), `LTD` = NeuPharma LTD.ŞTİ. (sales depot).
+İki şirket **tek kiracıdır**. Depolar birer konumdur: `ANA` = Ana Depo (fabrika), `LTD` = NeuPharma LTD.ŞTİ. (satış deposu).
 
 ---
 
-## 3. Role by role
+## 3. Rol rol anlatım
 
-### 3.1 Operator (depo personeli) — finished goods only
+### 3.1 Operator (depocu) — yalnızca bitmiş ürün
 
-Menu: Panel, Stok, Depo Hareketleri, Siparişler (shipments), Eczane Siparişleri, Satış & Ürünler, Ürünler (read-only), Pazaryeri, Stok Girişi (Barkod).
-Never sees raw materials, factory lots, recipes, production, costs, suppliers.
+Menü: Panel, Stok, Depo Hareketleri, Siparişler (sevkiyat), Eczane Siparişleri, Satış & Ürünler, Ürünler (salt okuma), Pazaryeri, Stok Girişi (Barkod).
+Hammadde, fabrika lotları, reçete, üretim, maliyet ve tedarikçileri hiçbir zaman görmez.
 
-**Receive a batch into the LTD depot (counted)**
-1. Open the QR on the batch card with the phone camera, or go to *Depo Hareketleri → Barkod Tara → Kamerayla Tara* (or type the lot number and press *Bul*).
-2. Count the boxes and type the number in *Sayılan miktar*.
-3. Press *NeuPharma LTD.ŞTİ.* (or one of its shelves).
-4. If the count equals the system quantity the lot is received at once.
-5. If it differs, a yellow box shows the difference. Type the reason, press *"… olarak stoğa al"*. The counted quantity becomes the stock; the difference is posted as an adjustment.
-6. The lot stays in **quarantine** until someone releases it (see 3.2).
+**Bir partiyi LTD deposuna sayarak almak**
+1. Parti kartındaki QR'ı telefon kamerasıyla açın; ya da *Depo Hareketleri → Barkod Tara → Kamerayla Tara* (kamera yoksa lot numarasını yazıp *Bul*).
+2. Ürünü sayıp *Sayılan miktar* alanına yazın.
+3. *NeuPharma LTD.ŞTİ.* (veya altındaki bir raf) butonuna basın.
+4. Sayım sistemdeki miktara eşitse lot hemen alınır.
+5. Farklıysa sarı bir kutu farkı gösterir. Nedenini yazın, *"… olarak stoğa al"* butonuna basın. Sayılan miktar stok olur; fark düzeltme hareketi olarak kayda geçer.
+6. Lot, biri serbest bırakana kadar **karantinada** kalır (bkz. 3.2).
 
-**Put a lot on a shelf inside the same depot**: scan the lot, then scan the shelf label (or pick it). No count needed.
+**Aynı depo içinde rafa yerleştirmek:** lotu okutun, ardından raf etiketini okutun (veya listeden seçin). Sayım gerekmez.
 
-**Scan a shelf**: lists the lots on it.
+**Raf okutmak:** raftaki lotlar listelenir.
 
-**Prepare and ship an order**: *Eczane Siparişleri* → open the order → convert to shipment; or *Siparişler → Yeni*. Pick released lots, then ship. Shipped shipments are immutable.
+**Sipariş hazırlamak ve göndermek:** *Eczane Siparişleri* → siparişi açın → sevkiyata çevirin; ya da *Siparişler → Yeni*. Serbest lotları seçin, gönderin. Gönderilmiş sevkiyat değiştirilemez.
 
-**Marketplace**: approve or reject price proposals, push stock, match listings.
+**Pazaryeri:** fiyat önerilerini onaylar/reddeder, stok gönderir, listeleri eşleştirir.
 
-**Stok Girişi (Barkod)**: enter existing finished stock by scanning the product barcode.
+**Stok Girişi (Barkod):** mevcut bitmiş ürün stoğunu ürün barkodunu okutarak girer.
 
-### 3.2 Company admin / production manager / company user
+### 3.2 Firma admini / üretim sorumlusu / firma kullanıcısı
 
-- **Master data**: Hammaddeler, Ambalaj, Yarı Mamüller, Ürünler (*Yeni Ürün*), Tedarikçiler, Müşteriler.
-- **Recipes**: *Reçeteler → Yeni*. Hard rule: a YM recipe holds raw material only; a finished-product recipe holds YM plus packaging only. Publish before use.
-- **Production**:
-  1. *Üretim → Yeni Üretim Emri*: pick a published recipe and the target quantity. For finished products the quantity is in **boxes**.
-  2. *Planla* → *Üretime Al* (batch number is suggested from the YM batch when there is exactly one in stock; batch numbers are unique per product).
-  3. *Tamamla*: choose the consumed lots per item, output lot number, expiry date, location. The output lot is created in quarantine.
-  4. *Parti Kartı (PDF)* on the completed order: A4 sheet with image, batch/lot number, contents and a QR. Save as PDF from the print dialog.
-  5. Orders can be edited until completed; unstarted or mis-entered orders can be deleted (logged in *Silme Protokolü*).
-- **Stock**: *Lotlar* (list, edit, delete mis-entered lots, *Etiket Yazdır (QR)*), *Mal Kabul*, *Stok Hareketi*, *Stok Değerleme* (bulk unit cost for costless lots), storno of a movement.
-- **Release from quarantine**: open the lot in *Lotlar* and change its status to *Serbest* (after QC where required). Only released lots count as sellable.
-- **Purchasing**: *MRP* computes needs from open orders; *Satınalma Siparişleri* sends to suppliers and records goods receipt; *Fatura / İrsaliye*.
-- **Finance**: *Genel Giderler* (monthly), *Cari Hesaplar* (customer/supplier ledger, payments need receipt no, date, amount), *Raporlar* (costs, profitability, material costs).
-- **Sales**: *Eczane Siparişleri*, *Portal Kataloğu* (what pharmacies see), *Eczane Hesapları* (buyer logins), *Web Sitesi*.
-- **Boardroom**: *Ajan Kurulu* runs the AI debate; proposed actions are applied only after approval.
+- **Ana veri:** Hammaddeler, Ambalaj, Yarı Mamüller, Ürünler (*Yeni Ürün*), Tedarikçiler, Müşteriler.
+- **Reçeteler:** *Reçeteler → Yeni*. Kesin kural: YM reçetesinde yalnızca hammadde; mamül reçetesinde yalnızca YM ve ambalaj olur. Kullanmadan önce yayınlayın.
+- **Üretim:**
+  1. *Üretim → Yeni Üretim Emri*: yayında bir reçete ve hedef miktarı seçin. Bitmiş ürün miktarı **kutu** cinsindendir.
+  2. *Planla* → *Üretime Al*. Depoda tam bir YM partisi varsa parti numarası ondan önerilir; parti numarası ürün bazında benzersizdir.
+  3. *Tamamla*: her kalem için tüketilen lotları, çıkış lot numarasını, SKT'yi ve konumu girin. Çıkış lotu karantinada açılır.
+  4. Tamamlanan emirde *Parti Kartı (PDF)*: ürün resmi, parti/lot numarası, içerik ve QR içeren tek sayfalık A4. Yazdır penceresinden PDF olarak kaydedilir.
+  5. Emir tamamlanana kadar düzenlenebilir; yanlış girilen emirler silinebilir (*Silme Protokolü*'nde kayıt tutulur).
+- **Stok:** *Lotlar* (liste, düzenle, yanlış girilen lotu sil, *Etiket Yazdır (QR)*), *Mal Kabul*, *Stok Hareketi*, *Stok Değerleme* (maliyetsiz lotlara toplu birim maliyet), stok hareketi iptali (storno).
+- **Karantinadan çıkarma:** *Lotlar*'da lotu açıp durumunu *Serbest* yapın (gereken yerde kalite onayından sonra). Yalnızca serbest lotlar satılabilir stoktur.
+- **Satınalma:** *MRP* açık siparişlerden ihtiyacı hesaplar; *Satınalma Siparişleri* tedarikçiye gönderir ve mal kabulü kaydeder; *Fatura / İrsaliye*.
+- **Finans:** *Genel Giderler* (aylık), *Cari Hesaplar* (müşteri/tedarikçi hesabı; ödeme için dekont no, tarih ve tutar gerekir), *Raporlar* (maliyet, karlılık, hammadde maliyetleri).
+- **Satış:** *Eczane Siparişleri*, *Portal Kataloğu* (eczanelerin gördüğü ürünler), *Eczane Hesapları* (alıcı girişleri), *Web Sitesi*.
+- **Ajan Kurulu:** yapay zekâ tartışmasını çalıştırır; önerilen aksiyonlar yalnızca onaydan sonra uygulanır.
 
-Company admin only: *Kullanıcılar* (invite users, set roles), *Ayarlar → Pazaryeri Bağlantıları* (API credentials), depots and shelves under *Ayarlar*.
+Yalnızca firma admini: *Kullanıcılar* (davet, rol atama), *Ayarlar → Pazaryeri Bağlantıları* (API bilgileri), *Ayarlar*'daki depo ve raf tanımları.
 
-### 3.3 Quality manager
+### 3.3 Kalite sorumlusu
 
-Sees all modules. Writes: *Kalite Kontrol* (create checks, sign off or cancel) and file attachments (CoA, MSDS, reports). A failing QC blocks the lot or batch from release. No stock, production or master-data edits.
+Tüm modülleri görür. Yazdığı yerler: *Kalite Kontrol* (kontrol oluşturma, imzalama veya iptal) ve dosya ekleri (analiz sertifikası, MSDS, raporlar). Başarısız kalite kontrolü lotun veya partinin serbest bırakılmasını engeller. Stok, üretim veya ana veri düzenleyemez.
 
-### 3.4 Viewer
+### 3.4 Salt okuma (viewer)
 
-Sees every module, changes nothing.
+Her modülü görür, hiçbir şeyi değiştiremez.
 
-### 3.5 Regional manager
+### 3.5 Bölge müdürü
 
-Sees Panel, Eczane Siparişleri, Ürünler, Stok, Üretim (read-only), Satış & Ürünler, Müşteriler. Enters orders on behalf of pharmacies. No master data, quality or users.
+Panel, Eczane Siparişleri, Ürünler, Stok, Üretim (salt okuma), Satış & Ürünler ve Müşteriler'i görür. Eczaneler adına sipariş girer. Ana veri, kalite ve kullanıcı yönetimi yoktur.
 
-### 3.6 Pharmacy buyer (portal)
+### 3.6 Eczane alıcısı (portal)
 
-Separate from the ERP: not a company user. Signs in to `/portal`, browses the catalog the company published, places orders. Cannot open `/c/...`.
+ERP'den ayrıdır; firma kullanıcısı değildir. `/portal`'a giriş yapar, firmanın yayınladığı kataloğa bakar ve sipariş verir. `/c/...` sayfalarına giremez.
 
-### 3.7 Platform admin
+### 3.7 Platform admini
 
-`/superadmin`: create companies, packages and seat limits, invite users, read the audit log. Does not touch any company's operational data.
-
----
-
-## 4. End-to-end flow (factory → depot → customer)
-
-1. Raw material arrives (*Mal Kabul* or a purchase order receipt) → lot in quarantine → QC → release.
-2. YM order → complete → YM lot (batch number e.g. `2608006`).
-3. Finished-product order using the same batch number → complete → finished lot in quarantine at `ANA`.
-4. Print *Parti Kartı (PDF)*, attach it to the goods.
-5. Depot clerk scans the QR, counts, takes the lot into `LTD`.
-6. Lot released (quality decision) → appears as sellable stock, marketplace stock, portal availability.
-7. Order arrives (portal, marketplace, manual) → shipment → ship.
+`/superadmin`: firma, paket ve koltuk limiti oluşturur, kullanıcı davet eder, denetim kaydını okur. Hiçbir firmanın operasyonel verisine dokunmaz.
 
 ---
 
-## 5. Maintenance rules
+## 4. Baştan sona akış (fabrika → depo → müşteri)
 
-- Changing `types/roles.ts` or a page guard ⇒ update section 1 and the affected section 3 in the same commit.
-- New menu item or workflow ⇒ add it to section 2/3 with the exact button names.
-- Open questions to settle with the owner are listed here until decided:
-  - Should a lot be released automatically when the depot receives it, or stay a quality decision?
-  - On a count difference, should the receipt wait for manager approval?
+1. Hammadde gelir (*Mal Kabul* veya satınalma siparişi kabulü) → lot karantinada → kalite kontrol → serbest.
+2. YM emri → tamamla → YM lotu (parti numarası örn. `2608006`).
+3. Aynı parti numarasıyla mamül emri → tamamla → mamül lotu `ANA`'da karantinada.
+4. *Parti Kartı (PDF)* yazdırılır, ürünün yanına konur.
+5. Depocu QR'ı okutur, sayar, lotu `LTD`'ye alır.
+6. Lot serbest bırakılır (kalite kararı) → satılabilir stok, pazaryeri stoğu ve portal stoğu olarak görünür.
+7. Sipariş gelir (portal, pazaryeri, elle) → sevkiyat → gönder.
+
+---
+
+## 5. Bakım kuralları
+
+- `types/roles.ts` veya bir sayfa yetkisi değişirse 1. bölüm ve ilgili 3. bölüm aynı commit'te güncellenir.
+- Yeni menü öğesi veya iş akışı, buton adlarıyla birlikte 2. ve 3. bölüme eklenir.
+- Sahibiyle karara bağlanacak açık sorular karar verilene kadar burada durur:
+  - Depo lotu aldığında lot otomatik serbest kalsın mı, yoksa kalite kararı olarak mı kalsın?
+  - Sayım farkında kabul yönetici onayı beklesin mi?
