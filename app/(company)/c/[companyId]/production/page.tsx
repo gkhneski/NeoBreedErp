@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireModuleAccess } from "@/lib/auth";
-import { boxBreakdown, unitLabelForDisplay } from "@/lib/production/pack";
+import { targetDisplay, type RecipeYield } from "@/lib/production/pack";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   PRODUCTION_WRITE_ROLES,
@@ -31,7 +31,9 @@ type OrderRow = {
   planned_end_at: string | null;
   updated_at: string;
   materials: { code: string; name: string } | null;
-  recipes: { code: string; name: string; version: number } | null;
+  recipes:
+    | ({ code: string; name: string; version: number } & RecipeYield)
+    | null;
   customers: { code: string; name: string } | null;
 };
 
@@ -87,7 +89,8 @@ export default async function ProductionOrdersListPage({
     .select(
       "id, code, status, planned_quantity, planned_uom, planned_start_at, planned_end_at, updated_at, " +
         "materials:finished_material_id(code, name), " +
-        "recipes:recipe_id(code, name, version), " +
+        "recipes:recipe_id(code, name, version, yield_quantity, " +
+        "recipe_items(quantity, uom, active, materials:material_id(type))), " +
         "customers:customer_id(code, name)",
     )
     .eq("company_id", companyId)
@@ -161,7 +164,14 @@ export default async function ProductionOrdersListPage({
               </tr>
             </thead>
             <tbody>
-              {rows.map((order) => (
+              {rows.map((order) => {
+                const target = targetDisplay(
+                  Number(order.planned_quantity),
+                  order.planned_uom,
+                  order.materials?.name ?? "",
+                  order.recipes,
+                );
+                return (
                 <tr key={order.id} className="border-t border-border">
                   <td className="px-3 py-2 font-mono text-xs">
                     <Link
@@ -211,22 +221,14 @@ export default async function ProductionOrdersListPage({
                     <div>
                       {formatNumber(Number(order.planned_quantity))}{" "}
                       <span className="text-muted-foreground">
-                        {unitLabelForDisplay(order.planned_uom)}
+                        {target.unit}
                       </span>
                     </div>
-                    {order.materials
-                      ? (() => {
-                          const bd = boxBreakdown(
-                            Number(order.planned_quantity),
-                            order.materials.name,
-                          );
-                          return bd ? (
-                            <div className="font-sans text-[11px] font-semibold text-emerald-600">
-                              {bd}
-                            </div>
-                          ) : null;
-                        })()
-                      : null}
+                    {target.breakdown ? (
+                      <div className="font-sans text-[11px] font-semibold text-emerald-600">
+                        {target.breakdown}
+                      </div>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">
                     {formatDate(order.planned_start_at)}
@@ -252,7 +254,8 @@ export default async function ProductionOrdersListPage({
                     </td>
                   ) : null}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

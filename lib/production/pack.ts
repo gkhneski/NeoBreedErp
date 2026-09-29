@@ -78,3 +78,57 @@ export function unitsPerPack(name: string): number {
 export function unitLabelForDisplay(uom: string): string {
   return uom === "unit" ? "adet" : uom;
 }
+
+export type RecipeYield = {
+  yield_quantity: number;
+  recipe_items: Array<{
+    quantity: number;
+    uom: string;
+    active: boolean;
+    materials: { type: string } | null;
+  }>;
+};
+
+// İki seviyeli reçetede mamül verimi çoğunlukla zaten kutudur (1.000 kutu ←
+// 30.000 adet YM). Verim birimi başına tüketilen YM adedi paket boyuna yakınsa
+// hedef kutudur; 1'e yakınsa tablettir ve kutuya bölünmesi gerekir.
+export function yieldIsInBoxes(name: string, recipe: RecipeYield | null): boolean {
+  const size = unitsPerPack(name);
+  const yieldQuantity = Number(recipe?.yield_quantity ?? 0);
+  if (size <= 1 || !recipe || !(yieldQuantity > 0)) return false;
+  const semiUnits = recipe.recipe_items
+    .filter((i) => i.active && i.materials?.type === "semi" && i.uom === "unit")
+    .reduce((sum, i) => sum + Number(i.quantity), 0);
+  return semiUnits / yieldQuantity >= (1 + size) / 2;
+}
+
+export function yieldUnitLabel(
+  uom: string,
+  name: string,
+  recipe: RecipeYield | null,
+): string {
+  return yieldIsInBoxes(name, recipe) ? "kutu" : unitLabelForDisplay(uom);
+}
+
+// Hedef miktarın birimi + alt etiketi. Kutu-verimli reçete: "kutu" ve
+// "= 181.500 tablet (30'li)"; tablet-verimli: "adet" ve "= 10.000 kutu (30'li)".
+export function targetDisplay(
+  plannedQuantity: number,
+  uom: string,
+  name: string,
+  recipe: RecipeYield | null,
+): { unit: string; breakdown: string | null } {
+  if (!yieldIsInBoxes(name, recipe)) {
+    return {
+      unit: unitLabelForDisplay(uom),
+      breakdown: boxBreakdown(plannedQuantity, name),
+    };
+  }
+  const pack = parsePack(name);
+  const pieces = plannedQuantity * (pack.packSize ?? 1);
+  const piecesStr = pieces.toLocaleString("tr-TR", { maximumFractionDigits: 1 });
+  return {
+    unit: "kutu",
+    breakdown: `= ${piecesStr} ${pack.form ?? "adet"} (${pack.packSize}'li)`,
+  };
+}

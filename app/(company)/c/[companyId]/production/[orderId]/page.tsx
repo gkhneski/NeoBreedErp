@@ -4,7 +4,11 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requireModuleAccess } from "@/lib/auth";
-import { boxBreakdown, unitLabelForDisplay } from "@/lib/production/pack";
+import {
+  targetDisplay,
+  unitLabelForDisplay,
+  yieldUnitLabel,
+} from "@/lib/production/pack";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   PRODUCTION_WRITE_ROLES,
@@ -76,7 +80,12 @@ type RecipeItemRow = {
   percentage: number | null;
   active: boolean;
   notes: string | null;
-  materials: { code: string; name: string; base_uom: string } | null;
+  materials: {
+    code: string;
+    name: string;
+    base_uom: string;
+    type: "raw" | "semi" | "finished";
+  } | null;
 };
 
 type BatchRow = {
@@ -187,7 +196,7 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
       .from("recipe_items")
       .select(
         "id, position, quantity, uom, percentage, active, notes, " +
-          "materials:material_id(code, name, base_uom)",
+          "materials:material_id(code, name, base_uom, type)",
       )
       .eq("recipe_id", order.recipe_id)
       .order("position", { ascending: true })
@@ -266,6 +275,19 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
     recipe && Number(recipe.yield_quantity) > 0
       ? Number(order.planned_quantity) / Number(recipe.yield_quantity)
       : 0;
+
+  const recipeYield = recipe
+    ? { yield_quantity: recipe.yield_quantity, recipe_items: recipeItems }
+    : null;
+  const outputName = order.materials?.name ?? "";
+  const target = targetDisplay(
+    Number(order.planned_quantity),
+    order.planned_uom,
+    outputName,
+    recipeYield,
+  );
+  const batchUomLabel = (uom: string) =>
+    uom === order.planned_uom ? target.unit : unitLabelForDisplay(uom);
 
   const canPlan = order.status === "draft";
   const canStart = order.status === "planned";
@@ -373,20 +395,13 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
             Hedef Miktar
           </p>
           <p className="font-mono">
-            {formatNumber(Number(order.planned_quantity))}{" "}
-            {unitLabelForDisplay(order.planned_uom)}
+            {formatNumber(Number(order.planned_quantity))} {target.unit}
           </p>
-          {order.materials
-            ? (() => {
-                const bd = boxBreakdown(
-                  Number(order.planned_quantity),
-                  order.materials.name,
-                );
-                return bd ? (
-                  <p className="text-xs font-semibold text-emerald-600">{bd}</p>
-                ) : null;
-              })()
-            : null}
+          {target.breakdown ? (
+            <p className="text-xs font-semibold text-emerald-600">
+              {target.breakdown}
+            </p>
+          ) : null}
         </div>
         <div>
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -525,11 +540,12 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
                       </Badge>
                     </td>
                     <td className="px-3 py-2 text-right font-mono text-xs">
-                      {formatNumber(Number(b.planned_quantity))} {b.uom}
+                      {formatNumber(Number(b.planned_quantity))}{" "}
+                      {batchUomLabel(b.uom)}
                     </td>
                     <td className="px-3 py-2 text-right font-mono text-xs">
                       {b.actual_quantity !== null
-                        ? `${formatNumber(Number(b.actual_quantity))} ${b.uom}`
+                        ? `${formatNumber(Number(b.actual_quantity))} ${batchUomLabel(b.uom)}`
                         : "—"}
                     </td>
                     <td className="px-3 py-2 text-xs">
@@ -597,8 +613,8 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
                         <p className="font-mono text-sm">{batch.batch_number}</p>
                         <p className="text-xs text-muted-foreground">
                           {batch.actual_quantity !== null
-                            ? `${formatNumber(Number(batch.actual_quantity))} ${batch.uom}`
-                            : `${formatNumber(Number(batch.planned_quantity))} ${batch.uom}`}
+                            ? `${formatNumber(Number(batch.actual_quantity))} ${batchUomLabel(batch.uom)}`
+                            : `${formatNumber(Number(batch.planned_quantity))} ${batchUomLabel(batch.uom)}`}
                         </p>
                       </div>
                       <div className="text-right">
@@ -619,7 +635,8 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
                                   Number(batch.actual_quantity),
                                 4,
                               )}{" "}
-                              {batch.cost_currency ?? ""} / {batch.uom})
+                              {batch.cost_currency ?? ""} /{" "}
+                              {batchUomLabel(batch.uom)})
                             </span>
                           ) : null}
                         </p>
@@ -713,7 +730,8 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
                   <span className="font-mono">
                     {formatNumber(Number(recipe.yield_quantity))}
                   </span>{" "}
-                  {recipe.yield_uom}; bu emir{" "}
+                  {yieldUnitLabel(recipe.yield_uom, outputName, recipeYield)}; bu
+                  emir{" "}
                   <span className="font-mono">
                     ×{formatNumber(scaleFactor, 4)}
                   </span>{" "}

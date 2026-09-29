@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyRole, requireModuleAccess } from "@/lib/auth";
 import type { LocationOption } from "@/lib/locations";
+import { yieldUnitLabel } from "@/lib/production/pack";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { convertQuantity } from "@/lib/uom";
 import { PRODUCTION_WRITE_ROLES, companyModulePath } from "@/types/roles";
@@ -49,7 +50,12 @@ type RecipeItemRow = {
   quantity: number;
   uom: string;
   active: boolean;
-  materials: { code: string; name: string; base_uom: string } | null;
+  materials: {
+    code: string;
+    name: string;
+    base_uom: string;
+    type: string;
+  } | null;
 };
 
 type LotRow = {
@@ -104,7 +110,7 @@ export default async function CompleteBatchPage({ params }: PageProps) {
       .from("recipe_items")
       .select(
         "id, position, material_id, quantity, uom, active, " +
-          "materials:material_id(code, name, base_uom)",
+          "materials:material_id(code, name, base_uom, type)",
       )
       .eq("recipe_id", order.recipe_id)
       .eq("active", true)
@@ -255,7 +261,13 @@ export default async function CompleteBatchPage({ params }: PageProps) {
           batchNumber={batch.batch_number}
           orderCode={order.code}
           plannedQuantity={Number(order.planned_quantity)}
-          plannedUom={order.planned_uom}
+          plannedUom={yieldUnitLabel(
+            order.planned_uom,
+            order.materials?.name ?? "",
+            recipe
+              ? { yield_quantity: recipe.yield_quantity, recipe_items: recipeItems }
+              : null,
+          )}
           outputBaseUom={order.materials?.base_uom ?? order.planned_uom}
           items={formItems}
           locations={locations}

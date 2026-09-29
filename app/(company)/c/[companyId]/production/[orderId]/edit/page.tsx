@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { requireCompanyRole, requireModuleAccess } from "@/lib/auth";
+import { yieldUnitLabel, type RecipeYield } from "@/lib/production/pack";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { PRODUCTION_WRITE_ROLES, companyModulePath } from "@/types/roles";
 import type { ProductionOrderStatus } from "@/types/database";
@@ -21,6 +22,7 @@ type RecipeOption = {
   yield_uom: string;
   finished_material_id: string;
   materials: { code: string; name: string; fason_customer_id: string | null } | null;
+  recipe_items: RecipeYield["recipe_items"];
 };
 
 type OrderRow = {
@@ -69,7 +71,8 @@ export default async function EditProductionOrderPage({ params }: PageProps) {
       .from("recipes")
       .select(
         "id, code, name, version, yield_quantity, yield_uom, finished_material_id, " +
-          "materials:finished_material_id(code, name, fason_customer_id)",
+          "materials:finished_material_id(code, name, fason_customer_id), " +
+          "recipe_items(quantity, uom, active, materials:material_id(type))",
       )
       .eq("company_id", companyId)
       .is("deleted_at", null)
@@ -90,7 +93,7 @@ export default async function EditProductionOrderPage({ params }: PageProps) {
     name: r.name,
     version: r.version,
     yield_quantity: Number(r.yield_quantity),
-    yield_uom: r.yield_uom,
+    yield_uom: yieldUnitLabel(r.yield_uom, r.materials?.name ?? "", r),
     finished_material_id: r.finished_material_id,
     material_code: r.materials?.code ?? "",
     material_name: r.materials?.name ?? "",
