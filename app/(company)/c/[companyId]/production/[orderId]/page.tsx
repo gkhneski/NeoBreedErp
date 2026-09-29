@@ -75,6 +75,7 @@ type DownstreamRecipeRow = {
 type RecipeItemRow = {
   id: string;
   position: number;
+  material_id: string;
   quantity: number;
   uom: string;
   percentage: number | null;
@@ -167,6 +168,45 @@ function formatDateTime(iso: string | null): string {
   });
 }
 
+// Parti numarası yarı mamülden mamüle aynen taşınır: stokta tek bir YM partisi
+// varsa ve numarası bu üründe henüz kullanılmadıysa onu öner.
+async function suggestSemiBatchNumber(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  companyId: string,
+  finishedMaterialId: string,
+  semiMaterialIds: string[],
+): Promise<string | null> {
+  if (semiMaterialIds.length === 0) return null;
+
+  const { data: sources } = await supabase
+    .from("production_batches")
+    .select(
+      "batch_number, material_lots:output_lot_id!inner(material_id, quantity_on_hand, deleted_at)",
+    )
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .in("material_lots.material_id", semiMaterialIds)
+    .gt("material_lots.quantity_on_hand", 0)
+    .is("material_lots.deleted_at", null)
+    .returns<Array<{ batch_number: string }>>();
+
+  const numbers = [...new Set((sources ?? []).map((s) => s.batch_number))];
+  if (numbers.length !== 1) return null;
+
+  const { data: used } = await supabase
+    .from("production_batches")
+    .select(
+      "id, production_orders:production_order_id!inner(finished_material_id)",
+    )
+    .eq("company_id", companyId)
+    .eq("batch_number", numbers[0])
+    .eq("production_orders.finished_material_id", finishedMaterialId)
+    .is("deleted_at", null)
+    .limit(1);
+
+  return used && used.length > 0 ? null : numbers[0];
+}
+
 export default async function ProductionOrderDetailPage({ params }: PageProps) {
   const { companyId: routeCompanyId, orderId } = await params;
   const { companyId, role } = await requireModuleAccess(
@@ -195,7 +235,7 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
     supabase
       .from("recipe_items")
       .select(
-        "id, position, quantity, uom, percentage, active, notes, " +
+        "id, position, material_id, quantity, uom, percentage, active, notes, " +
           "materials:material_id(code, name, base_uom, type)",
       )
       .eq("recipe_id", order.recipe_id)
@@ -302,7 +342,19 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
     order.status !== "completed" &&
     order.status !== "closed";
 
-  const defaultBatchNumber = `${order.code}-B${orderBatches.length + 1}`;
+  const suggestedBatchNumber =
+    canStart && order.materials?.type === "finished"
+      ? await suggestSemiBatchNumber(
+          supabase,
+          companyId,
+          order.finished_material_id,
+          recipeItems
+            .filter((i) => i.active && i.materials?.type === "semi")
+            .map((i) => i.material_id),
+        )
+      : null;
+  const defaultBatchNumber =
+    suggestedBatchNumber ?? `${order.code}-B${orderBatches.length + 1}`;
 
   return (
     <div className="space-y-6">
@@ -501,6 +553,7 @@ export default async function ProductionOrderDetailPage({ params }: PageProps) {
             companyId={companyId}
             orderId={order.id}
             defaultBatchNumber={defaultBatchNumber}
+            fromSemiBatch={suggestedBatchNumber !== null}
           />
         </section>
       ) : null}

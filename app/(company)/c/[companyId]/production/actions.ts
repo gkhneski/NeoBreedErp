@@ -452,8 +452,10 @@ export async function startProductionOrder(
   if (error) {
     if (error.code === "23505") {
       return {
-        error: "Bu parti numarası zaten kullanılmış.",
-        fieldErrors: { batch_number: "Parti numarası benzersiz olmalı." },
+        error: "Bu parti numarası bu ürün için zaten kullanılmış.",
+        fieldErrors: {
+          batch_number: "Parti numarası ürün bazında benzersiz olmalı.",
+        },
       };
     }
     return { error: error.message };

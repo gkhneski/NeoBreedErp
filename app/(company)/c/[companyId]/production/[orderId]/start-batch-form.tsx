@@ -17,12 +17,14 @@ interface StartBatchFormProps {
   companyId: string;
   orderId: string;
   defaultBatchNumber: string;
+  fromSemiBatch?: boolean;
 }
 
 export function StartBatchForm({
   companyId,
   orderId,
   defaultBatchNumber,
+  fromSemiBatch = false,
 }: StartBatchFormProps) {
   const [state, formAction] = useActionState(
     startProductionOrder.bind(null, companyId),
@@ -43,6 +45,11 @@ export function StartBatchForm({
           className="w-56"
           placeholder="BATCH-000001"
         />
+        {fromSemiBatch ? (
+          <p className="text-xs text-muted-foreground">
+            Yarı mamül partisinin numarası önerildi.
+          </p>
+        ) : null}
         {state.fieldErrors?.batch_number ? (
           <p className="text-xs text-destructive">
             {state.fieldErrors.batch_number}

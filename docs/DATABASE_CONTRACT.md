@@ -382,7 +382,9 @@ Per-company execution row for a production order. Each row carries `company_id`,
 
 **Status:** `in_progress | completed | closed | cancelled`.
 
-**Indexes:** `(company_id)`, unique `(company_id, batch_number) where deleted_at is null`, `(production_order_id)`, `(company_id, status)`, `(output_lot_id)`, `(deleted_at)`.
+**Indexes:** `(company_id)`, `(company_id, batch_number) where deleted_at is null` (non-unique), `(production_order_id)`, `(company_id, status)`, `(output_lot_id)`, `(deleted_at)`.
+
+**Batch number uniqueness:** unique per **product**, not per company — among non-deleted batches of a company, `batch_number` may repeat only when the orders' `finished_material_id` differ, so a semi-finished batch number carries over to the finished product (same rule as `material_lots` lot numbers). Enforced by trigger `production_batches_number_unique_per_product` (raises `23505`, serialized with an advisory lock), since the product lives on the order (`20260929010000_batch_number_unique_per_product.sql`).
 
 **RLS:** canonical member select/modify policies.
 

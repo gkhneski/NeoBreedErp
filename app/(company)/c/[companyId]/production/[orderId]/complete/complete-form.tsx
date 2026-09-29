@@ -48,7 +48,6 @@ interface CompleteBatchFormProps {
   orderId: string;
   batchId: string;
   batchNumber: string;
-  orderCode: string;
   plannedQuantity: number;
   plannedUom: string;
   outputBaseUom: string;
@@ -119,7 +118,6 @@ export function CompleteBatchForm({
   orderId,
   batchId,
   batchNumber,
-  orderCode,
   plannedQuantity,
   plannedUom,
   outputBaseUom,
@@ -227,7 +225,7 @@ export function CompleteBatchForm({
               id="output_lot_number"
               name="output_lot_number"
               required
-              defaultValue={`${orderCode}-${batchNumber}`}
+              defaultValue={batchNumber}
               placeholder="LOT-FG-000001"
             />
             {state.fieldErrors?.output_lot_number ? (

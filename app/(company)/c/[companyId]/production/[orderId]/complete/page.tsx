@@ -259,7 +259,6 @@ export default async function CompleteBatchPage({ params }: PageProps) {
           orderId={order.id}
           batchId={batch.id}
           batchNumber={batch.batch_number}
-          orderCode={order.code}
           plannedQuantity={Number(order.planned_quantity)}
           plannedUom={yieldUnitLabel(
             order.planned_uom,

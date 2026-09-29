@@ -451,7 +451,7 @@ export default async function SettingsPage({ params }: PageProps) {
               <PolicyCard
                 label="Numaralandırma"
                 value="Firma içinde benzersiz kodlar"
-                detail="Lot, üretim emri, parti ve malzeme kodları firma sınırında benzersiz tutulur."
+                detail="Üretim emri ve malzeme kodları firma içinde, lot ve parti numaraları ürün bazında benzersiz tutulur."
               />
             </div>
           </SettingsSection>
