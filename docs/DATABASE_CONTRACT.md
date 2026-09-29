@@ -537,6 +537,10 @@ security invoker. Locks the lot `for update`; requires: lot in company & not del
 
 `create_lot_with_receipt` and `complete_production_batch` are re-created to stamp new lots with the company default location.
 
+### RPC `receive_lot_counted(p_company_id, p_lot_id, p_to_location_id, p_counted_quantity, p_notes default null)`
+
+security invoker (`20260929020000_receive_lot_counted.sql`). Counted depot receipt: the clerk scans the lot, counts it and takes it into another depot. Requires `p_counted_quantity > 0`, locks the lot, calls `transfer_lot` (same status/location rules), then — only when the count differs from `quantity_on_hand` — inserts one `adjustment` movement for the difference with `reason = 'Depo kabul sayım farkı (beklenen X, sayılan Y)'` and `notes = p_notes`. Both happen in one transaction. App rule (`warehouse/actions.ts`): a move between depots must go through this RPC; `transfer_lot` from the scan screen is limited to moves inside one depot, and a differing count requires a note.
+
 **Files affected:** `supabase/migrations/20260613000000_phase7b_locations.sql`, `app/(company)/c/[companyId]/settings/locations/*`, lot detail/list, warehouse page.
 
 ---

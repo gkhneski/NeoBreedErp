@@ -252,6 +252,141 @@ const scanTransferSchema = z.object({
 
 export type ScanTransferResult = { ok: true } | { ok: false; error: string };
 
+function transferErrorMessage(message: string): string {
+  if (message.includes("blocked lots")) return "Bloklu lotlar transfer edilemez.";
+  if (message.includes("already at the target")) return "Bu lot zaten hedef konumda.";
+  if (message.includes("no stock on hand")) return "Lotta transfer edilecek stok yok.";
+  return message;
+}
+
+// Raf, bağlı olduğu deponun; konumsuz lot varsayılan deponun içindedir.
+async function isCrossDepot(
+  supabase: SupabaseServerClient,
+  companyId: string,
+  lotLocationId: string | null,
+  toLocationId: string,
+): Promise<boolean> {
+  const { data: locations } = await supabase
+    .from("locations")
+    .select("id, kind, parent_id, is_default")
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .returns<
+      Array<{
+        id: string;
+        kind: "depot" | "shelf";
+        parent_id: string | null;
+        is_default: boolean;
+      }>
+    >();
+  const rows = locations ?? [];
+  const depotOf = (id: string | null) => {
+    const row = rows.find((r) => r.id === id);
+    if (!row) return rows.find((r) => r.is_default)?.id ?? null;
+    return row.kind === "shelf" ? row.parent_id : row.id;
+  };
+  return depotOf(lotLocationId) !== depotOf(toLocationId);
+}
+
+async function loadLotForMove(
+  supabase: SupabaseServerClient,
+  companyId: string,
+  lotId: string,
+  onlyFinished: boolean,
+): Promise<{ quantity_on_hand: number; location_id: string | null } | null> {
+  let q = supabase
+    .from("material_lots")
+    .select(
+      "id, quantity_on_hand, location_id, materials:material_id!inner(type)",
+    )
+    .eq("id", lotId)
+    .eq("company_id", companyId)
+    .is("deleted_at", null);
+  if (onlyFinished) q = q.eq("materials.type", "finished");
+  const { data } = await q.maybeSingle<{
+    quantity_on_hand: number;
+    location_id: string | null;
+  }>();
+  return data ?? null;
+}
+
+const scanReceiveSchema = z.object({
+  company_id: z.string().uuid(),
+  lot_id: z.string().uuid(),
+  to_location_id: z.string().uuid(),
+  counted: z.number().positive().max(100_000_000),
+  note: z.string().trim().max(500),
+});
+
+export type ScanReceiveResult =
+  | { ok: true; expected: number; counted: number }
+  | { ok: false; error: string };
+
+// Depo kabul: lot başka bir depoya sayılarak alınır. Sayılan miktar stoktur;
+// fark varsa açıklamasıyla birlikte düzeltme hareketi olarak kayda geçer.
+export async function scanReceiveLot(
+  companyIdInput: string,
+  lotIdInput: string,
+  toLocationIdInput: string,
+  countedInput: number,
+  noteInput: string,
+): Promise<ScanReceiveResult> {
+  const parsed = scanReceiveSchema.safeParse({
+    company_id: companyIdInput,
+    lot_id: lotIdInput,
+    to_location_id: toLocationIdInput,
+    counted: countedInput,
+    note: noteInput,
+  });
+  if (!parsed.success) {
+    return { ok: false, error: "Sayılan miktar geçersiz." };
+  }
+
+  const { companyId, role } = await requireCompanyRole(
+    parsed.data.company_id,
+    STOCK_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const lot = await loadLotForMove(
+    supabase,
+    companyId,
+    parsed.data.lot_id,
+    role === "operator",
+  );
+  if (!lot) {
+    return {
+      ok: false,
+      error:
+        role === "operator"
+          ? "Bu lot depo personeli tarafından işlenemez."
+          : "Lot bulunamadı.",
+    };
+  }
+
+  const expected = Number(lot.quantity_on_hand);
+  if (parsed.data.counted !== expected && parsed.data.note === "") {
+    return {
+      ok: false,
+      error: "Sayım sistemdeki miktardan farklı; farkın nedenini yazın.",
+    };
+  }
+
+  const { error } = await supabase.rpc("receive_lot_counted", {
+    p_company_id: companyId,
+    p_lot_id: parsed.data.lot_id,
+    p_to_location_id: parsed.data.to_location_id,
+    p_counted_quantity: parsed.data.counted,
+    p_notes: parsed.data.note || null,
+  });
+  if (error) return { ok: false, error: transferErrorMessage(error.message) };
+
+  revalidatePath(companyModulePath(companyId, "lots"));
+  revalidatePath(companyModulePath(companyId, "warehouse"));
+  revalidatePath(companyModulePath(companyId, "stock"));
+  return { ok: true, expected, counted: parsed.data.counted };
+}
+
 export async function scanTransferLot(
   companyIdInput: string,
   lotIdInput: string,
@@ -272,18 +407,32 @@ export async function scanTransferLot(
   );
   const supabase = await createServerSupabaseClient();
 
-  if (role === "operator") {
-    const { data: lot } = await supabase
-      .from("material_lots")
-      .select("id, materials:material_id!inner(type)")
-      .eq("id", parsed.data.lot_id)
-      .eq("company_id", companyId)
-      .eq("materials.type", "finished")
-      .is("deleted_at", null)
-      .maybeSingle();
-    if (!lot) {
-      return { ok: false, error: "Bu lot depo personeli tarafından işlenemez." };
-    }
+  const lot = await loadLotForMove(
+    supabase,
+    companyId,
+    parsed.data.lot_id,
+    role === "operator",
+  );
+  if (!lot) {
+    return {
+      ok: false,
+      error:
+        role === "operator"
+          ? "Bu lot depo personeli tarafından işlenemez."
+          : "Lot bulunamadı.",
+    };
+  }
+
+  // Depolar arası alım sayımsız yapılamaz; bu yol yalnızca depo içi yerleştirme.
+  if (
+    await isCrossDepot(
+      supabase,
+      companyId,
+      lot.location_id,
+      parsed.data.to_location_id,
+    )
+  ) {
+    return { ok: false, error: "Başka depoya alırken ürünü sayıp miktarı girin." };
   }
 
   const { error } = await supabase.rpc("transfer_lot", {
@@ -293,18 +442,7 @@ export async function scanTransferLot(
     p_notes: "barcode scan receipt",
   });
 
-  if (error) {
-    if (error.message.includes("blocked lots")) {
-      return { ok: false, error: "Bloklu lotlar transfer edilemez." };
-    }
-    if (error.message.includes("already at the target")) {
-      return { ok: false, error: "Bu lot zaten hedef konumda." };
-    }
-    if (error.message.includes("no stock on hand")) {
-      return { ok: false, error: "Lotta transfer edilecek stok yok." };
-    }
-    return { ok: false, error: error.message };
-  }
+  if (error) return { ok: false, error: transferErrorMessage(error.message) };
 
   revalidatePath(companyModulePath(companyId, "lots"));
   revalidatePath(companyModulePath(companyId, "warehouse"));

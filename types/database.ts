@@ -2248,6 +2248,16 @@ export type Database = {
         };
         Returns: undefined;
       };
+      receive_lot_counted: {
+        Args: {
+          p_company_id: string;
+          p_lot_id: string;
+          p_to_location_id: string;
+          p_counted_quantity: number;
+          p_notes?: string | null;
+        };
+        Returns: undefined;
+      };
       start_production_order: {
         Args: {
           p_company_id: string;

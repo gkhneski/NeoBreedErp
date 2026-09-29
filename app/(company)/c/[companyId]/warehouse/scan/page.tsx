@@ -9,10 +9,18 @@ import { ScanClient } from "./scan-client";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
+  searchParams: Promise<{ lot?: string }>;
 }
 
-export default async function WarehouseScanPage({ params }: PageProps) {
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export default async function WarehouseScanPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { companyId: routeCompanyId } = await params;
+  const { lot: requestedLot } = await searchParams;
   const { companyId } = await requireCompanyRole(
     routeCompanyId,
     STOCK_WRITE_ROLES,
@@ -41,14 +49,22 @@ export default async function WarehouseScanPage({ params }: PageProps) {
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">Barkod Tara</h1>
         <p className="text-sm text-muted-foreground">
-          Lot etiketindeki QR kodu okutun; lot bilgisi gelir ve tek dokunuşla
-          hedef konuma alınır. Lotu okutup ardından raf etiketini okutarak da
-          yerleştirme yapabilirsiniz. Raf etiketi okutursanız raftaki ürünler
-          listelenir. Kamera yoksa lot numarasını veya raf kodunu elle girin.
+          Lot etiketindeki veya parti kartındaki QR kodu okutun; lot bilgisi
+          gelir. Başka depodan gelen ürünü sayıp miktarı girin, ardından hedef
+          depoyu seçin: ürün saydığınız miktarla stoğunuza girer. Lotu okutup
+          ardından raf etiketini okutarak da yerleştirme yapabilirsiniz. Raf
+          etiketi okutursanız raftaki ürünler listelenir. Kamera yoksa lot
+          numarasını veya raf kodunu elle girin.
         </p>
       </header>
 
-      <ScanClient companyId={companyId} locations={locations ?? []} />
+      <ScanClient
+        companyId={companyId}
+        locations={locations ?? []}
+        initialCode={
+          requestedLot && UUID_RE.test(requestedLot) ? requestedLot : undefined
+        }
+      />
     </div>
   );
 }

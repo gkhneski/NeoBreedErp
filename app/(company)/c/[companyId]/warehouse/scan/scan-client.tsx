@@ -7,11 +7,15 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { groupLocations, type LocationOption } from "@/lib/locations";
+import { uomLabel } from "@/lib/uom";
 import { companyModulePath } from "@/types/roles";
 
 import {
   resolveScan,
+  scanReceiveLot,
   scanTransferLot,
   type ScannedLocation,
   type ScannedLot,
@@ -36,12 +40,18 @@ const STATUS_VARIANT: Record<
   blocked: "destructive",
 };
 
+function formatQty(n: number): string {
+  return n.toLocaleString("tr-TR", { maximumFractionDigits: 6 });
+}
+
 export function ScanClient({
   companyId,
   locations,
+  initialCode,
 }: {
   companyId: string;
   locations: LocationOption[];
+  initialCode?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -58,6 +68,11 @@ export function ScanClient({
   const [success, setSuccess] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [manual, setManual] = useState("");
+  const [counted, setCounted] = useState("");
+  const [note, setNote] = useState("");
+  const [pending, setPending] = useState<{ id: string; name: string } | null>(
+    null,
+  );
 
   const handleCode = useCallback(
     async (raw: string) => {
@@ -80,6 +95,9 @@ export function ScanClient({
       if (result.kind === "lot") {
         setLot(result.lot);
         setScannedLocation(null);
+        setCounted("");
+        setNote("");
+        setPending(null);
       } else {
         setScannedLocation(result.location);
       }
@@ -169,6 +187,11 @@ export function ScanClient({
 
   useEffect(() => stopCamera, [stopCamera]);
 
+  // Telefon kamerasıyla okutulan QR doğrudan bu ekrana lotla birlikte gelir.
+  useEffect(() => {
+    if (initialCode) void handleCode(initialCode);
+  }, [initialCode, handleCode]);
+
   async function handleManualSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!manual.trim()) return;
@@ -182,18 +205,84 @@ export function ScanClient({
     const result = await scanTransferLot(companyId, lot.id, toLocationId);
     setBusy(false);
     if (result.ok) {
-      setSuccess(`${lot.lot_number} → ${toName} transferi tamamlandı.`);
-      setLot(null);
-      setScannedLocation(null);
-      lastCodeRef.current = { value: "", at: 0 };
+      finishLot(`${lot.lot_number} → ${toName} transferi tamamlandı.`);
     } else {
       setError(result.error);
     }
   }
 
+  function finishLot(message: string) {
+    setSuccess(message);
+    setLot(null);
+    setScannedLocation(null);
+    setCounted("");
+    setNote("");
+    setPending(null);
+    lastCodeRef.current = { value: "", at: 0 };
+  }
+
+  async function handleReceive(toLocationId: string, toName: string) {
+    if (!lot) return;
+    setBusy(true);
+    setError(null);
+    const result = await scanReceiveLot(
+      companyId,
+      lot.id,
+      toLocationId,
+      countedValue,
+      note.trim(),
+    );
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    const diff = result.counted - result.expected;
+    finishLot(
+      `${lot.lot_number}: ${formatQty(result.counted)} ${unit} ${toName} stoğuna alındı.` +
+        (diff !== 0
+          ? ` Sayım farkı (${diff > 0 ? "+" : ""}${formatQty(diff)} ${unit}) kayda geçti.`
+          : ""),
+    );
+  }
+
+  // Raf, bağlı olduğu deponun; konumsuz lot varsayılan deponun içindedir.
+  const depotOf = (locationId: string | null) => {
+    const row = locations.find((l) => l.id === locationId);
+    if (!row) return locations.find((l) => l.is_default)?.id ?? null;
+    return row.kind === "shelf" ? row.parent_id : row.id;
+  };
+  const crossesDepot = (toLocationId: string) =>
+    lot !== null && depotOf(toLocationId) !== depotOf(lot.location_id);
+
+  const unit = uomLabel(lot?.base_uom);
+  const countedValue = Number(counted.replace(",", "."));
+  const countedValid =
+    counted.trim() !== "" && Number.isFinite(countedValue) && countedValue > 0;
+
+  // Depo içi yerleştirme doğrudan taşınır; başka depoya alım sayım ister.
+  function chooseTarget(toLocationId: string, toName: string) {
+    if (!lot) return;
+    if (!crossesDepot(toLocationId)) {
+      void handleTransfer(toLocationId, toName);
+      return;
+    }
+    if (!countedValid) {
+      setError("Önce ürünü sayıp miktarı girin.");
+      return;
+    }
+    if (countedValue === lot.quantity_on_hand) {
+      void handleReceive(toLocationId, toName);
+      return;
+    }
+    setError(null);
+    setPending({ id: toLocationId, name: toName });
+  }
+
   const targets = lot
     ? locations.filter((l) => l.id !== lot.location_id)
     : [];
+  const needsCount = targets.some((t) => crossesDepot(t.id));
   const targetGroups = groupLocations(targets);
   const orphanShelves = targets.filter(
     (t) =>
@@ -275,16 +364,79 @@ export function ScanClient({
           <p className="text-sm text-muted-foreground">
             Eldeki:{" "}
             <span className="font-mono">
-              {lot.quantity_on_hand.toLocaleString("tr-TR")} {lot.base_uom}
+              {formatQty(lot.quantity_on_hand)} {unit}
             </span>{" "}
             · SKT: {lot.expiry_date ?? "—"} · Bulunduğu konum:{" "}
             {lot.location_name ?? "Ana Depo"}
           </p>
 
+          {lot.status !== "blocked" && needsCount ? (
+            <div className="space-y-1.5 rounded-md border border-border bg-secondary/30 p-3">
+              <Label htmlFor="counted">Sayılan miktar ({unit})</Label>
+              <Input
+                id="counted"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="any"
+                value={counted}
+                onChange={(e) => {
+                  setCounted(e.target.value);
+                  setPending(null);
+                }}
+                placeholder={formatQty(lot.quantity_on_hand)}
+                className="max-w-[12rem] font-mono"
+              />
+              <p className="text-xs text-muted-foreground">
+                Başka bir depoya alırken ürünü sayın; stoğa saydığınız miktar
+                girer. Depo içi raf değişikliğinde sayım gerekmez.
+              </p>
+            </div>
+          ) : null}
+
           {lot.status === "blocked" ? (
             <p className="text-xs text-muted-foreground">
               Bu lot &quot;Bloklu&quot; olduğu için transfer edilemez.
             </p>
+          ) : pending ? (
+            <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
+              <p className="text-sm font-medium">
+                Sayım farkı:{" "}
+                {formatQty(Math.abs(countedValue - lot.quantity_on_hand))} {unit}{" "}
+                {countedValue < lot.quantity_on_hand ? "eksik" : "fazla"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Sistemde {formatQty(lot.quantity_on_hand)} {unit}, sayılan{" "}
+                {formatQty(countedValue)} {unit}. Onaylarsanız lot {pending.name}{" "}
+                stoğuna {formatQty(countedValue)} {unit} olarak alınır ve fark
+                kayda geçer.
+              </p>
+              <Textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Farkın nedeni (zorunlu)"
+                aria-label="Sayım farkının nedeni"
+                rows={2}
+                maxLength={500}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  disabled={busy || !note.trim()}
+                  onClick={() => void handleReceive(pending.id, pending.name)}
+                >
+                  {busy
+                    ? "Alınıyor..."
+                    : `${formatQty(countedValue)} ${unit} olarak stoğa al`}
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => setPending(null)}
+                >
+                  Vazgeç
+                </Button>
+              </div>
+            </div>
           ) : scannedLocation && scannedLocation.id === lot.location_id ? (
             <p className="text-xs text-muted-foreground">
               Lot zaten {scannedLocation.name} konumunda. Başka bir raf okutun.
@@ -301,7 +453,7 @@ export function ScanClient({
               <Button
                 disabled={busy}
                 onClick={() =>
-                  void handleTransfer(scannedLocation.id, scannedLocation.name)
+                  chooseTarget(scannedLocation.id, scannedLocation.name)
                 }
               >
                 {busy
@@ -323,7 +475,7 @@ export function ScanClient({
                   <Button
                     disabled={busy}
                     onClick={() =>
-                      void handleTransfer(group.depot.id, group.depot.name)
+                      chooseTarget(group.depot.id, group.depot.name)
                     }
                   >
                     {group.depot.name}
@@ -333,7 +485,7 @@ export function ScanClient({
                       key={shelf.id}
                       variant="outline"
                       disabled={busy}
-                      onClick={() => void handleTransfer(shelf.id, shelf.name)}
+                      onClick={() => chooseTarget(shelf.id, shelf.name)}
                     >
                       {shelf.code} — {shelf.name}
                     </Button>
@@ -347,7 +499,7 @@ export function ScanClient({
                       key={shelf.id}
                       variant="outline"
                       disabled={busy}
-                      onClick={() => void handleTransfer(shelf.id, shelf.name)}
+                      onClick={() => chooseTarget(shelf.id, shelf.name)}
                     >
                       {shelf.code} — {shelf.name}
                     </Button>

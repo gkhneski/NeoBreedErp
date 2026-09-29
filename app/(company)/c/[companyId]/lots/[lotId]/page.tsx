@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { AttachmentList } from "@/components/files/attachment-list";
 import { AttachmentUploader } from "@/components/files/attachment-uploader";
@@ -84,6 +84,13 @@ function DefinitionRow({
 export default async function LotDetailPage({ params }: PageProps) {
   const { companyId: routeCompanyId, lotId } = await params;
   const { companyId, role } = await requireCompanyUser(routeCompanyId);
+
+  // Depocu QR'ı telefon kamerasıyla okutunca buraya düşer; onun ekranı sayımlı
+  // depo kabuldür (lot detayı maliyet/tedarikçi içerir, depocuya açık değil).
+  if (role === "operator") {
+    redirect(`${companyModulePath(companyId, "warehouse", "scan")}?lot=${lotId}`);
+  }
+
   const supabase = await createServerSupabaseClient();
 
   const { data: lot } = await supabase
