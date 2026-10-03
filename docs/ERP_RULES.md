@@ -46,7 +46,7 @@ Material codes are **unique per company**, not globally.
   - `issue` — consumed by a production order or written off.
   - `adjustment` — physical count correction, with reason.
   - `transfer` — between locations (Phase 7b): a zero-quantity ledger row carrying from/to location; the lot's `location_id` moves with it. Only `released` lots with stock on hand may transfer, and only as a whole lot.
-- **Counted depot receipt:** when a lot moves from one depot to another (factory → LTD depot) the receiving clerk scans its QR, counts it and enters the counted quantity. The counted quantity is the stock; a difference is posted as an `adjustment` with the expected/counted figures as reason and the clerk's mandatory note. Shelf moves inside one depot need no count.
+- **Counted depot receipt:** when a lot moves from one depot to another (factory → LTD depot) the receiving clerk scans its QR, counts it and enters the counted quantity. The counted quantity is the stock; a difference is posted as an `adjustment` with the expected/counted figures as reason and the clerk's mandatory note, and the same transaction writes an `audit_log` row (`depot_receipt_count_correction`: who, when, lot, expected/counted/delta, note) shown under *Depo Hareketleri → Sayım Protokolü*. Shelf moves inside one depot need no count.
 - Quantity on hand is always derived from `stock_movements`, never edited directly.
 - Lots cannot go negative. If a stock movement would make a lot negative, the operation fails.
 - Expired lots are flagged but not auto-issued; a human decides.

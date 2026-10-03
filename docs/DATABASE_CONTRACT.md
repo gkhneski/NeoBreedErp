@@ -408,7 +408,9 @@ Per-company, append-only protocol of operational mutations. Columns: `company_id
 
 **RPC:** `delete_production_order(company, order, reason)` — `security invoker`. Requires a non-empty reason. Allowed for `draft | planned | in_progress | cancelled` orders whose batches have no stock movement, output lot, QC check or `completed | closed` status. Soft-deletes the order, cancels + soft-deletes its open batches, and writes one `audit_log` row (`action = 'delete_production_order'`, order snapshot in `diff`) in the same transaction.
 
-**Files affected:** `supabase/migrations/20260928000000_audit_log_delete_production_order.sql`, `app/(company)/c/[companyId]/production/log/page.tsx`.
+**RPC:** `receive_lot_counted(company, lot, to_location, counted, notes)` — when the counted quantity differs from `quantity_on_hand`, besides the `adjustment` movement it writes one `audit_log` row (`action = 'depot_receipt_count_correction'`, `target_table = 'material_lots'`, `target_label = lot_number`, `reason = note`, `diff = {material_code, material_name, uom, expected, counted, delta, to_location_code, to_location_name}`) in the same transaction (`20261003000000_receive_lot_counted_audit.sql`).
+
+**Files affected:** `supabase/migrations/20260928000000_audit_log_delete_production_order.sql`, `supabase/migrations/20261003000000_receive_lot_counted_audit.sql`, `app/(company)/c/[companyId]/production/log/page.tsx`, `app/(company)/c/[companyId]/warehouse/log/page.tsx`.
 
 ---
 

@@ -61,6 +61,7 @@ Hammadde, fabrika lotları, reçete, üretim, maliyet ve tedarikçileri görmez.
 | İşlem | Nereden | Nasıl |
 |---|---|---|
 | Partiyi LTD deposuna sayarak almak | Parti kartındaki QR (telefon kamerası) veya *Depo Hareketleri → Barkod Tara → Kamerayla Tara* | 1) Lotu açın 2) *Sayılan miktar*'a sayıyı yazın 3) *NeuPharma LTD.ŞTİ.* butonuna basın |
+| Sayım farkı olan kabulleri görmek | *Depo Hareketleri → Sayım Protokolü* | Sayılan miktar sistemden farklı girilip onaylanan her kabul (kim, ne zaman, beklenen/sayılan, neden) burada listelenir; silinemez, değiştirilemez |
 | Sayım sistemle aynıysa | Aynı ekran | Lot hemen alınır, ekranda "… stoğuna alındı" yazar |
 | Sayım farklıysa | Aynı ekran | Sarı kutu farkı gösterir → nedenini yazın → *"… olarak stoğa al"*. Sayılan miktar stok olur, fark düzeltme hareketi olarak kaydolur |
 | Yanlış yazdıysa | Aynı ekran | *Vazgeç* |
