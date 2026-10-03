@@ -60,6 +60,7 @@ Hammadde, fabrika lotları, reçete, üretim, maliyet ve tedarikçileri görmez.
 
 | İşlem | Nereden | Nasıl |
 |---|---|---|
+| Günlük işe başlamak | *Depo Paneli* (ana sayfa) | Üstte günün durumu; **Günlük İş** kutuları iş sırasıyla: Barkod Tara → Stok Girişi → Hazırlanacak Siparişler → Yeni Sipariş → Raf Haritası → Depodaki Ürünler → Eczane Siparişleri → Promosyon. Sayılar canlıdır (bekleyen, rafsız, kritik SKT) |
 | Partiyi LTD deposuna sayarak almak | Parti kartındaki QR (telefon kamerası) veya *Depo Hareketleri → Barkod Tara → Kamerayla Tara* | 1) Lotu açın 2) *Sayılan miktar*'a sayıyı yazın 3) *NeuPharma LTD.ŞTİ.* butonuna basın |
 | Elimdeki ürünleri birer birer girmek | *Stok → Ürün* sekmesi (Ürün Bazında Depo Stoğu) | Her ürün tek satırdır; satılabilir adet görünür. Girilmemiş ürünün yanındaki *Stok Gir* ürünü seçili olarak Stok Girişi'ni açar |
 | Promosyon ürünlerini (numune, hediye, broşür) takip etmek | *Promosyon Ürünleri* | 1) *Yeni Promosyon Ürünü* ile tanımlayın 2) *Adet Gir / Düzelt* → *Depoya Ekle* 3) Düzeltme için parti satırında *Düzelt*, neden zorunlu. Dashboard'da listelenir, satışa çıkmaz |

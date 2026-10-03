@@ -33,6 +33,7 @@ import {
   type WeeklyBar,
 } from "./dashboard-visuals";
 import { OperatorOrderNotifier } from "./order-notifier";
+import { ClerkShortcuts, type Shortcut } from "./clerk-shortcuts";
 import { PromoStockCard } from "./promo-stock-card";
 
 interface CompanyStats {
@@ -338,8 +339,6 @@ async function ClerkDashboard({
     { count: pendingPriceApprovals },
     ltd,
     expiry,
-    weekly,
-    team,
     unshelved,
   ] = await Promise.all([
     supabase
@@ -355,16 +354,11 @@ async function ClerkDashboard({
       .eq("status", "shipped")
       .gte("shipped_at", todayStart.toISOString()),
     supabase
-      .from("material_lots")
-      .select("id, materials:material_id!inner(type)", {
-        count: "exact",
-        head: true,
-      })
+      .from("sellable_lots")
+      .select("id", { count: "exact", head: true })
       .eq("company_id", companyId)
-      .eq("materials.type", "finished")
-      .eq("status", "released")
-      .gt("quantity_on_hand", 0)
-      .is("deleted_at", null),
+      .eq("material_type", "finished")
+      .is("owner_customer_id", null),
     supabase
       .from("marketplace_price_events")
       .select("id", { count: "exact", head: true })
@@ -372,75 +366,12 @@ async function ClerkDashboard({
       .eq("status", "pending"),
     loadLtdDepotTotals(companyId),
     loadExpiryCounts(companyId, thresholds),
-    loadWeeklyMovements(companyId),
-    loadTeam(companyId),
     loadUnshelvedCount(companyId),
   ]);
 
   const finishedStockPath = `${companyModulePath(companyId, "stock")}?tab=urun`;
   const shipmentsPath = companyModulePath(companyId, "shipments");
-  const marketplacePath = companyModulePath(companyId, "marketplace");
-
-  const healthy = Math.max(
-    0,
-    expiry.stocked - expiry.expired - expiry.critical - expiry.warning,
-  );
-  const healthyPct =
-    expiry.stocked > 0 ? Math.round((healthy / expiry.stocked) * 100) : null;
-  const weeklyTotal = weekly.reduce((sum, b) => sum + b.value, 0);
-
-  const kpis: KpiData[] = [
-    {
-      label: "Sevk Edilebilir Lot",
-      value: releasedLots ?? 0,
-      sub: "bitmiş ürün, serbest",
-      href: finishedStockPath,
-      icon: "boxes",
-      hero: true,
-    },
-    {
-      label: "Hazırlanacak Sipariş",
-      value: toPrepare ?? 0,
-      sub: "hazırlanacak / açık",
-      href: `${shipmentsPath}?durum=preparing`,
-      icon: "clipboard",
-    },
-    {
-      label: "Bugün Gönderilen",
-      value: shippedToday ?? 0,
-      sub: "bugün sevk edilen",
-      href: `${shipmentsPath}?durum=shipped`,
-      icon: "send",
-    },
-    {
-      label: "LTD Deposu — Toplam Ürün",
-      value: ltd.units,
-      sub: `${ltd.products.toLocaleString("tr-TR")} çeşit ürün`,
-      href: finishedStockPath,
-      icon: "boxes",
-    },
-  ];
-
-  const gauge: GaugeData = {
-    pct: healthyPct,
-    healthy,
-    critical: expiry.critical,
-    expired: expiry.expired,
-    stocked: expiry.stocked,
-  };
-
-  const nearest = expiry.soonest[0];
-  const reminder: ReminderData = nearest
-    ? {
-        title: nearest.materials?.name ?? "Yaklaşan SKT",
-        subtitle: `${nearest.lot_number} · SKT ${nearest.expiry_date ?? "—"}${
-          nearest.expiry_date
-            ? ` · ${daysUntil(nearest.expiry_date)} gün kaldı`
-            : ""
-        }`,
-        href: finishedStockPath,
-      }
-    : null;
+  const warehousePath = companyModulePath(companyId, "warehouse");
 
   const urgentExpiry = expiry.critical + expiry.expired;
   const urgentLot = urgentExpiry > 0 ? expiry.soonest[0] : null;
@@ -464,93 +395,113 @@ async function ClerkDashboard({
     shippedHref: `${shipmentsPath}?durum=shipped`,
   };
 
-  const tasks: TaskItem[] = [
+  // Depocunun günü: fabrikadan gelen partiyi al → rafa koy → siparişi hazırla → gönder.
+  const dailyWork: Shortcut[] = [
     {
-      label: "Hazırlanacak Sipariş",
-      sub: "Sevk bekliyor",
-      count: toPrepare ?? 0,
+      label: "Barkod Tara",
+      sub: "Parti kabul (sayımlı), rafa koy, raf oku",
+      href: `${warehousePath}/scan`,
+      icon: "scan",
+      primary: true,
+    },
+    {
+      label: "Stok Girişi",
+      sub: "Eldeki ürünü barkodla depoya gir",
+      href: companyModulePath(companyId, "lots", "onboarding"),
+      icon: "barcode",
+    },
+    {
+      label: "Hazırlanacak Siparişler",
+      sub: "Sevk bekleyen siparişleri hazırla ve gönder",
       href: `${shipmentsPath}?durum=preparing`,
       icon: "clipboard",
-      tone: "blue",
+      badge: { count: toPrepare ?? 0, label: "bekliyor", tone: "amber" },
     },
     {
-      label: "Rafsız Lot",
-      sub: "Depoda, rafa konmamış",
-      count: unshelved,
-      href: companyModulePath(companyId, "warehouse", "shelf-map"),
+      label: "Yeni Sipariş",
+      sub: "Elle sipariş aç ve sevkiyata hazırla",
+      href: `${shipmentsPath}/new`,
+      icon: "send",
+    },
+    {
+      label: "Raf Haritası",
+      sub: "Hangi ürün hangi rafta, rafsız lotlar",
+      href: `${warehousePath}/shelf-map`,
+      icon: "grid",
+      badge: { count: unshelved, label: "rafsız", tone: "amber" },
+    },
+    {
+      label: "Depodaki Ürünler",
+      sub: `${ltd.products.toLocaleString("tr-TR")} çeşit · ${ltd.units.toLocaleString("tr-TR")} adet`,
+      href: finishedStockPath,
       icon: "boxes",
-      tone: "amber",
+      badge: {
+        count: urgentExpiry,
+        label: "kritik SKT",
+        tone: "rose",
+      },
     },
     {
-      label: "Bekleyen Fiyat Onayı",
-      sub: "Pazaryeri indirimleri",
-      count: pendingPriceApprovals ?? 0,
-      href: marketplacePath,
+      label: "Eczane Siparişleri",
+      sub: "Portaldan gelen B2B siparişleri sevkiyata çevir",
+      href: companyModulePath(companyId, "sales-orders"),
+      icon: "cart",
+    },
+    {
+      label: "Promosyon Ürünleri",
+      sub: "Numune, hediye, broşür sayımı",
+      href: companyModulePath(companyId, "promo"),
+      icon: "gift",
+    },
+  ];
+
+  const moreTools: Shortcut[] = [
+    {
+      label: "Pazaryeri",
+      sub: "Trendyol siparişleri ve stok durumu",
+      href: companyModulePath(companyId, "marketplace"),
       icon: "store",
-      tone: "amber",
+      badge: { count: pendingPriceApprovals ?? 0, label: "fiyat onayı", tone: "amber" },
     },
     {
-      label: "Kritik / Geçmiş SKT",
-      sub: "Acil eritilecek stok",
-      count: expiry.critical + expiry.expired,
-      href: finishedStockPath,
-      icon: "alert",
-      tone: "rose",
+      label: "Depo Hareketleri",
+      sub: "Lot durumu ve son hareketler",
+      href: warehousePath,
+      icon: "moves",
     },
     {
-      label: "Yaklaşan SKT",
-      sub: `≤${thresholds.warningDays} gün`,
-      count: expiry.warning,
-      href: finishedStockPath,
-      icon: "shield",
-      tone: "violet",
+      label: "Sayım Protokolü",
+      sub: "Sayım farkı olan kabuller",
+      href: `${warehousePath}/log`,
+      icon: "check",
+    },
+    {
+      label: "Raf Etiketleri",
+      sub: "Raf QR etiketlerini yazdır",
+      href: `${warehousePath}/locations/labels`,
+      icon: "printer",
     },
   ];
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">{companyName}</h1>
-          <p className="text-sm text-muted-foreground">
-            Depo Paneli — sevkiyat ve bitmiş ürün stoğu.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={companyModulePath(companyId, "lots", "onboarding")}
-            className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700"
-          >
-            <ScanLine className="h-4 w-4" aria-hidden="true" />
-            Stok Girişi
-          </Link>
-          <Link
-            href={companyModulePath(companyId, "shipments", "new")}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary/40"
-          >
-            <Send className="h-4 w-4" aria-hidden="true" />
-            Yeni Sipariş
-          </Link>
-        </div>
+      <header className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight">{companyName}</h1>
+        <p className="text-sm text-muted-foreground">
+          Depo Paneli — kabul, raf, sipariş, sevkiyat.
+        </p>
       </header>
 
       <StatusStrip data={statusStrip} />
 
       <OperatorOrderNotifier companyId={companyId} />
 
-      <DashboardVisuals
-        kpis={kpis}
-        weekly={weekly}
-        weeklyTotalLabel={`Bu hafta ${weeklyTotal} stok hareketi`}
-        gauge={gauge}
-        reminder={reminder}
-        tasks={tasks}
-        team={team}
-        stockHref={finishedStockPath}
-        canManageTeam={false}
-      />
+      <ClerkShortcuts title="Günlük İş" shortcuts={dailyWork} />
 
-      <PromoStockCard companyId={companyId} />
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <ClerkShortcuts title="Diğer Araçlar" shortcuts={moreTools} />
+        <PromoStockCard companyId={companyId} />
+      </div>
     </div>
   );
 }

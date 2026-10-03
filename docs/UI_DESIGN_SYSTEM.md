@@ -28,6 +28,7 @@ conventions; do not reinvent or revert them.
 | `tailwind.config.ts` | `fontFamily.sans` → `var(--font-sans)`; `sidebar.*` token mapping. |
 | `app/(company)/c/[companyId]/dashboard-visuals.tsx` | **Shared animated dashboard component** (KPI cards, pill bar chart, half-donut gauge, reminder, tasks, team, live clock). Used by BOTH the admin and operator dashboards. Change here = changes both. |
 | `app/(company)/c/[companyId]/page.tsx` | Company (admin) + operator (`ClerkDashboard`) dashboards: data loaders → `DashboardVisuals`. |
+| `app/(company)/c/[companyId]/clerk-shortcuts.tsx` | Operator dashboard tiles (owner decision 2026-10-03: the depot clerk's panel is **shortcuts only** — status strip + live-count tiles for each step of the day; no charts/gauge/team). Admin keeps `DashboardVisuals`. |
 | `components/layout/company-sidebar.tsx` | Company/operator sidebar: green logo mark, flat icon menu under plain section labels (no collapse), green active pill + edge bar, account footer (avatar/email/role/logout). |
 | `components/layout/platform-sidebar.tsx` | Superadmin sidebar — same pattern, red "Platform" badge. |
 | `app/(company)/c/[companyId]/layout.tsx` | Top bar = **global search** + sidebar. Account moved into the sidebar footer. |
@@ -37,7 +38,8 @@ conventions; do not reinvent or revert them.
 ## 3. Rules for agents
 
 - **Reuse `DashboardVisuals`** for any new dashboard surface instead of hand-
-  rolling cards/charts. Feed it real counts; pass `canManageTeam={false}` where
+  rolling cards/charts. Exception: the operator panel uses `ClerkShortcuts`
+  (task-tile grid) by owner decision; keep it free of analytics. Feed it real counts; pass `canManageTeam={false}` where
   the role can't manage users (e.g. operator).
 - **Sidebar colors come from `--sidebar*` in `globals.css`** — restyle there,
   not with hard-coded colors in the component. Keep a working `.dark` variant.
