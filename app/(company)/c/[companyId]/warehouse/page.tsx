@@ -115,6 +115,9 @@ export default async function WarehousePage({ params }: PageProps) {
             <Link href={companyModulePath(companyId, "warehouse", "scan")}>
               <Button>Barkod Tara</Button>
             </Link>
+            <Link href={companyModulePath(companyId, "warehouse", "shelf-map")}>
+              <Button variant="outline">Raf Haritası</Button>
+            </Link>
             <Link href={companyModulePath(companyId, "warehouse", "log")}>
               <Button variant="outline">Sayım Protokolü</Button>
             </Link>

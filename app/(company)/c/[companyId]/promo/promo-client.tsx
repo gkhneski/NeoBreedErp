@@ -17,7 +17,10 @@ export type PromoLot = {
   quantity_on_hand: number;
   notes: string | null;
   created_at: string;
+  shelf: string | null;
 };
+
+export type ShelfOption = { id: string; code: string; name: string };
 
 export type PromoItem = {
   id: string;
@@ -36,11 +39,13 @@ export function PromoClient({
   companyId,
   items,
   depotName,
+  shelves,
   canWrite,
 }: {
   companyId: string;
   items: PromoItem[];
   depotName: string | null;
+  shelves: ShelfOption[];
   canWrite: boolean;
 }) {
   const [message, setMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(
@@ -124,6 +129,7 @@ export function PromoClient({
                     key={item.id}
                     companyId={companyId}
                     item={item}
+                    shelves={shelves}
                     open={open}
                     canWrite={canWrite}
                     onToggle={() => setOpenItem(open ? null : item.id)}
@@ -193,6 +199,7 @@ function NewItemForm({
 function ItemRows({
   companyId,
   item,
+  shelves,
   open,
   canWrite,
   onToggle,
@@ -200,6 +207,7 @@ function ItemRows({
 }: {
   companyId: string;
   item: PromoItem;
+  shelves: ShelfOption[];
   open: boolean;
   canWrite: boolean;
   onToggle: () => void;
@@ -207,6 +215,7 @@ function ItemRows({
 }) {
   const [qty, setQty] = useState("");
   const [note, setNote] = useState("");
+  const [shelfId, setShelfId] = useState("");
   const [busy, start] = useTransition();
 
   return (
@@ -235,12 +244,12 @@ function ItemRows({
             <div className="space-y-4">
               {canWrite ? (
                 <form
-                  className="grid gap-3 sm:grid-cols-[140px_1fr_auto] sm:items-end"
+                  className="grid gap-3 sm:grid-cols-[140px_180px_1fr_auto] sm:items-end"
                   onSubmit={(e) => {
                     e.preventDefault();
                     const n = Number(qty.replace(",", "."));
                     start(async () => {
-                      const r = await addPromoStock(companyId, item.id, n, note);
+                      const r = await addPromoStock(companyId, item.id, n, note, shelfId || null);
                       if (r.ok) {
                         setQty("");
                         setNote("");
@@ -264,6 +273,22 @@ function ItemRows({
                     />
                   </div>
                   <div className="space-y-1">
+                    <Label htmlFor={`shelf-${item.id}`}>Raf</Label>
+                    <select
+                      id={`shelf-${item.id}`}
+                      value={shelfId}
+                      onChange={(e) => setShelfId(e.target.value)}
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                    >
+                      <option value="">Depo (rafsız)</option>
+                      {shelves.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.code} — {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
                     <Label htmlFor={`note-${item.id}`}>Not (isteğe bağlı)</Label>
                     <Input
                       id={`note-${item.id}`}
@@ -284,6 +309,7 @@ function ItemRows({
                     <tr>
                       <th className="px-2 py-1 text-left font-medium">Giriş</th>
                       <th className="px-2 py-1 text-left font-medium">Parti</th>
+                      <th className="px-2 py-1 text-left font-medium">Raf</th>
                       <th className="px-2 py-1 text-left font-medium">Not</th>
                       <th className="px-2 py-1 text-right font-medium">Adet</th>
                       {canWrite ? <th className="px-2 py-1 text-right font-medium">Düzelt</th> : null}
@@ -336,6 +362,9 @@ function LotRow({
         {formatDateTime(lot.created_at)}
       </td>
       <td className="px-2 py-1 font-mono">{lot.lot_number}</td>
+      <td className="px-2 py-1 font-mono">
+        {lot.shelf ?? <span className="text-amber-700">rafsız</span>}
+      </td>
       <td className="px-2 py-1">{lot.notes ?? "—"}</td>
       <td className="px-2 py-1 text-right font-mono tabular-nums">
         {fmt(lot.quantity_on_hand)}

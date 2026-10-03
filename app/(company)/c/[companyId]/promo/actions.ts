@@ -87,6 +87,7 @@ const addStockSchema = z.object({
   material_id: uuid,
   quantity: z.number().positive("Adet 0'dan büyük olmalı.").max(10_000_000),
   note: z.string().trim().max(300),
+  location_id: uuid.nullable(),
 });
 
 function promoLotNumber(now: Date): string {
@@ -100,12 +101,14 @@ export async function addPromoStock(
   materialIdInput: string,
   quantityInput: number,
   noteInput: string,
+  locationIdInput: string | null = null,
 ): Promise<PromoResult> {
   const parsed = addStockSchema.safeParse({
     company_id: companyIdInput,
     material_id: materialIdInput,
     quantity: quantityInput,
     note: noteInput,
+    location_id: locationIdInput || null,
   });
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz veri." };
@@ -134,6 +137,22 @@ export async function addPromoStock(
     };
   }
 
+  // Hedef: satış deposu ya da onun bir rafı. Başka depoya promosyon girilmez.
+  let targetLocationId = depot.id;
+  if (parsed.data.location_id && parsed.data.location_id !== depot.id) {
+    const { data: shelf } = await supabase
+      .from("locations")
+      .select("id")
+      .eq("id", parsed.data.location_id)
+      .eq("company_id", companyId)
+      .eq("kind", "shelf")
+      .eq("parent_id", depot.id)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (!shelf) return { ok: false, error: "Seçilen raf satış deposuna ait değil." };
+    targetLocationId = shelf.id;
+  }
+
   const { error } = await supabase.rpc("create_lot_with_receipt", {
     p_company_id: companyId,
     p_material_id: parsed.data.material_id,
@@ -148,7 +167,7 @@ export async function addPromoStock(
     p_movement_notes: "promo stock entry",
     p_owner_customer_id: null,
     p_status: "released",
-    p_location_id: depot.id,
+    p_location_id: targetLocationId,
   });
   if (error) return { ok: false, error: error.message };
 

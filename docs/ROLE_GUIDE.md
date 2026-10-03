@@ -69,6 +69,8 @@ Hammadde, fabrika lotları, reçete, üretim, maliyet ve tedarikçileri görmez.
 | Yanlış yazdıysa | Aynı ekran | *Vazgeç* |
 | Kamera yoksa | *Barkod Tara* | Lot numarasını kutuya yazıp *Bul* |
 | Aynı depoda rafa yerleştirmek | *Barkod Tara* | Lotu okutun → raf etiketini okutun veya listeden seçin (sayım gerekmez) |
+| Fabrikadan gelen partiyi doğrudan rafa almak | *Barkod Tara* | Lotu okutun → *Sayılan miktar* → hedef olarak LTD'nin **rafını** seçin; sayım ve raf tek adımda |
+| Hangi ürün hangi rafta? | *Depo Hareketleri → Raf Haritası* veya *Stok → Ürün* tablosundaki *Raf* sütunu | Raf kartları ürün ve adetleri gösterir; **Rafsız Lotlar** listesi günlük iş listesidir (*Rafa Koy* → tarama ekranı lot yüklü açılır); boş raflar işaretlidir; raf etiketi yazdırma kartın üstündedir |
 | Raftakileri görmek | *Barkod Tara* | Raf etiketini okutun |
 | Sipariş hazırlamak | *Eczane Siparişleri* veya *Siparişler → Yeni* | Siparişi açın → sevkiyata çevirin → serbest lotları seçin |
 | Göndermek | *Siparişler* | Sevkiyatı *Gönder* (gönderilen değiştirilemez) |

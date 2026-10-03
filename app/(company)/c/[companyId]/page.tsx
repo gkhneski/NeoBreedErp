@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyUser } from "@/lib/auth";
 import { getCompanySummary } from "@/lib/company";
 import { getExpiryThresholds } from "@/lib/company-settings";
+import { findSalesDepot } from "@/lib/sales-depot";
 import {
   daysUntil,
   isoDatePlusDays,
@@ -232,6 +233,22 @@ async function loadLtdDepotTotals(
   return { units, products: products.size };
 }
 
+// Satış deposuna alınmış ama rafa konmamış lotlar (depo seviyesinde duran).
+async function loadUnshelvedCount(companyId: string): Promise<number> {
+  const supabase = await createServerSupabaseClient();
+  const depot = await findSalesDepot(supabase, companyId);
+  if (!depot) return 0;
+  const { count } = await supabase
+    .from("material_lots")
+    .select("id, materials:material_id!inner(type)", { count: "exact", head: true })
+    .eq("company_id", companyId)
+    .eq("location_id", depot.id)
+    .in("materials.type", ["finished", "promo"])
+    .is("deleted_at", null)
+    .gt("quantity_on_hand", 0);
+  return count ?? 0;
+}
+
 type ExpiringLotRow = {
   id: string;
   lot_number: string;
@@ -323,6 +340,7 @@ async function ClerkDashboard({
     expiry,
     weekly,
     team,
+    unshelved,
   ] = await Promise.all([
     supabase
       .from("shipments")
@@ -356,6 +374,7 @@ async function ClerkDashboard({
     loadExpiryCounts(companyId, thresholds),
     loadWeeklyMovements(companyId),
     loadTeam(companyId),
+    loadUnshelvedCount(companyId),
   ]);
 
   const finishedStockPath = `${companyModulePath(companyId, "stock")}?tab=urun`;
@@ -453,6 +472,14 @@ async function ClerkDashboard({
       href: `${shipmentsPath}?durum=preparing`,
       icon: "clipboard",
       tone: "blue",
+    },
+    {
+      label: "Rafsız Lot",
+      sub: "Depoda, rafa konmamış",
+      count: unshelved,
+      href: companyModulePath(companyId, "warehouse", "shelf-map"),
+      icon: "boxes",
+      tone: "amber",
     },
     {
       label: "Bekleyen Fiyat Onayı",

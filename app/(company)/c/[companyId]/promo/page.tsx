@@ -3,7 +3,7 @@ import { findSalesDepot } from "@/lib/sales-depot";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { STOCK_WRITE_ROLES, canWriteCompanyData } from "@/types/roles";
 
-import { PromoClient, type PromoItem } from "./promo-client";
+import { PromoClient, type PromoItem, type ShelfOption } from "./promo-client";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -17,6 +17,7 @@ type LotRow = {
   quantity_on_hand: number;
   notes: string | null;
   created_at: string;
+  locations: { code: string; kind: "depot" | "shelf" } | null;
 };
 
 export default async function PromoPage({ params }: PageProps) {
@@ -36,7 +37,7 @@ export default async function PromoPage({ params }: PageProps) {
     supabase
       .from("material_lots")
       .select(
-        "id, material_id, lot_number, quantity_on_hand, notes, created_at, materials:material_id!inner(type)",
+        "id, material_id, lot_number, quantity_on_hand, notes, created_at, materials:material_id!inner(type), locations:location_id(code, kind)",
       )
       .eq("company_id", companyId)
       .eq("materials.type", "promo")
@@ -48,6 +49,19 @@ export default async function PromoPage({ params }: PageProps) {
   ]);
 
   const lotRows = lots ?? [];
+  let shelves: ShelfOption[] = [];
+  if (depot) {
+    const { data } = await supabase
+      .from("locations")
+      .select("id, code, name")
+      .eq("company_id", companyId)
+      .eq("kind", "shelf")
+      .eq("parent_id", depot.id)
+      .is("deleted_at", null)
+      .order("code")
+      .returns<ShelfOption[]>();
+    shelves = data ?? [];
+  }
   const items: PromoItem[] = (materials ?? []).map((m) => {
     const own = lotRows.filter((l) => l.material_id === m.id);
     return {
@@ -59,6 +73,7 @@ export default async function PromoPage({ params }: PageProps) {
         quantity_on_hand: Number(l.quantity_on_hand),
         notes: l.notes,
         created_at: l.created_at,
+        shelf: l.locations?.kind === "shelf" ? l.locations.code : null,
       })),
     };
   });
@@ -68,6 +83,7 @@ export default async function PromoPage({ params }: PageProps) {
       companyId={companyId}
       items={items}
       depotName={depot?.name ?? null}
+      shelves={shelves}
       canWrite={canWriteCompanyData(role, STOCK_WRITE_ROLES)}
     />
   );

@@ -314,7 +314,7 @@ type FinishedLotRow = {
   quantity_on_hand: number;
   status: "quarantine" | "released" | "blocked";
   materials: { code: string; name: string; base_uom: string } | null;
-  locations: { code: string; name: string; is_default: boolean } | null;
+  locations: { code: string; name: string; is_default: boolean; kind: "depot" | "shelf" } | null;
 };
 
 const LOT_STATUS_LABEL: Record<FinishedLotRow["status"], string> = {
@@ -351,10 +351,20 @@ function DepotProductSummary({
 }) {
   const released = new Map<string, number>();
   const other = new Map<string, number>();
+  const shelves = new Map<string, Map<string, number>>();
+  let unshelved = 0;
   for (const lot of lots) {
     const target = lot.status === "released" ? released : other;
     target.set(lot.material_id, (target.get(lot.material_id) ?? 0) + Number(lot.quantity_on_hand));
+    if (lot.locations?.kind === "shelf") {
+      const perShelf = shelves.get(lot.material_id) ?? new Map<string, number>();
+      perShelf.set(lot.locations.code, (perShelf.get(lot.locations.code) ?? 0) + Number(lot.quantity_on_hand));
+      shelves.set(lot.material_id, perShelf);
+    } else {
+      unshelved += 1;
+    }
   }
+  const shelfMapPath = companyModulePath(companyId, "warehouse", "shelf-map");
   const onboardingBase = companyModulePath(companyId, "lots", "onboarding");
   const stocked = products.filter((p) => (released.get(p.id) ?? 0) + (other.get(p.id) ?? 0) > 0).length;
 
@@ -363,7 +373,13 @@ function DepotProductSummary({
       <div className="flex flex-wrap items-end justify-between gap-2">
         <h2 className="text-sm font-semibold">Ürün Bazında Depo Stoğu</h2>
         <p className="text-xs text-muted-foreground">
-          {stocked} / {products.length} ürünün depoda stoğu var. Satılabilir = serbest lotlar.
+          {stocked} / {products.length} ürünün depoda stoğu var. Satılabilir = serbest lotlar.{" "}
+          <Link href={shelfMapPath} className="hover:underline">
+            Raf Haritası
+          </Link>
+          {unshelved > 0 ? (
+            <span className="ml-1 text-amber-700">· {unshelved} rafsız lot</span>
+          ) : null}
         </p>
       </div>
       <div className="overflow-x-auto rounded-md border border-border">
@@ -374,6 +390,7 @@ function DepotProductSummary({
               <th className="px-3 py-2 text-left font-medium">Ürün</th>
               <th className="px-3 py-2 text-right font-medium">Satılabilir</th>
               <th className="px-3 py-2 text-right font-medium">Karantina / Bloklu</th>
+              <th className="px-3 py-2 text-left font-medium">Raf</th>
               {canWrite ? <th className="px-3 py-2 text-right font-medium" /> : null}
             </tr>
           </thead>
@@ -390,6 +407,17 @@ function DepotProductSummary({
                   </td>
                   <td className="px-3 py-2 text-right font-mono tabular-nums">
                     {rest > 0 ? `${rest.toLocaleString("tr-TR")} ${uomLabel(p.base_uom)}` : "—"}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-xs">
+                    {shelves.has(p.id) ? (
+                      Array.from(shelves.get(p.id)?.entries() ?? [])
+                        .map(([code, q]) => `${code} (${q.toLocaleString("tr-TR")})`)
+                        .join(", ")
+                    ) : sell + rest > 0 ? (
+                      <span className="text-amber-700">rafsız</span>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   {canWrite ? (
                     <td className="px-3 py-2 text-right">
@@ -563,7 +591,7 @@ export default async function StockPage({ params, searchParams }: PageProps) {
       .select(
         "id, material_id, lot_number, expiry_date, quantity_on_hand, status, " +
           "materials:material_id!inner(code, name, base_uom, type), " +
-          "locations:location_id!inner(code, name, is_default)",
+          "locations:location_id!inner(code, name, is_default, kind)",
       )
       .eq("company_id", companyId)
       .eq("materials.type", "finished")
