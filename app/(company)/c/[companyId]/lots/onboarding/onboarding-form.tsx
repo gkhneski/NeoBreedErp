@@ -58,6 +58,7 @@ export function OnboardingForm({
   materials,
   locations,
   defaultLocationId,
+  defaultMaterialId = null,
   canCreateProduct,
   trendyolProducts,
 }: {
@@ -65,6 +66,7 @@ export function OnboardingForm({
   materials: MaterialOption[];
   locations: LocationOption[];
   defaultLocationId: string | null;
+  defaultMaterialId?: string | null;
   canCreateProduct: boolean;
   trendyolProducts: TyOption[];
 }) {
@@ -73,7 +75,7 @@ export function OnboardingForm({
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
   // Art arda giris: urun/SKT/konum form reset'inden etkilenmesin diye controlled.
-  const [materialId, setMaterialId] = useState("");
+  const [materialId, setMaterialId] = useState(defaultMaterialId ?? "");
   const [expiryDate, setExpiryDate] = useState("");
   const [locationId, setLocationId] = useState(defaultLocationId ?? "");
   const [pickQuery, setPickQuery] = useState("");

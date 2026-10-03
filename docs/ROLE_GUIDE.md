@@ -61,6 +61,8 @@ Hammadde, fabrika lotları, reçete, üretim, maliyet ve tedarikçileri görmez.
 | İşlem | Nereden | Nasıl |
 |---|---|---|
 | Partiyi LTD deposuna sayarak almak | Parti kartındaki QR (telefon kamerası) veya *Depo Hareketleri → Barkod Tara → Kamerayla Tara* | 1) Lotu açın 2) *Sayılan miktar*'a sayıyı yazın 3) *NeuPharma LTD.ŞTİ.* butonuna basın |
+| Elimdeki ürünleri birer birer girmek | *Stok → Ürün* sekmesi (Ürün Bazında Depo Stoğu) | Her ürün tek satırdır; satılabilir adet görünür. Girilmemiş ürünün yanındaki *Stok Gir* ürünü seçili olarak Stok Girişi'ni açar |
+| Promosyon ürünlerini (numune, hediye, broşür) takip etmek | *Promosyon Ürünleri* | 1) *Yeni Promosyon Ürünü* ile tanımlayın 2) *Adet Gir / Düzelt* → *Depoya Ekle* 3) Düzeltme için parti satırında *Düzelt*, neden zorunlu. Dashboard'da listelenir, satışa çıkmaz |
 | Sayım farkı olan kabulleri görmek | *Depo Hareketleri → Sayım Protokolü* | Sayılan miktar sistemden farklı girilip onaylanan her kabul (kim, ne zaman, beklenen/sayılan, neden) burada listelenir; silinemez, değiştirilemez |
 | Sayım sistemle aynıysa | Aynı ekran | Lot hemen alınır, ekranda "… stoğuna alındı" yazar |
 | Sayım farklıysa | Aynı ekran | Sarı kutu farkı gösterir → nedenini yazın → *"… olarak stoğa al"*. Sayılan miktar stok olur, fark düzeltme hareketi olarak kaydolur |
@@ -157,7 +159,7 @@ Her modülü görür, hiçbir şeyi değiştiremez.
 | 2 | Yönetici | YM emri → tamamla → YM lotu (parti no örn. `2608006`) |
 | 3 | Yönetici | Aynı parti numarasıyla mamül emri → tamamla → mamül lotu `ANA`'da karantinada |
 | 4 | Yönetici | *Parti Kartı (PDF)* yazdırılır, ürünün yanına konur |
-| 5 | Depocu | QR okutur, sayar, lotu `LTD`'ye alır |
+| 5 | Depocu | QR okutur, sayar, lotu `LTD`'ye alır — **satılabilir stok ancak bu adımdan sonra oluşur** (ANA'daki serbest lot satışa çıkmaz) |
 | 6 | Yönetici / kalite | Lot serbest bırakılır → satılabilir stok, pazaryeri ve portal stoğu |
 | 7 | Depocu | Sipariş gelir (portal, pazaryeri, elle) → sevkiyat → gönder |
 

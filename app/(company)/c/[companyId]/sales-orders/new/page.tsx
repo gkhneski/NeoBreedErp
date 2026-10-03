@@ -48,14 +48,11 @@ export default async function RepOrderPage({ params }: PageProps) {
   const onHand = new Map<string, number>();
   if (materialIds.length > 0) {
     const { data: lots } = await supabase
-      .from("material_lots")
+      .from("sellable_lots")
       .select("material_id, quantity_on_hand")
       .eq("company_id", companyId)
       .in("material_id", materialIds)
-      .eq("status", "released")
-      .is("owner_customer_id", null)
-      .is("deleted_at", null)
-      .gt("quantity_on_hand", 0);
+      .is("owner_customer_id", null);
     for (const l of lots ?? []) {
       onHand.set(
         l.material_id,

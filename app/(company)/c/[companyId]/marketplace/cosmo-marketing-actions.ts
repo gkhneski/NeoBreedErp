@@ -111,14 +111,11 @@ export async function cosmoMarketingScan(
   const stockByMaterial = new Map<string, number>();
   const expiryByMaterial = new Map<string, string>();
   const { data: lots } = await supabase
-    .from("material_lots")
+    .from("sellable_lots")
     .select("material_id, quantity_on_hand, expiry_date")
     .eq("company_id", companyId)
     .in("material_id", materialIds)
-    .eq("status", "released")
-    .is("owner_customer_id", null)
-    .is("deleted_at", null)
-    .gt("quantity_on_hand", 0);
+    .is("owner_customer_id", null);
   for (const lot of lots ?? []) {
     stockByMaterial.set(
       lot.material_id,
@@ -245,14 +242,11 @@ export async function cosmoCompetitorResearch(
   let stockUnits = 0;
   let nearestExpiry: string | null = null;
   const { data: lots } = await supabase
-    .from("material_lots")
+    .from("sellable_lots")
     .select("quantity_on_hand, expiry_date")
     .eq("company_id", companyId)
     .eq("material_id", listing.material_id)
-    .eq("status", "released")
-    .is("owner_customer_id", null)
-    .is("deleted_at", null)
-    .gt("quantity_on_hand", 0);
+    .is("owner_customer_id", null);
   for (const lot of lots ?? []) {
     stockUnits += Number(lot.quantity_on_hand);
     if (lot.expiry_date && (!nearestExpiry || lot.expiry_date < nearestExpiry))
@@ -347,14 +341,11 @@ export async function cosmoVisibility(
   // Bizim satılabilir stok.
   let stockUnits = 0;
   const { data: lots } = await supabase
-    .from("material_lots")
+    .from("sellable_lots")
     .select("quantity_on_hand")
     .eq("company_id", companyId)
     .eq("material_id", listing.material_id)
-    .eq("status", "released")
-    .is("owner_customer_id", null)
-    .is("deleted_at", null)
-    .gt("quantity_on_hand", 0);
+    .is("owner_customer_id", null);
   for (const l of lots ?? []) stockUnits += Number(l.quantity_on_hand);
 
   // Son 30 gün satış (cache'li siparişlerden).

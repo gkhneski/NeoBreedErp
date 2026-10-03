@@ -28,6 +28,7 @@ import {
   Settings,
   ShieldCheck,
   ShoppingCart,
+  Gift,
   Store,
   Tags,
   Truck,
@@ -119,6 +120,7 @@ const GROUPS: NavGroup[] = [
         title: "Ürünler & Müşteriler",
         items: [
           { key: "products", label: "Ürünler", icon: Package },
+          { key: "promo", label: "Promosyon Ürünleri", icon: Gift },
           { key: "customers", label: "Müşteriler", icon: Building2 },
         ],
       },

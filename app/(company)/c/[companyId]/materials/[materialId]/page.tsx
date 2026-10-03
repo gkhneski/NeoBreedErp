@@ -24,6 +24,7 @@ interface PageProps {
 const TYPE_LABEL: Record<string, string> = {
   raw: "Hammadde",
   finished: "Bitmiş Ürün",
+  promo: "Promosyon",
 };
 
 type MaterialDetail = {

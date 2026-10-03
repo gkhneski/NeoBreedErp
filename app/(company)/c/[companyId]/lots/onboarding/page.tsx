@@ -13,6 +13,7 @@ import { OnboardingForm } from "./onboarding-form";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
+  searchParams: Promise<{ material?: string }>;
 }
 
 type MaterialRow = {
@@ -24,8 +25,9 @@ type MaterialRow = {
   barcode: string | null;
 };
 
-export default async function LotOnboardingPage({ params }: PageProps) {
+export default async function LotOnboardingPage({ params, searchParams }: PageProps) {
   const { companyId: routeCompanyId } = await params;
+  const { material: requestedMaterial } = await searchParams;
   const { companyId, role } = await requireCompanyRole(
     routeCompanyId,
     STOCK_WRITE_ROLES,
@@ -63,6 +65,8 @@ export default async function LotOnboardingPage({ params }: PageProps) {
   const locationRows = locations ?? [];
   // Bu ekran LTD deposu içindir: varsayılan konum LTD deposu olsun.
   const ltdDepot = locationRows.find((l) => /ltd/i.test(l.name));
+  const defaultMaterialId =
+    (materials ?? []).find((m) => m.id === requestedMaterial)?.id ?? null;
   const defaultLocationId =
     ltdDepot?.id ??
     locationRows.find((l) => l.is_default)?.id ??
@@ -99,6 +103,7 @@ export default async function LotOnboardingPage({ params }: PageProps) {
         materials={materials ?? []}
         locations={locationRows}
         defaultLocationId={defaultLocationId}
+        defaultMaterialId={defaultMaterialId}
         canCreateProduct={canWriteCompanyData(role, STOCK_WRITE_ROLES)}
         trendyolProducts={trendyolProducts ?? []}
       />

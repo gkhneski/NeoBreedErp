@@ -32,6 +32,7 @@ import {
   type WeeklyBar,
 } from "./dashboard-visuals";
 import { OperatorOrderNotifier } from "./order-notifier";
+import { PromoStockCard } from "./promo-stock-card";
 
 interface CompanyStats {
   totalProducts: number;
@@ -521,6 +522,8 @@ async function ClerkDashboard({
         stockHref={finishedStockPath}
         canManageTeam={false}
       />
+
+      <PromoStockCard companyId={companyId} />
     </div>
   );
 }
@@ -693,6 +696,8 @@ export default async function CompanyDashboardPage({ params }: PageProps) {
         stockHref={finishedStockPath}
         membersHref={companyModulePath(companyId, "users")}
       />
+
+      <PromoStockCard companyId={companyId} />
 
       {hasAnyData ? null : (
         <EmptyState

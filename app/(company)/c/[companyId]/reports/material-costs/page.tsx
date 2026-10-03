@@ -15,6 +15,7 @@ const TYPE_LABEL: Record<string, string> = {
   raw: "Hammadde",
   semi: "Yarımamül",
   finished: "Bitmiş",
+  promo: "Promosyon",
 };
 
 export default async function MaterialCostsReportPage({ params }: PageProps) {

@@ -23,6 +23,7 @@ const TYPE_LABEL: Record<string, string> = {
   raw: "Hammadde",
   semi: "Yarımamül (YM)",
   finished: "Bitmiş Ürün",
+  promo: "Promosyon",
 };
 
 type MaterialRow = {

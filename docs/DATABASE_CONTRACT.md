@@ -398,6 +398,18 @@ Per-company execution row for a production order. Each row carries `company_id`,
 
 **Files affected:** `supabase/migrations/20260520000100_phase5c_production_orders.sql`, `supabase/migrations/20260521000000_phase5c_production_batches.sql`, and company routes under `app/(company)/c/[companyId]/production/`.
 
+### 12.2b Sales depot, `sellable_lots`, promo items
+
+`materials.type` accepts `raw | semi | finished | promo`. `promo` = promotional item (sample/gift): stocked and counted, never sold or produced.
+
+**Views** (`20261003010000_sales_depot_sellable_promo.sql`, both `security_invoker = true`, select granted to `authenticated`):
+- `location_depots(location_id, company_id, depot_id, depot_is_default)` — each active location resolved to its depot (a shelf → its parent).
+- `sellable_lots(id, company_id, material_id, material_type, lot_number, quantity_on_hand, expiry_date, owner_customer_id, location_id, created_at)` — `material_lots` that are `released`, not deleted, `quantity_on_hand > 0`, whose depot is **not** the default (factory) depot, and whose material is not `promo`. Consumers add their own `owner_customer_id` filter (null = own stock, customer id = fason). `buyer_catalog` computes its availability bucket from this view.
+
+**Rule:** every sellable-stock read (portal, marketplace sync/discounts, sales dashboard, rep catalog, order→shipment FEFO allocation, marketing site) goes through `sellable_lots`. Products page and dashboards that show *where* stock sits may still read `material_lots` with a location join.
+
+**Files affected:** `lib/marketplaces/stock.ts`, `lib/marketplaces/discount-engine.ts`, `lib/sales-depot.ts`, `app/(company)/c/[companyId]/{marketplace,sales,sales-orders,site,promo}/`.
+
 ### 12.3 `audit_log` + production order deletion
 
 Per-company, append-only protocol of operational mutations. Columns: `company_id uuid not null`, `actor_id`, `action`, `target_table`, `target_id`, `target_label`, `reason`, `diff jsonb`, `created_at`. No soft delete, no update: triggers block `update`/`delete`.

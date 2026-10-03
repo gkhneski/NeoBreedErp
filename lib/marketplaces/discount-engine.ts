@@ -239,14 +239,11 @@ export async function runDiscountDetection(
 
     // Satilabilir lotlardan, merdivenin en genis penceresine giren SKT'ler.
     const { data: lotRows } = await service
-      .from("material_lots")
+      .from("sellable_lots")
       .select("material_id, expiry_date")
       .eq("company_id", company)
       .in("material_id", materialIds)
-      .eq("status", "released")
       .is("owner_customer_id", null)
-      .is("deleted_at", null)
-      .gt("quantity_on_hand", 0)
       .not("expiry_date", "is", null)
       .lte("expiry_date", isoDate(maxThreshold));
 

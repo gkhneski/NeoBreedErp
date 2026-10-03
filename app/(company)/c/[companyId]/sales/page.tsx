@@ -145,15 +145,11 @@ export default async function SalesPage({ params, searchParams }: PageProps) {
   const stockByMaterial = new Map<string, number>();
   {
     const { data: lots } = await supabase
-      .from("material_lots")
-      .select("material_id, quantity_on_hand, materials:material_id!inner(type)")
+      .from("sellable_lots")
+      .select("material_id, quantity_on_hand")
       .eq("company_id", companyId)
-      .eq("materials.type", "finished")
-      .eq("status", "released")
-      .is("owner_customer_id", null)
-      .is("deleted_at", null)
-      .gt("quantity_on_hand", 0)
-      .returns<Array<{ material_id: string; quantity_on_hand: number }>>();
+      .eq("material_type", "finished")
+      .is("owner_customer_id", null);
     for (const lot of lots ?? []) {
       stockByMaterial.set(
         lot.material_id,

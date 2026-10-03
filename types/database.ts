@@ -37,7 +37,7 @@ export type AgentActionKind =
   | "visibility"
   | "content";
 export type AgentActionStatus = "proposed" | "applied" | "dismissed";
-export type MaterialType = "raw" | "semi" | "finished";
+export type MaterialType = "raw" | "semi" | "finished" | "promo";
 export type RecipeStatus = "draft" | "published" | "archived";
 export type RecipeMode = "quantity" | "percentage";
 export type LotStatus = "quarantine" | "released" | "blocked";
@@ -2177,6 +2177,30 @@ export type Database = {
       };
     };
     Views: {
+      location_depots: {
+        Row: {
+          location_id: string;
+          company_id: string;
+          depot_id: string;
+          depot_is_default: boolean;
+        };
+        Relationships: [];
+      };
+      sellable_lots: {
+        Row: {
+          id: string;
+          company_id: string;
+          material_id: string;
+          material_type: MaterialType;
+          lot_number: string;
+          quantity_on_hand: number;
+          expiry_date: string | null;
+          owner_customer_id: string | null;
+          location_id: string | null;
+          created_at: string;
+        };
+        Relationships: [];
+      };
       buyer_catalog: {
         Row: {
           company_id: string;

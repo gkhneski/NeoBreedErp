@@ -208,13 +208,10 @@ export async function convertOrderToShipment(
     }
 
     let lotQuery = supabase
-      .from("material_lots")
+      .from("sellable_lots")
       .select("id, quantity_on_hand, expiry_date, created_at")
       .eq("company_id", companyId)
-      .eq("material_id", item.material_id)
-      .eq("status", "released")
-      .is("deleted_at", null)
-      .gt("quantity_on_hand", 0);
+      .eq("material_id", item.material_id);
     lotQuery = fasonOwner
       ? lotQuery.eq("owner_customer_id", fasonOwner)
       : lotQuery.is("owner_customer_id", null);

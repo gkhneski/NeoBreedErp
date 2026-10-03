@@ -137,6 +137,8 @@ const OPERATOR_MODULES = new Set([
   // Depocu eldeki bitmis urunu barkod okutarak girer; tam "lots" modulu
   // (hammadde/fabrika lotlari) acilmaz, yalnizca onboarding ekrani.
   "lots/onboarding",
+  // Depocu eldeki promosyon urunlerini (numune/hediye) tanimlar ve sayar.
+  "promo",
 ]);
 
 // Bolge muduru = ic personel ama satis odakli: depo stok + uretim durumunu

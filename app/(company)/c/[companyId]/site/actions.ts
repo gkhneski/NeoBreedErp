@@ -117,14 +117,11 @@ export async function generateProductPageDraft(
 
   let stockUnits = 0;
   const { data: lots } = await supabase
-    .from("material_lots")
+    .from("sellable_lots")
     .select("quantity_on_hand")
     .eq("company_id", companyId)
     .eq("material_id", material.id)
-    .eq("status", "released")
-    .is("owner_customer_id", null)
-    .is("deleted_at", null)
-    .gt("quantity_on_hand", 0);
+    .is("owner_customer_id", null);
   for (const l of lots ?? []) stockUnits += Number(l.quantity_on_hand);
 
   const price =

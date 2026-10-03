@@ -52,6 +52,7 @@ function FieldError({ message }: { message?: string }) {
 const TYPE_LABEL: Record<string, string> = {
   raw: "Hammadde",
   finished: "Bitmiş",
+  promo: "Promosyon",
 };
 
 export function LotForm({

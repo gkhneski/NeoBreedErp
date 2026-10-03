@@ -68,7 +68,7 @@ async function resolveLot(
     )
     .eq("company_id", companyId)
     .is("deleted_at", null);
-  if (onlyFinished) q = q.eq("materials.type", "finished");
+  if (onlyFinished) q = q.in("materials.type", ["finished", "promo"]);
   q = by.lotId ? q.eq("id", by.lotId) : q.eq("lot_number", by.lotNumber!);
 
   const { data: lot } = await q.limit(1).maybeSingle<{
@@ -133,7 +133,7 @@ async function resolveLocation(
     .eq("location_id", location.id)
     .gt("quantity_on_hand", 0)
     .is("deleted_at", null);
-  if (onlyFinished) lotsQuery = lotsQuery.eq("materials.type", "finished");
+  if (onlyFinished) lotsQuery = lotsQuery.in("materials.type", ["finished", "promo"]);
   const { data: lots } = await lotsQuery
     .order("expiry_date", { ascending: true, nullsFirst: false })
     .returns<
@@ -302,7 +302,7 @@ async function loadLotForMove(
     .eq("id", lotId)
     .eq("company_id", companyId)
     .is("deleted_at", null);
-  if (onlyFinished) q = q.eq("materials.type", "finished");
+  if (onlyFinished) q = q.in("materials.type", ["finished", "promo"]);
   const { data } = await q.maybeSingle<{
     quantity_on_hand: number;
     location_id: string | null;

@@ -70,7 +70,7 @@ export default async function WarehousePage({ params }: PageProps) {
     )
     .eq("company_id", companyId)
     .is("deleted_at", null);
-  if (isOperator) lotsQuery = lotsQuery.eq("materials.type", "finished");
+  if (isOperator) lotsQuery = lotsQuery.in("materials.type", ["finished", "promo"]);
 
   let movementsQuery = supabase
     .from("stock_movements")
@@ -80,7 +80,7 @@ export default async function WarehousePage({ params }: PageProps) {
     )
     .eq("company_id", companyId)
     .is("material_lots.deleted_at", null);
-  if (isOperator) movementsQuery = movementsQuery.eq("materials.type", "finished");
+  if (isOperator) movementsQuery = movementsQuery.in("materials.type", ["finished", "promo"]);
 
   const [{ data: lots }, { data: movements }] = await Promise.all([
     lotsQuery

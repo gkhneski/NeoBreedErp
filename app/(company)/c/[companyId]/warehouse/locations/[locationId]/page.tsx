@@ -93,7 +93,7 @@ export default async function LocationDetailPage({ params }: PageProps) {
         .eq("location_id", location.id)
         .is("deleted_at", null)
         .gt("quantity_on_hand", 0);
-      if (isOperator) q = q.eq("materials.type", "finished");
+      if (isOperator) q = q.in("materials.type", ["finished", "promo"]);
       return q
         .order("expiry_date", { ascending: true, nullsFirst: false })
         .returns<LocationLot[]>();
@@ -124,7 +124,7 @@ export default async function LocationDetailPage({ params }: PageProps) {
       )
       .is("deleted_at", null)
       .gt("quantity_on_hand", 0);
-    if (isOperator) shelfLotsQuery = shelfLotsQuery.eq("materials.type", "finished");
+    if (isOperator) shelfLotsQuery = shelfLotsQuery.in("materials.type", ["finished", "promo"]);
     const { data: shelfLots } = await shelfLotsQuery;
     shelfLotCounts = (shelfLots ?? []).reduce((map, row) => {
       if (row.location_id) {

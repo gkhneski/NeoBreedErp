@@ -308,6 +308,7 @@ function MovementsTable({
 
 type FinishedLotRow = {
   id: string;
+  material_id: string;
   lot_number: string;
   expiry_date: string | null;
   quantity_on_hand: number;
@@ -332,6 +333,81 @@ const LOT_STATUS_VARIANT: Record<
 };
 
 // Depo gorunumu: bitmis urunler lot bazinda — adet, raf, SKT, durum.
+type ProductSummaryRow = { id: string; code: string; name: string; base_uom: string };
+
+// Depocunun elindeki her ürün tek satır: LTD'deki serbest adet ve eksikse hızlı
+// giriş. Sıfır stoklu ürünler de listelenir ki depocu "elimde var ama girilmedi"
+// durumunu görüp birer birer işleyebilsin.
+function DepotProductSummary({
+  products,
+  lots,
+  companyId,
+  canWrite,
+}: {
+  products: ProductSummaryRow[];
+  lots: FinishedLotRow[];
+  companyId: string;
+  canWrite: boolean;
+}) {
+  const released = new Map<string, number>();
+  const other = new Map<string, number>();
+  for (const lot of lots) {
+    const target = lot.status === "released" ? released : other;
+    target.set(lot.material_id, (target.get(lot.material_id) ?? 0) + Number(lot.quantity_on_hand));
+  }
+  const onboardingBase = companyModulePath(companyId, "lots", "onboarding");
+  const stocked = products.filter((p) => (released.get(p.id) ?? 0) + (other.get(p.id) ?? 0) > 0).length;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <h2 className="text-sm font-semibold">Ürün Bazında Depo Stoğu</h2>
+        <p className="text-xs text-muted-foreground">
+          {stocked} / {products.length} ürünün depoda stoğu var. Satılabilir = serbest lotlar.
+        </p>
+      </div>
+      <div className="overflow-x-auto rounded-md border border-border">
+        <table className="w-full min-w-[560px] text-sm">
+          <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 text-left font-medium">Kod</th>
+              <th className="px-3 py-2 text-left font-medium">Ürün</th>
+              <th className="px-3 py-2 text-right font-medium">Satılabilir</th>
+              <th className="px-3 py-2 text-right font-medium">Karantina / Bloklu</th>
+              {canWrite ? <th className="px-3 py-2 text-right font-medium" /> : null}
+            </tr>
+          </thead>
+          <tbody>
+            {products.map((p) => {
+              const sell = released.get(p.id) ?? 0;
+              const rest = other.get(p.id) ?? 0;
+              return (
+                <tr key={p.id} className={cn("border-t border-border", sell + rest === 0 && "text-muted-foreground")}>
+                  <td className="px-3 py-2 font-mono text-xs">{p.code}</td>
+                  <td className="px-3 py-2">{p.name}</td>
+                  <td className="px-3 py-2 text-right font-mono tabular-nums">
+                    {sell.toLocaleString("tr-TR")} {uomLabel(p.base_uom)}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono tabular-nums">
+                    {rest > 0 ? `${rest.toLocaleString("tr-TR")} ${uomLabel(p.base_uom)}` : "—"}
+                  </td>
+                  {canWrite ? (
+                    <td className="px-3 py-2 text-right">
+                      <Link href={`${onboardingBase}?material=${p.id}`}>
+                        <Button variant="outline" size="sm">Stok Gir</Button>
+                      </Link>
+                    </td>
+                  ) : null}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function FinishedLotTable({
   rows,
   thresholds,
@@ -474,6 +550,7 @@ export default async function StockPage({ params, searchParams }: PageProps) {
   let stockRows: StockRow[] = [];
   let movementRows: MovementRow[] = [];
   let finishedLotRows: FinishedLotRow[] = [];
+  let productRows: ProductSummaryRow[] = [];
   const thresholds = isOperator ? await getExpiryThresholds(companyId) : null;
 
   if (isOperator && tab === "urun") {
@@ -484,7 +561,7 @@ export default async function StockPage({ params, searchParams }: PageProps) {
     const { data } = await supabase
       .from("material_lots")
       .select(
-        "id, lot_number, expiry_date, quantity_on_hand, status, " +
+        "id, material_id, lot_number, expiry_date, quantity_on_hand, status, " +
           "materials:material_id!inner(code, name, base_uom, type), " +
           "locations:location_id!inner(code, name, is_default)",
       )
@@ -496,6 +573,15 @@ export default async function StockPage({ params, searchParams }: PageProps) {
       .order("expiry_date", { ascending: true, nullsFirst: false })
       .returns<FinishedLotRow[]>();
     finishedLotRows = data ?? [];
+    const { data: products } = await supabase
+      .from("materials")
+      .select("id, code, name, base_uom")
+      .eq("company_id", companyId)
+      .eq("type", "finished")
+      .is("deleted_at", null)
+      .order("code", { ascending: true })
+      .returns<ProductSummaryRow[]>();
+    productRows = products ?? [];
   } else if (tab === "hammadde") {
     const { data } = await supabase
       .from("materials")
@@ -541,7 +627,7 @@ export default async function StockPage({ params, searchParams }: PageProps) {
       // Hide movements of removed (soft-deleted) lots from the ledger view.
       .is("material_lots.deleted_at", null);
     if (isOperator) {
-      query = query.eq("materials.type", "finished");
+      query = query.in("materials.type", ["finished", "promo"]);
     }
     const { data } = await query
       .order("occurred_at", { ascending: false })
@@ -620,12 +706,23 @@ export default async function StockPage({ params, searchParams }: PageProps) {
           canWrite={canWrite}
         />
       ) : isOperator && tab === "urun" && thresholds ? (
-        <FinishedLotTable
-          rows={finishedLotRows}
-          thresholds={thresholds}
-          companyId={companyId}
-          canEdit={canWrite}
-        />
+        <div className="space-y-6">
+          <DepotProductSummary
+            products={productRows}
+            lots={finishedLotRows}
+            companyId={companyId}
+            canWrite={canWrite}
+          />
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold">Depodaki Lotlar</h2>
+            <FinishedLotTable
+              rows={finishedLotRows}
+              thresholds={thresholds}
+              companyId={companyId}
+              canEdit={canWrite}
+            />
+          </div>
+        </div>
       ) : (
         <StockTable
           rows={stockRows}
