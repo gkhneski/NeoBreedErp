@@ -95,6 +95,7 @@ export function OnboardingForm({
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanningRef = useRef(false);
+  const zxingControlsRef = useRef<{ stop: () => void } | null>(null);
   const lastRef = useRef<{ value: string; at: number }>({ value: "", at: 0 });
   const [cameraState, setCameraState] = useState<
     "idle" | "starting" | "active" | "unavailable"
@@ -270,34 +271,79 @@ export function OnboardingForm({
 
   const stopCamera = useCallback(() => {
     scanningRef.current = false;
+    zxingControlsRef.current?.stop();
+    zxingControlsRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
     setCameraState("idle");
   }, []);
 
+  const onScanned = useCallback(
+    (value: string) => {
+      const now = Date.now();
+      if (lastRef.current.value === value && now - lastRef.current.at < 3000) return;
+      lastRef.current = { value, at: now };
+      stopCamera();
+      void resolveBarcode(value);
+    },
+    [resolveBarcode, stopCamera],
+  );
+
   const startCamera = useCallback(async () => {
-    if (!("BarcodeDetector" in window)) {
+    setScanMsg(null);
+    setCameraState("starting");
+    if (!navigator.mediaDevices?.getUserMedia) {
       setCameraState("unavailable");
       setScanMsg({
         kind: "err",
-        text: "Bu cihazın kamerası barkod taramayı desteklemiyor. El okuyucu kullanın veya barkodu elle girin.",
+        text: "Bu tarayıcı kameraya erişemiyor. Safari veya Chrome'un güncel sürümünü kullanın ya da barkodu elle girin.",
       });
       return;
     }
-    setScanMsg(null);
-    setCameraState("starting");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
+        video: { facingMode: { ideal: "environment" } },
         audio: false,
       });
       streamRef.current = stream;
       const video = videoRef.current;
-      if (!video) return;
+      if (!video) {
+        stream.getTracks().forEach((t) => t.stop());
+        setCameraState("idle");
+        return;
+      }
       video.srcObject = stream;
       await video.play();
       setCameraState("active");
       scanningRef.current = true;
+
+      // iPhone Safari'de BarcodeDetector yok: ZXing ile aynı kareleri çözer.
+      if (!("BarcodeDetector" in window)) {
+        const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] =
+          await Promise.all([import("@zxing/browser"), import("@zxing/library")]);
+        const hints = new Map();
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+          BarcodeFormat.EAN_13,
+          BarcodeFormat.EAN_8,
+          BarcodeFormat.UPC_A,
+          BarcodeFormat.UPC_E,
+          BarcodeFormat.CODE_128,
+          BarcodeFormat.CODE_39,
+          BarcodeFormat.QR_CODE,
+        ]);
+        hints.set(DecodeHintType.TRY_HARDER, true);
+        const reader = new BrowserMultiFormatReader(hints, {
+          delayBetweenScanAttempts: 200,
+          delayBetweenScanSuccess: 1500,
+        });
+        if (!scanningRef.current) return;
+        zxingControlsRef.current = await reader.decodeFromVideoElement(video, (result) => {
+          const text = result?.getText();
+          if (text && scanningRef.current) onScanned(text);
+        });
+        return;
+      }
 
       const Ctor = (
         window as unknown as {
@@ -313,14 +359,8 @@ export function OnboardingForm({
           try {
             const codes = await detector.detect(v);
             const value = codes[0]?.rawValue;
-            const now = Date.now();
-            if (
-              value &&
-              !(lastRef.current.value === value && now - lastRef.current.at < 3000)
-            ) {
-              lastRef.current = { value, at: now };
-              stopCamera();
-              void resolveBarcode(value);
+            if (value) {
+              onScanned(value);
               return;
             }
           } catch {
@@ -330,14 +370,20 @@ export function OnboardingForm({
         if (scanningRef.current) setTimeout(() => void tick(), 250);
       };
       void tick();
-    } catch {
+    } catch (err) {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
       setCameraState("unavailable");
+      const name = err instanceof Error ? err.name : "";
       setScanMsg({
         kind: "err",
-        text: "Kameraya erişilemedi. İzin verin ya da el okuyucu/elle giriş kullanın.",
+        text:
+          name === "NotAllowedError"
+            ? "Kamera izni verilmedi. iPhone: Ayarlar → Safari → Kamera → İzin Ver; sonra sayfayı yenileyin."
+            : "Kameraya erişilemedi. İzin verin ya da el okuyucu/elle giriş kullanın.",
       });
     }
-  }, [resolveBarcode, stopCamera]);
+  }, [onScanned]);
 
   useEffect(() => stopCamera, [stopCamera]);
 
@@ -386,14 +432,17 @@ export function OnboardingForm({
           )}
         </div>
 
-        {cameraState === "active" ? (
-          <video
-            ref={videoRef}
-            className="w-full max-w-xs rounded-md bg-black"
-            muted
-            playsInline
-          />
-        ) : null}
+        <video
+          ref={videoRef}
+          className={
+            cameraState === "active" || cameraState === "starting"
+              ? "w-full max-w-xs rounded-md bg-black"
+              : "hidden"
+          }
+          muted
+          autoPlay
+          playsInline
+        />
 
         {trendyolProducts.length > 0 ? (
           <div className="space-y-2">

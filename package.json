@@ -15,6 +15,8 @@
     "@anthropic-ai/sdk": "^0.104.2",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
+    "@zxing/browser": "^0.2.1",
+    "@zxing/library": "^0.21.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "jsqr": "^1.4.0",

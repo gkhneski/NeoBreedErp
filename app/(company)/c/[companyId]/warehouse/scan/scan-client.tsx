@@ -109,6 +109,7 @@ export function ScanClient({
     scanningRef.current = false;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
     setCameraState("idle");
   }, []);
 
@@ -117,12 +118,16 @@ export function ScanClient({
     setCameraState("starting");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
+        video: { facingMode: { ideal: "environment" } },
         audio: false,
       });
       streamRef.current = stream;
       const video = videoRef.current;
-      if (!video) return;
+      if (!video) {
+        stream.getTracks().forEach((t) => t.stop());
+        setCameraState("idle");
+        return;
+      }
       video.srcObject = stream;
       await video.play();
       setCameraState("active");
@@ -177,10 +182,15 @@ export function ScanClient({
         }
       };
       void tick();
-    } catch {
+    } catch (err) {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
       setCameraState("unavailable");
+      const name = err instanceof Error ? err.name : "";
       setError(
-        "Kameraya erişilemedi. İzin verin ya da aşağıdan lot numarasını veya raf kodunu elle girin.",
+        name === "NotAllowedError"
+          ? "Kamera izni verilmedi. iPhone: Ayarlar → Safari → Kamera → İzin Ver; sonra sayfayı yenileyin."
+          : "Kameraya erişilemedi. İzin verin ya da aşağıdan lot numarasını veya raf kodunu elle girin.",
       );
     }
   }, [handleCode]);
@@ -296,18 +306,21 @@ export function ScanClient({
   return (
     <div className="space-y-4">
       <div className="space-y-3 rounded-md border border-border p-4">
+        <video
+          ref={videoRef}
+          className={
+            cameraState === "active" || cameraState === "starting"
+              ? "mx-auto w-full max-w-sm rounded-md bg-black"
+              : "hidden"
+          }
+          muted
+          autoPlay
+          playsInline
+        />
         {cameraState === "active" ? (
-          <>
-            <video
-              ref={videoRef}
-              className="mx-auto w-full max-w-sm rounded-md bg-black"
-              muted
-              playsInline
-            />
-            <Button variant="outline" onClick={stopCamera}>
-              Kamerayı Kapat
-            </Button>
-          </>
+          <Button variant="outline" onClick={stopCamera}>
+            Kamerayı Kapat
+          </Button>
         ) : (
           <Button
             onClick={() => void startCamera()}
