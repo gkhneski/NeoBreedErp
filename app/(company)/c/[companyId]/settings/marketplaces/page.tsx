@@ -6,6 +6,7 @@ import { requireCompanyUser } from "@/lib/auth";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { companyModulePath } from "@/types/roles";
 
+import { AutoShipForm } from "./auto-ship-form";
 import { ConnectionForm } from "./connection-form";
 
 interface PageProps {
@@ -24,7 +25,9 @@ export default async function MarketplaceSettingsPage({ params }: PageProps) {
   const service = createServiceRoleClient();
   const { data: connection } = await service
     .from("marketplace_connections")
-    .select("seller_id, api_key, api_secret, enabled, last_verified_at")
+    .select(
+      "seller_id, api_key, api_secret, enabled, last_verified_at, auto_ship, auto_ship_enabled_at",
+    )
     .eq("company_id", companyId)
     .eq("channel", "trendyol")
     .maybeSingle();
@@ -82,6 +85,24 @@ export default async function MarketplaceSettingsPage({ params }: PageProps) {
                 }
               : null
           }
+        />
+      </section>
+
+      <section className="space-y-3 rounded-md border border-border bg-card/40 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-sm font-semibold">Trendyol Otomatik Sevkiyat</h2>
+          {connection?.auto_ship ? (
+            <Badge variant="success">Açık</Badge>
+          ) : (
+            <Badge variant="secondary">Kapalı</Badge>
+          )}
+        </div>
+        <AutoShipForm
+          companyId={companyId}
+          channel="trendyol"
+          enabled={!!connection?.auto_ship}
+          enabledAt={connection?.auto_ship_enabled_at ?? null}
+          connected={!!connection?.enabled}
         />
       </section>
 

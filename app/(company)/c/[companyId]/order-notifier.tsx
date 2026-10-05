@@ -4,6 +4,7 @@ import { Bell, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { trendyolStatusLabel } from "@/lib/marketplaces/order-status";
 
 import {
   markAllOrdersSeen,
@@ -115,7 +116,7 @@ export function OperatorOrderNotifier({ companyId }: { companyId: string }) {
               <p className="text-sm font-medium">
                 #{o.order_number}
                 {o.customer_name ? ` · ${o.customer_name}` : ""}
-                {o.status ? ` · ${o.status}` : ""}
+                {o.status ? ` · ${trendyolStatusLabel(o.status)}` : ""}
               </p>
               <p className="truncate text-xs text-muted-foreground">
                 {o.summary || "—"}

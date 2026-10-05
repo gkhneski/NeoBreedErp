@@ -271,3 +271,75 @@ export async function reverseStockMovement(
   revalidatePath(companyModulePath(companyId, "purchases"));
   return { ok: true };
 }
+
+export type ReleaseLotResult = { ok: true } | { ok: false; error: string };
+
+// Depocu (STOCK_WRITE_ROLES) satış deposundaki bitmiş ürün lotunu karantinadan
+// çıkarır. Fabrika (varsayılan depo) lotları ve hammadde kalite sorumlusunda kalır.
+export async function releaseSalesDepotLot(
+  companyIdInput: string,
+  lotIdInput: string,
+): Promise<ReleaseLotResult> {
+  const parsed = z
+    .object({ company_id: z.string().uuid(), lot_id: z.string().uuid() })
+    .safeParse({ company_id: companyIdInput, lot_id: lotIdInput });
+  if (!parsed.success) return { ok: false, error: "Geçersiz istek." };
+
+  const { ctx, companyId } = await requireCompanyRole(
+    parsed.data.company_id,
+    STOCK_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { data: lot } = await supabase
+    .from("material_lots")
+    .select(
+      "id, status, location_id, materials:material_id!inner(type)",
+    )
+    .eq("id", parsed.data.lot_id)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .maybeSingle<{
+      id: string;
+      status: string;
+      location_id: string | null;
+      materials: { type: string } | null;
+    }>();
+
+  if (!lot) return { ok: false, error: "Lot bulunamadı." };
+  if (lot.materials?.type !== "finished") {
+    return { ok: false, error: "Yalnızca bitmiş ürün lotu serbest bırakılabilir." };
+  }
+  if (lot.status !== "quarantine") {
+    return { ok: false, error: "Lot karantinada değil." };
+  }
+  if (!lot.location_id) {
+    return { ok: false, error: "Lotun konumu yok; önce depoya alın." };
+  }
+
+  const { data: depot } = await supabase
+    .from("location_depots")
+    .select("depot_is_default")
+    .eq("location_id", lot.location_id)
+    .eq("company_id", companyId)
+    .maybeSingle();
+  if (!depot || depot.depot_is_default) {
+    return {
+      ok: false,
+      error: "Lot henüz satış deposunda değil; önce sayarak depoya alın.",
+    };
+  }
+
+  const { error } = await supabase
+    .from("material_lots")
+    .update({ status: "released", updated_by: ctx.userId })
+    .eq("id", lot.id)
+    .eq("company_id", companyId)
+    .eq("status", "quarantine");
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(companyModulePath(companyId, "stock"));
+  revalidatePath(companyModulePath(companyId, "lots"));
+  revalidatePath(companyModulePath(companyId));
+  return { ok: true };
+}

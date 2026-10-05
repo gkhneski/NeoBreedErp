@@ -340,6 +340,8 @@ async function ClerkDashboard({
     ltd,
     expiry,
     unshelved,
+    { count: quarantineInDepot },
+    { count: marketplaceExceptions },
   ] = await Promise.all([
     supabase
       .from("shipments")
@@ -367,6 +369,27 @@ async function ClerkDashboard({
     loadLtdDepotTotals(companyId),
     loadExpiryCounts(companyId, thresholds),
     loadUnshelvedCount(companyId),
+    // Satış deposuna alınmış ama hâlâ karantinada bekleyen bitmiş ürün lotları.
+    supabase
+      .from("material_lots")
+      .select(
+        "id, materials:material_id!inner(type), locations:location_id!inner(is_default)",
+        { count: "exact", head: true },
+      )
+      .eq("company_id", companyId)
+      .eq("materials.type", "finished")
+      .eq("locations.is_default", false)
+      .eq("status", "quarantine")
+      .is("deleted_at", null)
+      .gt("quantity_on_hand", 0),
+    // Otomatik düşülemeyen Trendyol siparişleri (istisna kuyruğu).
+    supabase
+      .from("marketplace_orders")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("channel", "trendyol")
+      .eq("auto_ship_status", "failed")
+      .is("shipment_id", null),
   ]);
 
   const finishedStockPath = `${companyModulePath(companyId, "stock")}?tab=urun`;
@@ -411,11 +434,25 @@ async function ClerkDashboard({
       icon: "barcode",
     },
     {
+      label: "Serbest Bırak",
+      sub: "Depoya alınan partiyi satışa aç",
+      href: finishedStockPath,
+      icon: "check",
+      badge: { count: quarantineInDepot ?? 0, label: "karantinada", tone: "amber" },
+    },
+    {
       label: "Hazırlanacak Siparişler",
       sub: "Sevk bekleyen siparişleri hazırla ve gönder",
       href: `${shipmentsPath}?durum=preparing`,
       icon: "clipboard",
       badge: { count: toPrepare ?? 0, label: "bekliyor", tone: "amber" },
+    },
+    {
+      label: "Trendyol İstisnaları",
+      sub: "Otomatik düşülemeyen veya iade siparişler",
+      href: shipmentsPath,
+      icon: "store",
+      badge: { count: marketplaceExceptions ?? 0, label: "istisna", tone: "rose" },
     },
     {
       label: "Yeni Sipariş",

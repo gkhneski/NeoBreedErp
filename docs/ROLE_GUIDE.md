@@ -4,7 +4,7 @@ Yaşayan doküman. **Bir rol, modül veya iş akışı değiştiğinde aynı de�
 Yetkilerin asıl kaynağı [types/roles.ts](../types/roles.ts) dosyasıdır; bu dosya onu sade dille anlatır.
 Menü ve buton adları uygulamada göründüğü gibi yazılmıştır.
 
-Son gözden geçirme: 2026-09-29.
+Son gözden geçirme: 2026-10-05.
 
 ---
 
@@ -75,10 +75,13 @@ Hammadde, fabrika lotları, reçete, üretim, maliyet ve tedarikçileri görmez.
 | Raftakileri görmek | *Barkod Tara* | Raf etiketini okutun |
 | Sipariş hazırlamak | *Eczane Siparişleri* veya *Siparişler → Yeni* | Siparişi açın → sevkiyata çevirin → serbest lotları seçin |
 | Göndermek | *Siparişler* | Sevkiyatı *Gönder* (gönderilen değiştirilemez) |
+| Depoya aldığı partiyi satışa açmak | *Stok → Bitmiş Ürün Stok* lot listesi | Karantinadaki lotun yanındaki *Serbest Bırak*. Yalnızca satış deposundaki bitmiş ürün için; fabrika lotları kalite sorumlusunda kalır. Panelde *Serbest Bırak* kutusu kaç lotun beklediğini gösterir |
+| Trendyol siparişi | Hiçbir şey yapmaz | *Otomatik sevkiyat* açıkken Trendyol "kargoya verildi" deyince ERP sevkiyatı kendisi açar, en yakın SKT'li serbest lottan düşer, kapatır. *Siparişler* sayfasındaki *ERP Stok* sütunu: Düşüldü / Sırada / Düşülemedi / Elle |
+| Trendyol istisnası | *Siparişler* üstündeki sarı kutu veya paneldeki *Trendyol İstisnaları* | Düşülemeyen sipariş (barkod eşli değil, stok yok): ürünü stoğa girin → *Tekrar Dene*. İade/iptal olmuş ve düşülmüş sipariş: kutu gelince *Depoya Geri Al* |
 | Pazaryeri fiyat onayı | *Pazaryeri* | Öneriyi onaylayın veya reddedin |
 | Mevcut stoğu girmek | *Stok Girişi (Barkod)* | Ürün barkodunu okutun, adedi girin |
 
-Not: Lot depoya alınınca **karantinada** kalır; biri serbest bırakana kadar satılabilir stokta görünmez.
+Not: Lot depoya alınınca **karantinada** kalır; depocu *Serbest Bırak* diyene kadar satılabilir stokta görünmez ve otomatik sevkiyat ondan düşmez.
 
 ### 3.2 Firma admini / üretim sorumlusu / firma kullanıcısı
 
@@ -113,6 +116,7 @@ Yalnızca **firma admini**:
 |---|---|---|
 | Kullanıcı davet etmek, rol vermek | *Kullanıcılar* | Davet et, rol seç |
 | Pazaryeri API bilgileri | *Ayarlar → Pazaryeri Bağlantıları* | Bilgileri girin |
+| Trendyol otomatik sevkiyat | *Ayarlar → Pazaryeri Bağlantıları → Trendyol Otomatik Sevkiyat* | *Aç*. Satılabilir stoğu olmayan listelenmiş ürün varsa uyarı listesi çıkar; *Yine de Aç* ile geçilir. Yalnızca açılış anından sonraki siparişler düşülür |
 | Depo ve raf tanımı | *Ayarlar* | Yeni depo / raf ekleyin |
 
 ### 3.3 Kalite sorumlusu

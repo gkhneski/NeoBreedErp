@@ -143,3 +143,117 @@ export async function testMarketplaceConnection(
   revalidatePath(marketplacesSettingsPath(companyId));
   return { success: "Bağlantı doğrulandı — Trendyol API erişimi çalışıyor." };
 }
+
+export type AutoShipFormState = {
+  error?: string;
+  success?: string;
+  // Açmadan önce uyarı: listelenmiş ama LTD'de satılabilir stoğu olmayan ürünler.
+  needsConfirm?: { count: number; names: string[] };
+};
+
+async function listedProductsWithoutStock(
+  companyId: string,
+  channel: "trendyol" | "hepsiburada",
+): Promise<string[]> {
+  const service = createServiceRoleClient();
+  const [{ data: listings }, { data: sellable }] = await Promise.all([
+    service
+      .from("marketplace_listings")
+      .select("material_id, title, materials:material_id(name)")
+      .eq("company_id", companyId)
+      .eq("channel", channel)
+      .is("deleted_at", null)
+      .returns<
+        Array<{
+          material_id: string;
+          title: string | null;
+          materials: { name: string } | null;
+        }>
+      >(),
+    service
+      .from("sellable_lots")
+      .select("material_id, quantity_on_hand")
+      .eq("company_id", companyId)
+      .is("owner_customer_id", null),
+  ]);
+
+  const stocked = new Set<string>();
+  for (const row of sellable ?? []) {
+    if (Number(row.quantity_on_hand) > 0) stocked.add(row.material_id);
+  }
+  return (listings ?? [])
+    .filter((l) => !stocked.has(l.material_id))
+    .map((l) => l.materials?.name ?? l.title ?? l.material_id)
+    .sort((a, b) => a.localeCompare(b, "tr"));
+}
+
+export async function setAutoShip(
+  _prev: AutoShipFormState,
+  formData: FormData,
+): Promise<AutoShipFormState> {
+  const parsed = z
+    .object({
+      company_id: z.string().uuid(),
+      channel: z.enum(["trendyol", "hepsiburada"]),
+      enable: z.enum(["1", "0"]),
+      confirm: z.string().optional(),
+    })
+    .safeParse({
+      company_id: formData.get("company_id") ?? "",
+      channel: formData.get("channel") ?? "",
+      enable: formData.get("enable") ?? "",
+      confirm: formData.get("confirm") ?? undefined,
+    });
+  if (!parsed.success) return { error: "Geçersiz istek." };
+
+  const { ctx, companyId } = await requireCompanyRole(parsed.data.company_id, [
+    "company_admin",
+  ]);
+  const service = createServiceRoleClient();
+  const { channel } = parsed.data;
+  const enable = parsed.data.enable === "1";
+
+  const { data: existing } = await service
+    .from("marketplace_connections")
+    .select("auto_ship, enabled")
+    .eq("company_id", companyId)
+    .eq("channel", channel)
+    .maybeSingle();
+
+  if (!existing) {
+    return { error: "Önce bağlantı bilgilerini kaydedin." };
+  }
+
+  if (enable && !existing.enabled) {
+    return { error: "Bağlantı devre dışı; önce bağlantıyı aktif edin." };
+  }
+
+  if (enable && !existing.auto_ship && parsed.data.confirm !== "1") {
+    const names = await listedProductsWithoutStock(companyId, channel);
+    if (names.length > 0) {
+      return { needsConfirm: { count: names.length, names: names.slice(0, 40) } };
+    }
+  }
+
+  const { error } = await service
+    .from("marketplace_connections")
+    .update({
+      auto_ship: enable,
+      ...(enable && !existing.auto_ship
+        ? { auto_ship_enabled_at: new Date().toISOString() }
+        : {}),
+      updated_by: ctx.userId,
+    })
+    .eq("company_id", companyId)
+    .eq("channel", channel);
+
+  if (error) return { error: error.message };
+
+  revalidatePath(marketplacesSettingsPath(companyId));
+  revalidatePath(companyModulePath(companyId, "shipments"));
+  return {
+    success: enable
+      ? "Otomatik sevkiyat açıldı. Bu andan sonra kargoya verilen siparişler stoktan düşülür."
+      : "Otomatik sevkiyat kapatıldı. Siparişler yalnızca listelenir, stok elle düşülür.",
+  };
+}

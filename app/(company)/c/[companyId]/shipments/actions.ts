@@ -6,7 +6,11 @@ import { z } from "zod";
 
 import { requireCompanyRole } from "@/lib/auth";
 import { withFlash } from "@/lib/flash";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { autoShipOne } from "@/lib/marketplaces/auto-ship";
+import {
+  createServerSupabaseClient,
+  createServiceRoleClient,
+} from "@/lib/supabase/server";
 import { SHIPMENT_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
 const shipmentCreateSchema = z
@@ -292,4 +296,90 @@ export async function cancelShipment(
 
   revalidatePath(companyModulePath(companyId, "shipments"));
   redirect(withFlash(companyModulePath(companyId, "shipments"), "updated"));
+}
+
+export type MarketplaceOrderActionResult =
+  | { ok: true; message: string }
+  | { ok: false; error: string };
+
+// Depocu "Tekrar Dene": sayım bitti / barkod eşlendi, otomatik düşümü hemen çalıştır.
+export async function retryMarketplaceAutoShip(
+  companyIdInput: string,
+  orderNumberInput: string,
+): Promise<MarketplaceOrderActionResult> {
+  const parsed = z
+    .object({ company_id: z.string().uuid(), order_number: z.string().min(1).max(64) })
+    .safeParse({ company_id: companyIdInput, order_number: orderNumberInput });
+  if (!parsed.success) return { ok: false, error: "Geçersiz istek." };
+
+  const { companyId } = await requireCompanyRole(
+    parsed.data.company_id,
+    SHIPMENT_WRITE_ROLES,
+  );
+
+  const outcome = await autoShipOne(companyId, "trendyol", parsed.data.order_number);
+  revalidatePath(companyModulePath(companyId, "shipments"));
+  revalidatePath(companyModulePath(companyId, "stock"));
+  revalidatePath(companyModulePath(companyId));
+
+  if (outcome === "shipped") return { ok: true, message: "Sevkiyat açıldı ve stoktan düşüldü." };
+  if (outcome === "manual") return { ok: true, message: "Elle açılmış sevkiyata bağlandı." };
+  if (outcome === "already") return { ok: true, message: "Bu sipariş zaten düşülmüş." };
+
+  const service = createServiceRoleClient();
+  const { data } = await service
+    .from("marketplace_orders")
+    .select("auto_ship_error")
+    .eq("company_id", companyId)
+    .eq("channel", "trendyol")
+    .eq("order_number", parsed.data.order_number)
+    .maybeSingle();
+  return { ok: false, error: data?.auto_ship_error ?? "Düşülemedi." };
+}
+
+// İade / iptal: düşülmüş sevkiyatın çıkışlarını storno ile depoya geri alır.
+export async function returnMarketplaceOrderToStock(
+  companyIdInput: string,
+  orderNumberInput: string,
+): Promise<MarketplaceOrderActionResult> {
+  const parsed = z
+    .object({ company_id: z.string().uuid(), order_number: z.string().min(1).max(64) })
+    .safeParse({ company_id: companyIdInput, order_number: orderNumberInput });
+  if (!parsed.success) return { ok: false, error: "Geçersiz istek." };
+
+  const { companyId } = await requireCompanyRole(
+    parsed.data.company_id,
+    SHIPMENT_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { data: order } = await supabase
+    .from("marketplace_orders")
+    .select("id, shipment_id, auto_ship_status, status")
+    .eq("company_id", companyId)
+    .eq("channel", "trendyol")
+    .eq("order_number", parsed.data.order_number)
+    .maybeSingle();
+
+  if (!order?.shipment_id) return { ok: false, error: "Bu siparişe bağlı sevkiyat yok." };
+  if (order.auto_ship_status === "returned") {
+    return { ok: false, error: "Bu sipariş zaten depoya geri alınmış." };
+  }
+
+  const { data: count, error } = await supabase.rpc("return_shipment_to_stock", {
+    p_company_id: companyId,
+    p_shipment_id: order.shipment_id,
+    p_reason: `Trendyol ${parsed.data.order_number} iade/iptal – depoya geri alındı`,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  await supabase
+    .from("marketplace_orders")
+    .update({ auto_ship_status: "returned", auto_ship_at: new Date().toISOString() })
+    .eq("id", order.id);
+
+  revalidatePath(companyModulePath(companyId, "shipments"));
+  revalidatePath(companyModulePath(companyId, "stock"));
+  revalidatePath(companyModulePath(companyId));
+  return { ok: true, message: `${count ?? 0} lot hareketi geri alındı; ürün tekrar stokta.` };
 }

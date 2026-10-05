@@ -1,3 +1,4 @@
+import { runAutoShip, type AutoShipRun } from "@/lib/marketplaces/auto-ship";
 import { getMarketplaceConnection } from "@/lib/marketplaces/connections";
 import { getOrders } from "@/lib/marketplaces/trendyol";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -23,7 +24,12 @@ export async function GET(req: Request) {
     .eq("enabled", true);
 
   const fetchedAt = new Date().toISOString();
-  const results: Array<{ companyId: string; pulled: number; error?: string }> = [];
+  const results: Array<{
+    companyId: string;
+    pulled: number;
+    autoShip?: AutoShipRun;
+    error?: string;
+  }> = [];
 
   for (const row of connections ?? []) {
     const companyId = row.company_id;
@@ -50,7 +56,8 @@ export async function GET(req: Request) {
           { onConflict: "company_id,channel,order_number" },
         );
       }
-      results.push({ companyId, pulled: orders.length });
+      const autoShip = await runAutoShip(companyId, "trendyol");
+      results.push({ companyId, pulled: orders.length, autoShip });
     } catch (error) {
       results.push({
         companyId,

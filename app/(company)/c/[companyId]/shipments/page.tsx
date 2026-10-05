@@ -5,8 +5,21 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyUser } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import type { ShipmentChannel, ShipmentStatus } from "@/types/database";
+import {
+  isCancelledStatus,
+  isShippedStatus,
+  trendyolStatusLabel,
+  trendyolStatusVariant,
+} from "@/lib/marketplaces/order-status";
+import {
+  createServerSupabaseClient,
+  createServiceRoleClient,
+} from "@/lib/supabase/server";
+import type {
+  MarketplaceAutoShipStatus,
+  ShipmentChannel,
+  ShipmentStatus,
+} from "@/types/database";
 import {
   SHIPMENT_WRITE_ROLES,
   canWriteCompanyData,
@@ -35,6 +48,19 @@ import {
   SHIPMENT_STATUS_LABEL as STATUS_LABEL,
   SHIPMENT_STATUS_VARIANT as STATUS_VARIANT,
 } from "./labels";
+import { RetryAutoShipButton, ReturnToStockButton } from "./marketplace-order-actions";
+
+type TrendyolOrderRow = {
+  order_number: string;
+  status: string | null;
+  customer_name: string | null;
+  order_date: string | null;
+  lines: Array<{ name: string; quantity: number }> | null;
+  shipment_id: string | null;
+  auto_ship_status: MarketplaceAutoShipStatus | null;
+  auto_ship_error: string | null;
+  shipments: { code: string } | null;
+};
 
 const STATUS_FILTERS: Array<{ value: string; label: string }> = [
   { value: "", label: "Tümü" },
@@ -77,21 +103,74 @@ export default async function ShipmentsListPage({
 
   const { data: tyOrders } = await supabase
     .from("marketplace_orders")
-    .select("order_number, status, customer_name, order_date, lines")
+    .select(
+      "order_number, status, customer_name, order_date, lines, shipment_id, auto_ship_status, auto_ship_error, " +
+        "shipments:shipment_id(code)",
+    )
     .eq("company_id", companyId)
     .eq("channel", "trendyol")
     .order("order_date", { ascending: false, nullsFirst: false })
     .limit(100)
-    .returns<
-      Array<{
-        order_number: string;
-        status: string | null;
-        customer_name: string | null;
-        order_date: string | null;
-        lines: Array<{ name: string; quantity: number }> | null;
-      }>
-    >();
+    .returns<TrendyolOrderRow[]>();
   const tyRows = tyOrders ?? [];
+
+  // Otomatik sevkiyat anahtarı deny-all tabloda; guard geçildi, yalnızca bayrak okunur.
+  const { data: autoShipConn } = await createServiceRoleClient()
+    .from("marketplace_connections")
+    .select("auto_ship, auto_ship_enabled_at")
+    .eq("company_id", companyId)
+    .eq("channel", "trendyol")
+    .eq("enabled", true)
+    .maybeSingle();
+  const autoShipOn = !!autoShipConn?.auto_ship;
+  const autoShipSince = autoShipConn?.auto_ship_enabled_at ?? null;
+
+  const inAutoWindow = (o: TrendyolOrderRow) =>
+    autoShipOn && !!autoShipSince && !!o.order_date && o.order_date >= autoShipSince;
+  const failedRows = tyRows.filter(
+    (o) => !o.shipment_id && o.auto_ship_status === "failed" && inAutoWindow(o),
+  );
+  const returnRows = tyRows.filter(
+    (o) =>
+      !!o.shipment_id &&
+      isCancelledStatus(o.status) &&
+      (o.auto_ship_status === "shipped" || o.auto_ship_status === "manual"),
+  );
+  const exceptions = [...returnRows, ...failedRows];
+  const exceptionKeys = new Set(exceptions.map((o) => o.order_number));
+
+  function erpCell(o: TrendyolOrderRow) {
+    if (o.shipment_id) {
+      return (
+        <span className="inline-flex flex-wrap items-center gap-1">
+          <Link
+            href={companyModulePath(companyId, "shipments", o.shipment_id)}
+            className="font-mono text-xs hover:underline"
+          >
+            {o.shipments?.code ?? "Sevkiyat"}
+          </Link>
+          {o.auto_ship_status === "returned" ? (
+            <Badge variant="secondary">Geri alındı</Badge>
+          ) : o.auto_ship_status === "manual" ? (
+            <Badge variant="outline">Elle</Badge>
+          ) : (
+            <Badge variant="success">Düşüldü</Badge>
+          )}
+        </span>
+      );
+    }
+    if (o.auto_ship_status === "failed" && inAutoWindow(o)) {
+      return <Badge variant="destructive">Düşülemedi</Badge>;
+    }
+    if (isShippedStatus(o.status)) {
+      return inAutoWindow(o) ? (
+        <Badge variant="warning">Sırada</Badge>
+      ) : (
+        <span className="text-xs text-muted-foreground">Elle düşülür</span>
+      );
+    }
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
 
   return (
     <div className="space-y-6">
@@ -110,25 +189,109 @@ export default async function ShipmentsListPage({
         ) : null}
       </header>
 
+      {exceptions.length > 0 ? (
+        <section className="space-y-2 rounded-md border border-amber-300 bg-amber-50/60 p-3 dark:border-amber-800 dark:bg-amber-900/10">
+          <h2 className="text-sm font-semibold">
+            Dikkat Gerektiren Trendyol Siparişleri ({exceptions.length})
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Otomatik düşülemeyen siparişler ve iade/iptal olup depoya geri
+            alınması gerekenler. Düşülemeyen siparişin ürünü stoğa girilince
+            <em> Tekrar Dene</em> ile hemen düşülür; aksi halde 5 dakikada bir
+            kendiliğinden denenir.
+          </p>
+          <div className="overflow-x-auto rounded-md border border-border bg-card">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium">Sipariş No</th>
+                  <th className="px-3 py-2 text-left font-medium">Ürün</th>
+                  <th className="px-3 py-2 text-left font-medium">Durum</th>
+                  <th className="px-3 py-2 text-left font-medium">Sorun</th>
+                  {canWrite ? <th className="px-3 py-2 text-right font-medium">İşlem</th> : null}
+                </tr>
+              </thead>
+              <tbody>
+                {exceptions.map((o) => {
+                  const needsReturn = !!o.shipment_id;
+                  return (
+                    <tr key={o.order_number} className="border-t border-border align-top">
+                      <td className="px-3 py-2 font-mono text-xs">{o.order_number}</td>
+                      <td className="max-w-xs px-3 py-2 text-xs text-muted-foreground">
+                        <span className="line-clamp-2">
+                          {(o.lines ?? [])
+                            .map((l) => `${l.name} x${l.quantity}`)
+                            .join(", ") || "—"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <Badge variant={trendyolStatusVariant(o.status)}>
+                          {trendyolStatusLabel(o.status)}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2 text-xs">
+                        {needsReturn ? (
+                          <span>
+                            Sipariş {trendyolStatusLabel(o.status).toLocaleLowerCase("tr-TR")};
+                            stoktan düşülmüştü ({o.shipments?.code ?? "sevkiyat"}). Kutu
+                            geri geldiyse depoya alın.
+                          </span>
+                        ) : (
+                          <span className="text-destructive">{o.auto_ship_error ?? "Düşülemedi"}</span>
+                        )}
+                      </td>
+                      {canWrite ? (
+                        <td className="px-3 py-2">
+                          {needsReturn ? (
+                            <ReturnToStockButton companyId={companyId} orderNumber={o.order_number} />
+                          ) : (
+                            <RetryAutoShipButton companyId={companyId} orderNumber={o.order_number} />
+                          )}
+                        </td>
+                      ) : null}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
       {tyRows.length > 0 ? (
         <section className="space-y-2">
-          <h2 className="text-sm font-semibold">
-            Trendyol Siparişleri ({tyRows.length})
-          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-semibold">
+              Trendyol Siparişleri ({tyRows.length})
+            </h2>
+            {autoShipOn ? (
+              <Badge variant="success">Otomatik düşüm açık</Badge>
+            ) : (
+              <Badge variant="secondary">Otomatik düşüm kapalı</Badge>
+            )}
+          </div>
           <div className="overflow-x-auto rounded-md border border-border">
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="w-full min-w-[720px] text-sm">
               <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">Tarih / Saat</th>
                   <th className="px-3 py-2 text-left font-medium">Sipariş No</th>
                   <th className="px-3 py-2 text-left font-medium">Müşteri</th>
                   <th className="px-3 py-2 text-left font-medium">Ürün</th>
-                  <th className="px-3 py-2 text-left font-medium">Durum</th>
+                  <th className="px-3 py-2 text-left font-medium">Trendyol Durumu</th>
+                  <th className="px-3 py-2 text-left font-medium">ERP Stok</th>
                 </tr>
               </thead>
               <tbody>
                 {tyRows.map((o) => (
-                  <tr key={o.order_number} className="border-t border-border">
+                  <tr
+                    key={o.order_number}
+                    className={
+                      exceptionKeys.has(o.order_number)
+                        ? "border-t border-border bg-amber-50/40 dark:bg-amber-900/10"
+                        : "border-t border-border"
+                    }
+                  >
                     <td className="px-3 py-2 text-xs text-muted-foreground">
                       {o.order_date ? formatDateTime(o.order_date) : "—"}
                     </td>
@@ -144,15 +307,21 @@ export default async function ShipmentsListPage({
                       </span>
                     </td>
                     <td className="px-3 py-2">
-                      <Badge variant="secondary">{o.status ?? "—"}</Badge>
+                      <Badge variant={trendyolStatusVariant(o.status)}>
+                        {trendyolStatusLabel(o.status)}
+                      </Badge>
                     </td>
+                    <td className="px-3 py-2">{erpCell(o)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <p className="text-xs text-muted-foreground">
-            Pazaryeri siparişleri Panel her açıldığında otomatik güncellenir.
+            Pazaryeri siparişleri 5 dakikada bir otomatik güncellenir.
+            {autoShipOn
+              ? " Kargoya verilen sipariş en yakın SKT'li serbest lottan düşülür."
+              : " Stok düşümü için Yeni Sipariş ile Trendyol kanalında sevkiyat açın."}
           </p>
         </section>
       ) : null}

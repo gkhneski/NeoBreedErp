@@ -21,6 +21,7 @@ import { STOCK_WRITE_ROLES, canWriteCompanyData, companyModulePath } from "@/typ
 import { KIND_LABEL, KIND_VARIANT } from "./constants";
 import { LotQuantityEditor } from "./lot-quantity-editor";
 import { MovementCancelButton } from "./movement-cancel-button";
+import { ReleaseLotButton } from "./release-lot-button";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -373,7 +374,8 @@ function DepotProductSummary({
       <div className="flex flex-wrap items-end justify-between gap-2">
         <h2 className="text-sm font-semibold">Ürün Bazında Depo Stoğu</h2>
         <p className="text-xs text-muted-foreground">
-          {stocked} / {products.length} ürünün depoda stoğu var. Satılabilir = serbest lotlar.{" "}
+          {stocked} / {products.length} ürünün depoda stoğu var. Satılabilir = serbest lotlar;
+          karantinadakileri aşağıdaki lot listesinden <em>Serbest Bırak</em> ile açın.{" "}
           <Link href={shelfMapPath} className="hover:underline">
             Raf Haritası
           </Link>
@@ -536,12 +538,17 @@ function FinishedLotTable({
                 </td>
                 {canEdit ? (
                   <td className="px-3 py-2 text-right">
-                    <LotQuantityEditor
-                      companyId={companyId}
-                      lotId={lot.id}
-                      current={Number(lot.quantity_on_hand)}
-                      uom={uomLabel(lot.materials?.base_uom)}
-                    />
+                    <div className="inline-flex flex-wrap items-center justify-end gap-2">
+                      {lot.status === "quarantine" && lot.locations && !lot.locations.is_default ? (
+                        <ReleaseLotButton companyId={companyId} lotId={lot.id} />
+                      ) : null}
+                      <LotQuantityEditor
+                        companyId={companyId}
+                        lotId={lot.id}
+                        current={Number(lot.quantity_on_hand)}
+                        uom={uomLabel(lot.materials?.base_uom)}
+                      />
+                    </div>
                   </td>
                 ) : null}
               </tr>

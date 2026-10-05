@@ -669,3 +669,33 @@ Sellable quantity = SUM(`quantity_on_hand`) of the material's lots with `status=
 - Access: `STOCK_WRITE_ROLES` only.
 
 **Files affected:** `supabase/migrations/20260915000000_stock_movement_reversal.sql`, `app/(company)/c/[companyId]/stock/{actions.ts,page.tsx,movement-cancel-button.tsx}`, `reports/material-costs/page.tsx`, `types/database.ts`.
+
+---
+
+## 22. Trendyol Auto-Ship & Depot Lot Release (2026-10-05)
+
+**Business intent:** the depot clerk does nothing for Trendyol orders. When the marketplace reports a package as shipped, the ERP opens the outbound shipment itself, allocates FEFO from sellable (sales-depot, released) lots, and closes it. Orders it cannot deduct become an exception queue the clerk works through. Per-company switch, off by default; only orders dated after the switch was turned on are deducted (earlier ones left the depot before stock was counted).
+
+### `marketplace_connections` (column additions)
+
+- `auto_ship boolean not null default false`, `auto_ship_enabled_at timestamptz` — set to `now()` on each off→on transition. Still deny-all RLS; read via service role behind guards.
+
+### `marketplace_orders` (column additions)
+
+- `shipment_id uuid null references shipments(id) on delete set null` — the ERP shipment this order was deducted by (auto or manual).
+- `auto_ship_status text null check in ('shipped','manual','failed','returned')`, `auto_ship_error text`, `auto_ship_at timestamptz`.
+- `failed` + `shipment_id is null` = exception row; retried on every sync (5 min cron) and on demand.
+
+### RPC `auto_ship_marketplace_order(p_company_id, p_channel, p_order_number)` → `text`
+
+`security invoker`, **execute granted to `service_role` only** (cron / guarded server action). Locks the order row; returns `'already'` if linked. If a non-cancelled shipment with the same `(company, channel, external_order_no)` exists, links it as `'manual'` (clerk's manual shipment wins, no double deduction). Otherwise aggregates lines by barcode, resolves each via `resolve_marketplace_material` (listing mapping → `materials.barcode` of a finished product), validates sellable stock for every line **before** writing, inserts a `shipments` row (`SVK-nnnnnn`, same sequence as the app), allocates `shipment_items` FEFO over `sellable_lots` (`expiry_date asc nulls last, created_at`), calls `ship_shipment`, marks `'shipped'`. Any failure raises `23514` with a Turkish message; the caller stores it in `auto_ship_error` with status `'failed'`.
+
+### RPC `return_shipment_to_stock(p_company_id, p_shipment_id, p_reason)` → `integer`
+
+`security invoker`, authenticated. For a `shipped` shipment, reverses each un-reversed `issue` movement tagged `shipment <code>` via `reverse_stock_movement` (storno, §21). The shipment row stays immutable; only the ledger comes back. App marks the order `'returned'`. Access: `SHIPMENT_WRITE_ROLES`.
+
+### Depot lot release (app-level)
+
+`releaseSalesDepotLot` (`STOCK_WRITE_ROLES`, incl. operator): sets `material_lots.status quarantine → released` only when the lot's material is `finished` and its location resolves (via `location_depots`) to a non-default depot. Factory lots and raw materials remain `QUALITY_WRITE_ROLES` via `updateLotStatus`.
+
+**Files affected:** `supabase/migrations/20261005000000_trendyol_auto_ship.sql`, `lib/marketplaces/{auto-ship.ts,order-status.ts}`, `app/api/cron/sync-trendyol-orders/route.ts`, `app/(company)/c/[companyId]/shipments/{page.tsx,actions.ts,marketplace-order-actions.tsx}`, `settings/marketplaces/{actions.ts,page.tsx,auto-ship-form.tsx}`, `stock/{actions.ts,page.tsx,release-lot-button.tsx}`, dashboard `page.tsx`, `order-notifier.tsx`, `types/database.ts`, `docs/ROLE_GUIDE.md`.

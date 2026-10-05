@@ -68,6 +68,7 @@ export type FileAttachmentKind =
   | "lab_report"
   | "other";
 export type MarketplaceChannel = "trendyol" | "hepsiburada";
+export type MarketplaceAutoShipStatus = "shipped" | "manual" | "failed" | "returned";
 export type MarketplacePriceState = "normal" | "discounted" | "unknown";
 export type MarketplaceSyncStatus = "never" | "pending" | "ok" | "failed";
 export type MarketplacePriceEventKind = "discount" | "restore" | "manual";
@@ -623,6 +624,8 @@ export type Database = {
           api_key: string;
           api_secret: string;
           enabled: boolean;
+          auto_ship: boolean;
+          auto_ship_enabled_at: string | null;
           last_verified_at: string | null;
           created_at: string;
           updated_at: string;
@@ -637,6 +640,8 @@ export type Database = {
           api_key: string;
           api_secret: string;
           enabled?: boolean;
+          auto_ship?: boolean;
+          auto_ship_enabled_at?: string | null;
           last_verified_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -651,6 +656,8 @@ export type Database = {
           api_key?: string;
           api_secret?: string;
           enabled?: boolean;
+          auto_ship?: boolean;
+          auto_ship_enabled_at?: string | null;
           last_verified_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -839,6 +846,10 @@ export type Database = {
           total_price: number | null;
           lines: Json | null;
           seen_at: string | null;
+          shipment_id: string | null;
+          auto_ship_status: MarketplaceAutoShipStatus | null;
+          auto_ship_error: string | null;
+          auto_ship_at: string | null;
           created_at: string;
           fetched_at: string;
         };
@@ -853,6 +864,10 @@ export type Database = {
           total_price?: number | null;
           lines?: Json | null;
           seen_at?: string | null;
+          shipment_id?: string | null;
+          auto_ship_status?: MarketplaceAutoShipStatus | null;
+          auto_ship_error?: string | null;
+          auto_ship_at?: string | null;
           created_at?: string;
           fetched_at?: string;
         };
@@ -867,6 +882,10 @@ export type Database = {
           total_price?: number | null;
           lines?: Json | null;
           seen_at?: string | null;
+          shipment_id?: string | null;
+          auto_ship_status?: MarketplaceAutoShipStatus | null;
+          auto_ship_error?: string | null;
+          auto_ship_at?: string | null;
           created_at?: string;
           fetched_at?: string;
         };
@@ -2258,6 +2277,14 @@ export type Database = {
           p_reason?: string | null;
         };
         Returns: string;
+      };
+      auto_ship_marketplace_order: {
+        Args: { p_company_id: string; p_channel: string; p_order_number: string };
+        Returns: string;
+      };
+      return_shipment_to_stock: {
+        Args: { p_company_id: string; p_shipment_id: string; p_reason?: string | null };
+        Returns: number;
       };
       ensure_default_location: {
         Args: { p_company_id: string };
