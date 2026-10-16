@@ -10,6 +10,7 @@ import { DepotLotFixClient, type FixLot } from "./fix-client";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
+  searchParams: Promise<{ urun?: string; lot?: string }>;
 }
 
 type LotRow = {
@@ -19,6 +20,7 @@ type LotRow = {
   status: "quarantine" | "released" | "blocked";
   expiry_date: string | null;
   location_id: string | null;
+  material_id: string;
   created_at: string;
   materials: {
     code: string;
@@ -29,8 +31,9 @@ type LotRow = {
   } | null;
 };
 
-export default async function DepotLotFixPage({ params }: PageProps) {
+export default async function DepotLotFixPage({ params, searchParams }: PageProps) {
   const { companyId: routeCompanyId } = await params;
+  const { urun, lot: lotParam } = await searchParams;
   const { companyId } = await requireCompanyRole(routeCompanyId, STOCK_WRITE_ROLES);
   const supabase = await createServerSupabaseClient();
 
@@ -61,7 +64,7 @@ export default async function DepotLotFixPage({ params }: PageProps) {
   const { data: lots } = await supabase
     .from("material_lots")
     .select(
-      "id, lot_number, quantity_on_hand, status, expiry_date, location_id, created_at, " +
+      "id, lot_number, quantity_on_hand, status, expiry_date, location_id, material_id, created_at, " +
         "materials:material_id!inner(code, name, base_uom, type, barcode)",
     )
     .eq("company_id", companyId)
@@ -74,6 +77,7 @@ export default async function DepotLotFixPage({ params }: PageProps) {
 
   const rows: FixLot[] = (lots ?? []).map((l) => ({
     id: l.id,
+    materialId: l.material_id,
     lotNumber: l.lot_number,
     quantity: Number(l.quantity_on_hand),
     status: l.status,
@@ -96,7 +100,12 @@ export default async function DepotLotFixPage({ params }: PageProps) {
           description="Satış deposunda düzeltilecek bitmiş ürün veya promosyon lotu bulunmuyor."
         />
       ) : (
-        <DepotLotFixClient companyId={companyId} lots={rows} />
+        <DepotLotFixClient
+          companyId={companyId}
+          lots={rows}
+          initialProductId={rows.some((r) => r.materialId === urun) ? (urun ?? null) : null}
+          initialOpenId={rows.some((r) => r.id === lotParam) ? (lotParam ?? null) : null}
+        />
       )}
     </div>
   );

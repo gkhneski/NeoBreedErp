@@ -19,7 +19,6 @@ import { cn } from "@/lib/utils";
 import { STOCK_WRITE_ROLES, canWriteCompanyData, companyModulePath } from "@/types/roles";
 
 import { KIND_LABEL, KIND_VARIANT } from "./constants";
-import { LotQuantityEditor } from "./lot-quantity-editor";
 import { MovementCancelButton } from "./movement-cancel-button";
 import { ReleaseLotButton } from "./release-lot-button";
 
@@ -367,6 +366,7 @@ function DepotProductSummary({
   }
   const shelfMapPath = companyModulePath(companyId, "warehouse", "shelf-map");
   const onboardingBase = companyModulePath(companyId, "lots", "onboarding");
+  const fixBase = companyModulePath(companyId, "warehouse", "fix");
   const stocked = products.filter((p) => (released.get(p.id) ?? 0) + (other.get(p.id) ?? 0) > 0).length;
 
   return (
@@ -423,9 +423,16 @@ function DepotProductSummary({
                   </td>
                   {canWrite ? (
                     <td className="px-3 py-2 text-right">
-                      <Link href={`${onboardingBase}?material=${p.id}`}>
-                        <Button variant="outline" size="sm">Stok Gir</Button>
-                      </Link>
+                      <div className="inline-flex items-center gap-2">
+                        {sell + rest > 0 ? (
+                          <Link href={`${fixBase}?urun=${p.id}`}>
+                            <Button variant="ghost" size="sm">Düzelt</Button>
+                          </Link>
+                        ) : null}
+                        <Link href={`${onboardingBase}?material=${p.id}`}>
+                          <Button variant="outline" size="sm">Stok Gir</Button>
+                        </Link>
+                      </div>
                     </td>
                   ) : null}
                 </tr>
@@ -542,12 +549,13 @@ function FinishedLotTable({
                       {lot.status === "quarantine" && lot.locations && !lot.locations.is_default ? (
                         <ReleaseLotButton companyId={companyId} lotId={lot.id} />
                       ) : null}
-                      <LotQuantityEditor
-                        companyId={companyId}
-                        lotId={lot.id}
-                        current={Number(lot.quantity_on_hand)}
-                        uom={uomLabel(lot.materials?.base_uom)}
-                      />
+                      {lot.locations && !lot.locations.is_default ? (
+                        <Link
+                          href={`${companyModulePath(companyId, "warehouse", "fix")}?urun=${lot.material_id}&lot=${lot.id}`}
+                        >
+                          <Button variant="outline" size="sm">Düzelt</Button>
+                        </Link>
+                      ) : null}
                     </div>
                   </td>
                 ) : null}

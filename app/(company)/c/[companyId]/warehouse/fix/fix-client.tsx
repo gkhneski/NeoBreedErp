@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Search, Trash2 } from "lucide-react";
+import { Pencil, Search, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
@@ -16,6 +16,7 @@ import { correctDepotLot, voidDepotLot } from "../actions";
 
 export type FixLot = {
   id: string;
+  materialId: string;
   lotNumber: string;
   quantity: number;
   status: "quarantine" | "released" | "blocked";
@@ -44,25 +45,34 @@ function norm(s: string): string {
 export function DepotLotFixClient({
   companyId,
   lots,
+  initialProductId,
+  initialOpenId,
 }: {
   companyId: string;
   lots: FixLot[];
+  initialProductId: string | null;
+  initialOpenId: string | null;
 }) {
   const [query, setQuery] = useState("");
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [productId, setProductId] = useState(initialProductId);
+  const productLots = productId ? lots.filter((l) => l.materialId === productId) : null;
+  const [openId, setOpenId] = useState<string | null>(
+    initialOpenId ?? (productLots?.length === 1 ? productLots[0].id : null),
+  );
   const [notice, setNotice] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = norm(query.trim());
-    if (!q) return lots;
-    return lots.filter(
+    const base = productId ? lots.filter((l) => l.materialId === productId) : lots;
+    if (!q) return base;
+    return base.filter(
       (l) =>
         norm(l.productName).includes(q) ||
         norm(l.productCode).includes(q) ||
         norm(l.lotNumber).includes(q) ||
         (l.barcode ?? "").includes(q),
     );
-  }, [lots, query]);
+  }, [lots, query, productId]);
 
   const visible = filtered.slice(0, VISIBLE_LIMIT);
 
@@ -77,6 +87,18 @@ export function DepotLotFixClient({
           className="h-11 pl-9 text-base"
         />
       </div>
+
+      {productLots && productLots.length > 0 ? (
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm text-emerald-800">
+            Sadece: {productLots[0].productName}
+          </span>
+          <Button variant="ghost" size="sm" onClick={() => setProductId(null)}>
+            <X className="mr-1 h-3.5 w-3.5" />
+            Tüm ürünler
+          </Button>
+        </div>
+      ) : null}
 
       {notice ? (
         <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
