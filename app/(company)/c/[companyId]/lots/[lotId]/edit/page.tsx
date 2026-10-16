@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { requireCompanyRole } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -27,10 +27,11 @@ type LotRow = {
 
 export default async function EditLotPage({ params }: PageProps) {
   const { companyId: routeCompanyId, lotId } = await params;
-  const { companyId } = await requireCompanyRole(
+  const { companyId, role } = await requireCompanyRole(
     routeCompanyId,
     STOCK_WRITE_ROLES,
   );
+  if (role === "operator") redirect(companyModulePath(companyId, "warehouse", "fix"));
   const supabase = await createServerSupabaseClient();
 
   const [{ data: lot }, { data: suppliers }] = await Promise.all([

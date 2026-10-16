@@ -571,10 +571,13 @@ export async function updateLot(
     return { fieldErrors, error: "Form alanlarını kontrol edin." };
   }
 
-  const { ctx, companyId } = await requireCompanyRole(
+  const { ctx, companyId, role } = await requireCompanyRole(
     parsed.data.company_id,
     STOCK_WRITE_ROLES,
   );
+  if (role === "operator") {
+    return { error: "Depo düzeltmeleri Stok Düzelt ekranından yapılır." };
+  }
   const supabase = await createServerSupabaseClient();
 
   const { data: lot } = await supabase
@@ -679,10 +682,13 @@ export async function deleteLot(
     return { ok: false, error: "Geçersiz istek." };
   }
 
-  const { ctx, companyId } = await requireCompanyRole(
+  const { ctx, companyId, role } = await requireCompanyRole(
     companyParsed.data,
     STOCK_WRITE_ROLES,
   );
+  if (role === "operator") {
+    return { ok: false, error: "Depo düzeltmeleri Stok Düzelt ekranından yapılır." };
+  }
   const supabase = await createServerSupabaseClient();
 
   const { data: lot } = await supabase

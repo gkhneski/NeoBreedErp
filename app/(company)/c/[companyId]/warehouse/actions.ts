@@ -448,3 +448,108 @@ export async function scanTransferLot(
   revalidatePath(companyModulePath(companyId, "warehouse"));
   return { ok: true };
 }
+
+export type DepotLotFixResult = { ok: true } | { ok: false; error: string };
+
+const depotLotFixSchema = z.object({
+  companyId: z.string().uuid(),
+  lotId: z.string().uuid(),
+  quantity: z
+    .number()
+    .finite()
+    .min(0, "Adet 0 veya üzeri olmalı."),
+  lotNumber: z.string().trim().min(1, "Lot numarası gerekli.").max(100),
+  expiryDate: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Geçerli bir SKT giriniz.")
+    .nullable(),
+  reason: z.string().trim().min(3, "Düzeltme nedenini yazınız.").max(500),
+});
+
+function revalidateDepotLot(companyId: string) {
+  revalidatePath(companyModulePath(companyId, "warehouse"), "layout");
+  revalidatePath(companyModulePath(companyId, "stock"));
+  revalidatePath(companyModulePath(companyId, "lots"));
+  revalidatePath(companyModulePath(companyId, "sales"));
+}
+
+// Depocunun hatalı stok girişi düzeltmesi: yalnızca satış deposundaki bitmiş
+// ürün / promosyon lotları. Kapsam ve protokol kaydı RPC'de, tek işlemde.
+export async function correctDepotLot(input: {
+  companyId: string;
+  lotId: string;
+  quantity: number;
+  lotNumber: string;
+  expiryDate: string | null;
+  reason: string;
+}): Promise<DepotLotFixResult> {
+  const parsed = depotLotFixSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz istek." };
+  }
+  const { companyId } = await requireCompanyRole(
+    parsed.data.companyId,
+    STOCK_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { error } = await supabase.rpc("correct_depot_lot", {
+    p_company_id: companyId,
+    p_lot_id: parsed.data.lotId,
+    p_quantity: parsed.data.quantity,
+    p_lot_number: parsed.data.lotNumber,
+    p_expiry_date: parsed.data.expiryDate,
+    p_reason: parsed.data.reason,
+  });
+
+  if (error) return { ok: false, error: depotLotFixError(error) };
+
+  revalidateDepotLot(companyId);
+  return { ok: true };
+}
+
+export async function voidDepotLot(input: {
+  companyId: string;
+  lotId: string;
+  reason: string;
+}): Promise<DepotLotFixResult> {
+  const parsed = z
+    .object({
+      companyId: z.string().uuid(),
+      lotId: z.string().uuid(),
+      reason: z.string().trim().min(3, "Silme nedenini yazınız.").max(500),
+    })
+    .safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz istek." };
+  }
+  const { companyId } = await requireCompanyRole(
+    parsed.data.companyId,
+    STOCK_WRITE_ROLES,
+  );
+  const supabase = await createServerSupabaseClient();
+
+  const { error } = await supabase.rpc("void_depot_lot", {
+    p_company_id: companyId,
+    p_lot_id: parsed.data.lotId,
+    p_reason: parsed.data.reason,
+  });
+
+  if (error) return { ok: false, error: depotLotFixError(error) };
+
+  revalidateDepotLot(companyId);
+  return { ok: true };
+}
+
+function depotLotFixError(error: { code?: string; message: string; hint?: string | null }): string {
+  if (error.hint === "lot_in_use") {
+    return "Bu lottan sevk/satış yapılmış; silinemez. Adedi düzelterek kapatın.";
+  }
+  if (error.code === "23505") return "Bu ürün için aynı lot numarası zaten kayıtlı.";
+  if (error.code === "23503") return "Lot bulunamadı veya satış deposunda değil.";
+  if (error.code === "23514" && /below zero/i.test(error.message)) {
+    return "Adet negatife düşemez.";
+  }
+  return error.message;
+}

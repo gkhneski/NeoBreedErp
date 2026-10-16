@@ -2309,6 +2309,25 @@ export type Database = {
         };
         Returns: undefined;
       };
+      correct_depot_lot: {
+        Args: {
+          p_company_id: string;
+          p_lot_id: string;
+          p_quantity: number;
+          p_lot_number: string;
+          p_expiry_date: string | null;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
+      void_depot_lot: {
+        Args: {
+          p_company_id: string;
+          p_lot_id: string;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
       start_production_order: {
         Args: {
           p_company_id: string;

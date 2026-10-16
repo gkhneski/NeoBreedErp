@@ -6,6 +6,7 @@ import {
   Gift,
   LayoutGrid,
   type LucideIcon,
+  PencilLine,
   Printer,
   ScanBarcode,
   ScanLine,
@@ -28,6 +29,7 @@ const ICONS: Record<string, LucideIcon> = {
   check: ClipboardCheck,
   printer: Printer,
   moves: ArrowLeftRight,
+  fix: PencilLine,
 };
 
 export type ShortcutBadge = {

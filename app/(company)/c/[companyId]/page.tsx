@@ -434,6 +434,12 @@ async function ClerkDashboard({
       icon: "barcode",
     },
     {
+      label: "Stok Düzelt",
+      sub: "Yanlış girilen adet, lot no, SKT",
+      href: `${warehousePath}/fix`,
+      icon: "fix",
+    },
+    {
       label: "Serbest Bırak",
       sub: "Depoya alınan partiyi satışa aç",
       href: finishedStockPath,
@@ -507,8 +513,8 @@ async function ClerkDashboard({
       icon: "moves",
     },
     {
-      label: "Sayım Protokolü",
-      sub: "Sayım farkı olan kabuller",
+      label: "Düzeltme Protokolü",
+      sub: "Sayım farkları ve stok düzeltmeleri",
       href: `${warehousePath}/log`,
       icon: "check",
     },

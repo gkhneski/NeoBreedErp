@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireCompanyUser } from "@/lib/auth";
-import { formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { unitLabelForDisplay } from "@/lib/production/pack";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { companyModulePath } from "@/types/roles";
@@ -20,10 +20,42 @@ type CorrectionDiff = {
   delta?: number | null;
   to_location_code?: string | null;
   to_location_name?: string | null;
+  before?: LotSnapshot | null;
+  after?: LotSnapshot | null;
 };
+
+type LotSnapshot = {
+  quantity?: number | null;
+  lot_number?: string | null;
+  expiry_date?: string | null;
+};
+
+const ACTION_LABEL: Record<string, string> = {
+  depot_receipt_count_correction: "Kabul sayımı",
+  depot_lot_correction: "Stok düzeltme",
+  depot_lot_void: "Giriş silindi",
+};
+
+function headerChanges(d: CorrectionDiff): string[] {
+  const out: string[] = [];
+  if (d.before && d.after) {
+    if (d.before.lot_number !== d.after.lot_number) {
+      out.push(`Lot: ${d.before.lot_number ?? "—"} → ${d.after.lot_number ?? "—"}`);
+    }
+    if ((d.before.expiry_date ?? null) !== (d.after.expiry_date ?? null)) {
+      out.push(
+        `SKT: ${d.before.expiry_date ? formatDate(d.before.expiry_date) : "—"} → ${
+          d.after.expiry_date ? formatDate(d.after.expiry_date) : "—"
+        }`,
+      );
+    }
+  }
+  return out;
+}
 
 type LogRow = {
   id: string;
+  action: string;
   actor_id: string | null;
   target_id: string | null;
   target_label: string | null;
@@ -44,9 +76,9 @@ export default async function DepotCountCorrectionLogPage({ params }: PageProps)
 
   const { data: entries } = await supabase
     .from("audit_log")
-    .select("id, actor_id, target_id, target_label, reason, diff, created_at")
+    .select("id, action, actor_id, target_id, target_label, reason, diff, created_at")
     .eq("company_id", companyId)
-    .eq("action", "depot_receipt_count_correction")
+    .in("action", Object.keys(ACTION_LABEL))
     .order("created_at", { ascending: false })
     .limit(200)
     .returns<LogRow[]>();
@@ -76,30 +108,32 @@ export default async function DepotCountCorrectionLogPage({ params }: PageProps)
           </Link>
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">
-          Sayım Düzeltme Protokolü
+          Düzeltme Protokolü
         </h1>
         <p className="text-sm text-muted-foreground">
-          Depo kabulde sayımı sistemdeki miktardan farklı girilen lotların
-          değiştirilemez kaydı. Son 200 işlem gösterilir.
+          Depo kabulde sayım farkları ve depocunun stok düzeltmelerinin
+          (adet, lot no, SKT, silinen giriş) değiştirilemez kaydı. Son 200 işlem
+          gösterilir.
         </p>
       </header>
 
       {rows.length === 0 ? (
         <EmptyState
-          title="Henüz sayım düzeltmesi yok"
-          description="Depocu bir lotu sayarak alırken sistemdeki miktardan farklı bir sayı girip onaylarsa; kim, ne zaman, beklenen/sayılan ve neden burada listelenir."
+          title="Henüz düzeltme yok"
+          description="Sayım farkı olan kabuller ve Stok Düzelt ekranından yapılan düzeltmeler; kim, ne zaman, önce/sonra ve neden burada listelenir."
         />
       ) : (
         <div className="overflow-x-auto rounded-md border border-border">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[820px] text-sm">
             <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">Tarih</th>
+                <th className="px-3 py-2 text-left font-medium">İşlem</th>
                 <th className="px-3 py-2 text-left font-medium">Lot</th>
                 <th className="px-3 py-2 text-left font-medium">Ürün</th>
                 <th className="px-3 py-2 text-left font-medium">Depo</th>
-                <th className="px-3 py-2 text-right font-medium">Beklenen</th>
-                <th className="px-3 py-2 text-right font-medium">Sayılan</th>
+                <th className="px-3 py-2 text-right font-medium">Önce</th>
+                <th className="px-3 py-2 text-right font-medium">Sonra</th>
                 <th className="px-3 py-2 text-right font-medium">Fark</th>
                 <th className="px-3 py-2 text-left font-medium">Sayan</th>
                 <th className="px-3 py-2 text-left font-medium">Neden</th>
@@ -110,13 +144,24 @@ export default async function DepotCountCorrectionLogPage({ params }: PageProps)
                 const d = row.diff ?? {};
                 const unit = unitLabelForDisplay(d.uom ?? "");
                 const delta = d.delta ?? null;
+                const before = d.before ? d.before.quantity : d.expected;
+                const after =
+                  row.action === "depot_lot_void"
+                    ? 0
+                    : d.after
+                      ? d.after.quantity
+                      : d.counted;
+                const changes = headerChanges(d);
                 return (
                   <tr key={row.id} className="border-t border-border align-top">
                     <td className="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground">
                       {formatDateTime(row.created_at)}
                     </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-xs">
+                      {ACTION_LABEL[row.action] ?? row.action}
+                    </td>
                     <td className="px-3 py-2 font-mono text-xs">
-                      {row.target_id ? (
+                      {row.target_id && row.action !== "depot_lot_void" ? (
                         <Link
                           href={companyModulePath(companyId, "lots", row.target_id)}
                           className="hover:underline"
@@ -141,10 +186,10 @@ export default async function DepotCountCorrectionLogPage({ params }: PageProps)
                       {d.to_location_name ?? d.to_location_code ?? "—"}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-right font-mono text-xs">
-                      {formatQty(d.expected)} {unit}
+                      {formatQty(before)} {unit}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-right font-mono text-xs">
-                      {formatQty(d.counted)} {unit}
+                      {formatQty(after)} {unit}
                     </td>
                     <td
                       className={`whitespace-nowrap px-3 py-2 text-right font-mono text-xs ${
@@ -167,6 +212,11 @@ export default async function DepotCountCorrectionLogPage({ params }: PageProps)
                         : "—"}
                     </td>
                     <td className="max-w-xs whitespace-pre-wrap px-3 py-2 text-xs">
+                      {changes.length > 0 ? (
+                        <span className="block text-muted-foreground">
+                          {changes.join(" · ")}
+                        </span>
+                      ) : null}
                       {row.reason ?? "—"}
                     </td>
                   </tr>

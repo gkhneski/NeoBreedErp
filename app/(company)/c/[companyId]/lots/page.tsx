@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -89,6 +90,8 @@ export default async function LotsListPage({ params, searchParams }: PageProps) 
   const { companyId: routeCompanyId } = await params;
   const { skt: sktParam, depo: depoParam } = await searchParams;
   const { companyId, role } = await requireCompanyUser(routeCompanyId);
+  // Depocu fabrika/hammadde lotlarını görmez; düzeltme ekranı satış deposuyla sınırlı.
+  if (role === "operator") redirect(companyModulePath(companyId, "warehouse", "fix"));
   const supabase = await createServerSupabaseClient();
 
   const thresholds = await getExpiryThresholds(companyId);
