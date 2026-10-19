@@ -1,3 +1,17 @@
+import {
+  ArrowLeft,
+  Building2,
+  Clock,
+  Hash,
+  MapPin,
+  Package,
+  Phone,
+  Send,
+  Tag,
+  Trash2,
+  Truck,
+  User,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -133,109 +147,186 @@ export default async function ShipmentDetailPage({ params }: PageProps) {
     location_name: l.locations?.name ?? null,
   }));
 
-  return (
-    <div className="max-w-4xl space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">
-            <Link
-              href={companyModulePath(companyId, "shipments")}
-              className="hover:underline"
-            >
-              ← Siparişler
-            </Link>
-          </p>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Sipariş — {shipment.code}
-          </h1>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <Badge variant={SHIPMENT_STATUS_VARIANT[shipment.status]}>
-              {SHIPMENT_STATUS_LABEL[shipment.status]}
-            </Badge>
-            <Badge variant="outline">{channelLabel(shipment.channel, shipment.shipment_channels)}</Badge>
-            <span>
-              {shipment.customers
-                ? `${shipment.customers.code} — ${shipment.customers.name}`
-                : (shipment.recipient ?? "")}
-            </span>
-          </div>
-        </div>
-        {editable ? (
-          <form action={cancelAction}>
-            <Button variant="outline" type="submit">
-              Siparişi İptal Et
-            </Button>
-          </form>
-        ) : null}
-      </header>
+  const totalQty = itemRows.reduce((s, i) => s + Number(i.quantity), 0);
+  const recipientCity = shipment.recipient_city;
+  const recipientAddress = shipment.recipient_address;
+  const hasRecipient =
+    shipment.customers || shipment.recipient || shipment.recipient_phone;
 
-      <section className="grid gap-3 rounded-md border border-border p-4 text-sm sm:grid-cols-2">
-        {shipment.recipient ||
-        shipment.recipient_phone ||
-        shipment.recipient_address ? (
-          <div className="space-y-0.5 sm:col-span-2">
-            <p>
-              <span className="text-muted-foreground">Alıcı: </span>
-              {shipment.recipient ?? "—"}
-              {shipment.recipient_phone ? (
-                <span className="ml-2 text-muted-foreground">
-                  · {shipment.recipient_phone}
+  return (
+    <div className="mx-auto max-w-5xl space-y-5">
+      <header className="space-y-3">
+        <Link
+          href={companyModulePath(companyId, "shipments")}
+          className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Siparişler
+        </Link>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-3xl font-semibold tracking-tight">
+                {shipment.code}
+              </h1>
+              <Badge variant={SHIPMENT_STATUS_VARIANT[shipment.status]}>
+                {SHIPMENT_STATUS_LABEL[shipment.status]}
+              </Badge>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <Tag className="h-3.5 w-3.5" />
+                {channelLabel(shipment.channel, shipment.shipment_channels)}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5" />
+                {formatDateTime(shipment.created_at)}
+              </span>
+              {shipment.external_order_no ? (
+                <span className="inline-flex items-center gap-1.5 font-mono text-xs">
+                  <Hash className="h-3.5 w-3.5" />
+                  {shipment.external_order_no}
                 </span>
               ) : null}
-            </p>
-            {shipment.recipient_address || shipment.recipient_city ? (
-              <p className="text-xs text-muted-foreground">
-                {[shipment.recipient_address, shipment.recipient_city]
-                  .filter(Boolean)
-                  .join(", ")}
-              </p>
-            ) : null}
+            </div>
           </div>
-        ) : null}
-        <p>
-          <span className="text-muted-foreground">Pazaryeri Sipariş No: </span>
-          <span className="font-mono text-xs">
-            {shipment.external_order_no ?? "—"}
-          </span>
-        </p>
-        <p>
-          <span className="text-muted-foreground">Kargo: </span>
-          {shipment.carrier ?? "—"}
-          {shipment.tracking_no ? (
-            <span className="ml-1 font-mono text-xs">
-              ({shipment.tracking_no})
-            </span>
+          {editable ? (
+            <form action={cancelAction}>
+              <Button variant="outline" type="submit" className="rounded-lg">
+                Siparişi İptal Et
+              </Button>
+            </form>
           ) : null}
-        </p>
-        <p>
-          <span className="text-muted-foreground">Oluşturma: </span>
-          {formatDateTime(shipment.created_at)}
-        </p>
-        <p>
-          <span className="text-muted-foreground">Gönderim: </span>
-          {shipment.shipped_at ? formatDateTime(shipment.shipped_at) : "—"}
-        </p>
-        {shipment.notes ? (
-          <p className="sm:col-span-2">
-            <span className="text-muted-foreground">Not: </span>
-            {shipment.notes}
-          </p>
-        ) : null}
-      </section>
+        </div>
+      </header>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold">Kalemler</h2>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <section className="rounded-2xl border border-border bg-card p-5 shadow-sm lg:col-span-2">
+          <div className="mb-4 flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600/10 text-green-700">
+              {shipment.channel === "sahis" ? (
+                <User className="h-4 w-4" />
+              ) : (
+                <Building2 className="h-4 w-4" />
+              )}
+            </span>
+            <h2 className="text-base font-semibold">Alıcı</h2>
+          </div>
+          {hasRecipient ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium">
+                  {shipment.customers?.name ?? shipment.recipient ?? "—"}
+                </p>
+                {shipment.customers ? (
+                  <p className="text-xs text-muted-foreground">
+                    {shipment.customers.code}
+                    {shipment.recipient &&
+                    shipment.recipient !== shipment.customers.name
+                      ? ` · ${shipment.recipient}`
+                      : ""}
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex items-start gap-2 text-sm">
+                <Phone className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <span>{shipment.recipient_phone ?? "—"}</span>
+              </div>
+              <div className="flex items-start gap-2 text-sm sm:col-span-2">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="leading-5">
+                  {recipientAddress || recipientCity ? (
+                    <>
+                      {recipientAddress}
+                      {recipientAddress && recipientCity ? ", " : ""}
+                      {recipientCity ? (
+                        <span className="font-medium">{recipientCity}</span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      Adres girilmemiş
+                    </span>
+                  )}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Alıcı bilgisi girilmemiş.
+            </p>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600/10 text-green-700">
+              <Truck className="h-4 w-4" />
+            </span>
+            <h2 className="text-base font-semibold">Kargo</h2>
+          </div>
+          <dl className="space-y-3 text-sm">
+            <div>
+              <dt className="text-xs text-muted-foreground">Firma</dt>
+              <dd className="font-medium">{shipment.carrier ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Takip No</dt>
+              <dd className="font-mono text-xs">
+                {shipment.tracking_no ?? "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Gönderim</dt>
+              <dd className="font-medium">
+                {shipment.shipped_at
+                  ? formatDateTime(shipment.shipped_at)
+                  : "Henüz gönderilmedi"}
+              </dd>
+            </div>
+          </dl>
+        </section>
+      </div>
+
+      {shipment.notes ? (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 text-sm dark:border-amber-900/40 dark:bg-amber-950/20">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300">
+            Not
+          </p>
+          <p className="whitespace-pre-wrap">{shipment.notes}</p>
+        </section>
+      ) : null}
+
+      <section className="rounded-2xl border border-border bg-card shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600/10 text-green-700">
+              <Package className="h-4 w-4" />
+            </span>
+            <h2 className="text-base font-semibold">Kalemler</h2>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+              {itemRows.length}
+            </span>
+          </div>
+          {itemRows.length > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Toplam{" "}
+              <span className="font-mono font-medium text-foreground">
+                {formatNumber(totalQty)}
+              </span>
+            </p>
+          ) : null}
+        </div>
+
         {itemRows.length > 0 ? (
-          <div className="overflow-x-auto rounded-md border border-border">
-            <table className="w-full min-w-[640px] text-sm">
-              <thead className="bg-secondary/50 text-xs uppercase tracking-wide text-muted-foreground">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead className="text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium">Lot</th>
-                  <th className="px-3 py-2 text-left font-medium">Ürün</th>
-                  <th className="px-3 py-2 text-right font-medium">Miktar</th>
-                  {editable ? (
-                    <th className="px-3 py-2 text-right font-medium">İşlem</th>
-                  ) : null}
+                  <th className="px-5 py-2.5 text-left font-medium">Ürün</th>
+                  <th className="px-3 py-2.5 text-left font-medium">Lot</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Miktar</th>
+                  {editable ? <th className="w-20 px-5 py-2.5" /> : null}
                 </tr>
               </thead>
               <tbody>
@@ -247,33 +338,42 @@ export default async function ShipmentDetailPage({ params }: PageProps) {
                     item.id,
                   );
                   return (
-                    <tr key={item.id} className="border-t border-border">
-                      <td className="px-3 py-2 font-mono text-xs">
-                        {item.material_lots?.lot_number ?? "—"}
-                      </td>
-                      <td className="px-3 py-2">
+                    <tr
+                      key={item.id}
+                      className="border-t border-border transition-colors hover:bg-muted/30"
+                    >
+                      <td className="px-5 py-3">
                         {item.materials ? (
-                          <span>
-                            <span className="font-mono text-xs">
+                          <div>
+                            <p className="font-medium">{item.materials.name}</p>
+                            <p className="font-mono text-xs text-muted-foreground">
                               {item.materials.code}
-                            </span>
-                            <span className="ml-1">
-                              — {item.materials.name}
-                            </span>
-                          </span>
+                            </p>
+                          </div>
                         ) : (
                           "—"
                         )}
                       </td>
-                      <td className="px-3 py-2 text-right font-mono text-xs">
+                      <td className="px-3 py-3 font-mono text-xs">
+                        {item.material_lots?.lot_number ?? "—"}
+                      </td>
+                      <td className="px-3 py-3 text-right font-mono text-sm font-medium">
                         {formatNumber(Number(item.quantity))}{" "}
-                        {item.materials?.base_uom ?? ""}
+                        <span className="text-xs font-normal text-muted-foreground">
+                          {item.materials?.base_uom ?? ""}
+                        </span>
                       </td>
                       {editable ? (
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-5 py-3 text-right">
                           <form action={removeAction}>
-                            <Button size="sm" variant="outline" type="submit">
-                              Çıkar
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              type="submit"
+                              className="h-8 text-muted-foreground hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span className="sr-only">Çıkar</span>
                             </Button>
                           </form>
                         </td>
@@ -285,13 +385,17 @@ export default async function ShipmentDetailPage({ params }: PageProps) {
             </table>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            Henüz kalem yok. Aşağıdan sevk edilecek lotları ekleyin.
-          </p>
+          <div className="px-5 py-8 text-center">
+            <Package className="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">
+              Henüz kalem yok.
+              {editable ? " Aşağıdan sevk edilecek lotları ekleyin." : ""}
+            </p>
+          </div>
         )}
 
         {editable ? (
-          <div className="rounded-md border border-border bg-card/40 p-4">
+          <div className="border-t border-border bg-muted/30 px-5 py-4">
             <ShipmentItemAddForm
               companyId={companyId}
               shipmentId={shipment.id}
@@ -302,17 +406,26 @@ export default async function ShipmentDetailPage({ params }: PageProps) {
       </section>
 
       {editable ? (
-        <section className="rounded-md border border-border p-4">
-          <h2 className="mb-1 text-sm font-medium">Gönderim</h2>
-          <p className="mb-3 text-xs text-muted-foreground">
-            &quot;Gönderildi&quot; işaretlendiğinde her kalem için stok düşülür
-            ve sipariş kilitlenir; geri alınamaz.
-          </p>
-          <ShipForm
-            companyId={companyId}
-            shipmentId={shipment.id}
-            disabled={itemRows.length === 0}
-          />
+        <section className="rounded-2xl border border-green-600/30 bg-gradient-to-br from-green-50 to-emerald-50/40 p-5 shadow-sm dark:from-green-950/30 dark:to-emerald-950/10">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-600 text-white">
+                <Send className="h-4 w-4" />
+              </span>
+              <div>
+                <h2 className="text-base font-semibold">Gönderim</h2>
+                <p className="text-xs text-muted-foreground">
+                  &quot;Gönderildi&quot; işaretlendiğinde her kalem stoktan
+                  düşülür ve sipariş kilitlenir; geri alınamaz.
+                </p>
+              </div>
+            </div>
+            <ShipForm
+              companyId={companyId}
+              shipmentId={shipment.id}
+              disabled={itemRows.length === 0}
+            />
+          </div>
         </section>
       ) : null}
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Send } from "lucide-react";
 import { useActionState } from "react";
 
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -23,11 +24,21 @@ export function ShipForm({
     <form action={formAction} className="space-y-2">
       <input type="hidden" name="company_id" value={companyId} />
       <input type="hidden" name="shipment_id" value={shipmentId} />
-      <SubmitButton pendingLabel="Gönderiliyor..." disabled={disabled}>
+      <SubmitButton
+        pendingLabel="Gönderiliyor..."
+        disabled={disabled}
+        className="h-11 rounded-lg bg-green-700 px-6 text-white hover:bg-green-800"
+      >
+        <Send className="h-4 w-4" />
         Gönderildi Olarak İşaretle
       </SubmitButton>
+      {disabled ? (
+        <p className="text-xs text-muted-foreground">
+          Önce en az bir kalem ekleyin.
+        </p>
+      ) : null}
       {state.error ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+        <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
           {state.error}
         </p>
       ) : null}

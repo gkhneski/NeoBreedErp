@@ -260,7 +260,7 @@ export async function createShipment(
   const customerRecipient = customer
     ? d.channel === "sahis"
       ? customer.name
-      : customer.contact_name
+      : (customer.contact_name ?? customer.name)
     : null;
 
   const code = await nextShipmentCode(supabase, companyId);
