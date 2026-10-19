@@ -41,10 +41,11 @@ type ShipmentRow = {
   shipped_at: string | null;
   created_at: string;
   customers: { code: string; name: string } | null;
+  shipment_channels: { name: string } | null;
 };
 
 import {
-  CHANNEL_LABEL,
+  channelLabel,
   SHIPMENT_STATUS_LABEL as STATUS_LABEL,
   SHIPMENT_STATUS_VARIANT as STATUS_VARIANT,
 } from "./labels";
@@ -88,7 +89,7 @@ export default async function ShipmentsListPage({
     .from("shipments")
     .select(
       "id, code, channel, external_order_no, recipient, status, shipped_at, created_at, " +
-        "customers:customer_id(code, name)",
+        "customers:customer_id(code, name), shipment_channels:channel_id(name)",
     )
     .eq("company_id", companyId)
     .is("deleted_at", null)
@@ -367,7 +368,7 @@ export default async function ShipmentsListPage({
                       {s.code}
                     </Link>
                   </td>
-                  <td className="px-3 py-2">{CHANNEL_LABEL[s.channel]}</td>
+                  <td className="px-3 py-2">{channelLabel(s.channel, s.shipment_channels)}</td>
                   <td className="px-3 py-2">
                     {s.customers
                       ? s.customers.name

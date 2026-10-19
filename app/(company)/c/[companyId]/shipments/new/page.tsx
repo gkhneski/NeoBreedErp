@@ -1,10 +1,11 @@
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 import { requireCompanyRole } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { SHIPMENT_WRITE_ROLES, companyModulePath } from "@/types/roles";
 
-import { ShipmentForm } from "./shipment-form";
+import { ShipmentForm, type RecipientOption } from "./shipment-form";
 
 interface PageProps {
   params: Promise<{ companyId: string }>;
@@ -18,31 +19,44 @@ export default async function NewShipmentPage({ params }: PageProps) {
   );
   const supabase = await createServerSupabaseClient();
 
-  const { data: customers } = await supabase
-    .from("customers")
-    .select("id, code, name")
-    .eq("company_id", companyId)
-    .is("deleted_at", null)
-    .order("name");
+  const [{ data: customers }, { data: channels }] = await Promise.all([
+    supabase
+      .from("customers")
+      .select("id, code, name, kind, contact_name, phone, city, district, address")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("name")
+      .returns<RecipientOption[]>(),
+    supabase
+      .from("shipment_channels")
+      .select("id, name")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("name"),
+  ]);
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <header className="space-y-1">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">
-          <Link
-            href={companyModulePath(companyId, "shipments")}
-            className="hover:underline"
-          >
-            ← Siparişler
-          </Link>
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight">Yeni Sipariş</h1>
-        <p className="text-sm text-muted-foreground">
-          Siparişi açtıktan sonra detay sayfasından sevk edilecek lotları
-          ekleyip &quot;Gönderildi&quot; ile tamamlarsınız.
+    <div className="mx-auto max-w-4xl space-y-6">
+      <header className="space-y-2">
+        <Link
+          href={companyModulePath(companyId, "shipments")}
+          className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Siparişler
+        </Link>
+        <h1 className="text-3xl font-semibold tracking-tight">Yeni Sipariş</h1>
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          Kanalı ve alıcıyı seçin. Listede yoksa buradan yeni ekleyebilirsiniz;
+          sevk edilecek lotları siparişi açtıktan sonra detay sayfasında
+          eklersiniz.
         </p>
       </header>
-      <ShipmentForm companyId={companyId} customers={customers ?? []} />
+      <ShipmentForm
+        companyId={companyId}
+        customers={customers ?? []}
+        customChannels={channels ?? []}
+      />
     </div>
   );
 }

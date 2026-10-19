@@ -15,7 +15,7 @@ import {
 
 import { cancelShipment, removeShipmentItem } from "../actions";
 import {
-  CHANNEL_LABEL,
+  channelLabel,
   SHIPMENT_STATUS_LABEL,
   SHIPMENT_STATUS_VARIANT,
 } from "../labels";
@@ -32,6 +32,9 @@ type ShipmentDetail = {
   channel: ShipmentChannel;
   external_order_no: string | null;
   recipient: string | null;
+  recipient_phone: string | null;
+  recipient_city: string | null;
+  recipient_address: string | null;
   status: ShipmentStatus;
   carrier: string | null;
   tracking_no: string | null;
@@ -39,6 +42,7 @@ type ShipmentDetail = {
   shipped_at: string | null;
   created_at: string;
   customers: { code: string; name: string } | null;
+  shipment_channels: { name: string } | null;
 };
 
 type ItemRow = {
@@ -71,8 +75,8 @@ export default async function ShipmentDetailPage({ params }: PageProps) {
   const { data: shipment } = await supabase
     .from("shipments")
     .select(
-      "id, code, channel, external_order_no, recipient, status, carrier, tracking_no, notes, shipped_at, created_at, " +
-        "customers:customer_id(code, name)",
+      "id, code, channel, external_order_no, recipient, recipient_phone, recipient_city, recipient_address, status, carrier, tracking_no, notes, shipped_at, created_at, " +
+        "customers:customer_id(code, name), shipment_channels:channel_id(name)",
     )
     .eq("id", shipmentId)
     .eq("company_id", companyId)
@@ -148,7 +152,7 @@ export default async function ShipmentDetailPage({ params }: PageProps) {
             <Badge variant={SHIPMENT_STATUS_VARIANT[shipment.status]}>
               {SHIPMENT_STATUS_LABEL[shipment.status]}
             </Badge>
-            <Badge variant="outline">{CHANNEL_LABEL[shipment.channel]}</Badge>
+            <Badge variant="outline">{channelLabel(shipment.channel, shipment.shipment_channels)}</Badge>
             <span>
               {shipment.customers
                 ? `${shipment.customers.code} — ${shipment.customers.name}`
@@ -166,6 +170,28 @@ export default async function ShipmentDetailPage({ params }: PageProps) {
       </header>
 
       <section className="grid gap-3 rounded-md border border-border p-4 text-sm sm:grid-cols-2">
+        {shipment.recipient ||
+        shipment.recipient_phone ||
+        shipment.recipient_address ? (
+          <div className="space-y-0.5 sm:col-span-2">
+            <p>
+              <span className="text-muted-foreground">Alıcı: </span>
+              {shipment.recipient ?? "—"}
+              {shipment.recipient_phone ? (
+                <span className="ml-2 text-muted-foreground">
+                  · {shipment.recipient_phone}
+                </span>
+              ) : null}
+            </p>
+            {shipment.recipient_address || shipment.recipient_city ? (
+              <p className="text-xs text-muted-foreground">
+                {[shipment.recipient_address, shipment.recipient_city]
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         <p>
           <span className="text-muted-foreground">Pazaryeri Sipariş No: </span>
           <span className="font-mono text-xs">

@@ -59,7 +59,17 @@ export type QualityCheckSubjectKind = "material_lot" | "production_batch";
 export type QualityCheckStatus = "draft" | "passed" | "failed" | "cancelled";
 export type QualityResultVerdict = "pending" | "pass" | "fail" | "na";
 export type FileAttachmentSubjectKind = "material_lot" | "quality_check";
-export type ShipmentChannel = "ecza" | "trendyol" | "hepsiburada" | "diger";
+export type ShipmentChannel =
+  | "ecza"
+  | "sahis"
+  | "trendyol"
+  | "hepsiburada"
+  | "diger";
+export type CustomerKind =
+  | "company"
+  | "pharma_warehouse"
+  | "pharmacy"
+  | "individual";
 export type ShipmentStatus = "open" | "preparing" | "shipped" | "cancelled";
 export type FileAttachmentKind =
   | "coa"
@@ -431,6 +441,11 @@ export type Database = {
           phone: string | null;
           address: string | null;
           country: string | null;
+          kind: CustomerKind;
+          contact_name: string | null;
+          tax_office: string | null;
+          city: string | null;
+          district: string | null;
           notes: string | null;
           created_at: string;
           updated_at: string;
@@ -448,6 +463,11 @@ export type Database = {
           phone?: string | null;
           address?: string | null;
           country?: string | null;
+          kind?: CustomerKind;
+          contact_name?: string | null;
+          tax_office?: string | null;
+          city?: string | null;
+          district?: string | null;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -465,6 +485,47 @@ export type Database = {
           phone?: string | null;
           address?: string | null;
           country?: string | null;
+          kind?: CustomerKind;
+          contact_name?: string | null;
+          tax_office?: string | null;
+          city?: string | null;
+          district?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      shipment_channels: {
+        Row: {
+          id: string;
+          company_id: string;
+          name: string;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          name: string;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          name?: string;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -483,6 +544,10 @@ export type Database = {
           customer_id: string | null;
           external_order_no: string | null;
           recipient: string | null;
+          channel_id: string | null;
+          recipient_phone: string | null;
+          recipient_address: string | null;
+          recipient_city: string | null;
           status: ShipmentStatus;
           carrier: string | null;
           tracking_no: string | null;
@@ -502,6 +567,10 @@ export type Database = {
           customer_id?: string | null;
           external_order_no?: string | null;
           recipient?: string | null;
+          channel_id?: string | null;
+          recipient_phone?: string | null;
+          recipient_address?: string | null;
+          recipient_city?: string | null;
           status?: ShipmentStatus;
           carrier?: string | null;
           tracking_no?: string | null;
@@ -521,6 +590,10 @@ export type Database = {
           customer_id?: string | null;
           external_order_no?: string | null;
           recipient?: string | null;
+          channel_id?: string | null;
+          recipient_phone?: string | null;
+          recipient_address?: string | null;
+          recipient_city?: string | null;
           status?: ShipmentStatus;
           carrier?: string | null;
           tracking_no?: string | null;
